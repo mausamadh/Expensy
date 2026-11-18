@@ -12,3 +12,75 @@ Nov 18, 2026 12:45:41 AM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint noti
 INFO: Unsupported notification method: $/setTrace
 Nov 18, 2026 12:46:42 AM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
 INFO: Unsupported notification method: $/setTrace
+2026.11.18 12:44:03 INFO  Started: Metals version 1.6.9 in folders '/home/mausamadh/mausamadh/Expensy' for client Visual Studio Code 1.146.0.
+2026.11.18 12:44:03 INFO  Memory monitor started
+2026.11.18 12:44:07 WARN  Using H2 2.5.250 which is newer than the version Flyway has been verified with. The latest verified version of H2 is 2.3.232.
+2026.11.18 12:44:15 INFO  running '/home/mausamadh/mausamadh/Expensy/android/gradlew --stacktrace --console=plain --init-script /tmp/metals2284406209476415953/init-script.gradle bloopInstall'
+2026.11.18 12:44:15 ERROR WARNING: A restricted method in java.lang.System has been called
+2026.11.18 12:44:15 ERROR WARNING: java.lang.System::load has been called by net.rubygrapefruit.platform.internal.NativeLibraryLoader in an unnamed module (file:/home/mausamadh/.gradle/wrapper/dists/gradle-9.9.1-bin/dol8b552jwt4yhd7ihm3iahwb/gradle-9.9.1/lib/native-platform-0.22-milestone-30.jar)
+2026.11.18 12:44:15 ERROR WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+2026.11.18 12:44:15 ERROR WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+2026.11.18 12:44:15 ERROR 
+2026.11.18 12:44:16 INFO  
+2026.11.18 12:44:16 INFO  Welcome to Gradle 9.9.1!
+2026.11.18 12:44:16 INFO  
+2026.11.18 12:44:16 INFO  Here are the highlights of this release:
+2026.11.18 12:44:16 INFO   - Performance improvements for Kotlin DSL compilation
+2026.11.18 12:44:16 INFO   - Test filtering for non-method JUnit Platform tests
+2026.11.18 12:44:16 INFO   - Wrapper settings preserved on upgrade
+2026.11.18 12:44:16 INFO   - Predefined groups in the Problems API
+2026.11.18 12:44:16 INFO  
+2026.11.18 12:44:16 INFO  For more details see https://docs.gradle.org/9.9.1/release-notes.html
+2026.11.18 12:44:16 INFO  
+2026.11.18 12:44:16 INFO  Starting a Gradle Daemon, 1 busy Daemon could not be reused, use --status for details
+2026.11.18 12:44:31 INFO  > Task :gradle:checkKotlinCompilerVersion
+2026.11.18 12:44:31 INFO  > Task :gradle:checkKotlinGradlePluginConfigurationErrors SKIPPED
+2026.11.18 12:44:31 INFO  > Task :gradle:pluginDescriptors UP-TO-DATE
+2026.11.18 12:44:31 INFO  > Task :gradle:processResources UP-TO-DATE
+2026.11.18 12:44:47 INFO  
+2026.11.18 12:44:47 INFO  > Task :gradle:compileKotlin
+2026.11.18 12:44:47 INFO  w: file:///home/mausamadh/flutter/packages/flutter_tools/gradle/src/main/kotlin/Deeplink.kt:13:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+2026.11.18 12:44:47 INFO  - To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+2026.11.18 12:44:47 INFO  - To keep applying to the value parameter only, use the '@param:' annotation target.
+2026.11.18 12:44:47 INFO  
+2026.11.18 12:44:47 INFO  See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+2026.11.18 12:44:47 INFO  w: file:///home/mausamadh/flutter/packages/flutter_tools/gradle/src/main/kotlin/Deeplink.kt:15:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+2026.11.18 12:44:47 INFO  - To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+2026.11.18 12:44:47 INFO  - To keep applying to the value parameter only, use the '@param:' annotation target.
+2026.11.18 12:44:47 INFO  
+2026.11.18 12:44:47 INFO  See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+2026.11.18 12:44:47 INFO  w: file:///home/mausamadh/flutter/packages/flutter_tools/gradle/src/main/kotlin/Deeplink.kt:17:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+2026.11.18 12:44:47 INFO  - To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+2026.11.18 12:44:47 INFO  - To keep applying to the value parameter only, use the '@param:' annotation target.
+2026.11.18 12:44:47 INFO  
+2026.11.18 12:44:47 INFO  See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+2026.11.18 12:44:47 INFO  w: file:///home/mausamadh/flutter/packages/flutter_tools/gradle/src/main/kotlin/Deeplink.kt:19:5 This annotation is currently applied to the value parameter only, but in the future it will also be applied to property.
+2026.11.18 12:44:47 INFO  - To opt in to applying to both value parameter and property, add '-Xannotation-default-target=param-property' to your compiler arguments.
+2026.11.18 12:44:47 INFO  - To keep applying to the value parameter only, use the '@param:' annotation target.
+2026.11.18 12:44:47 INFO  
+2026.11.18 12:44:47 INFO  See https://youtrack.jetbrains.com/issue/KT-73255 for more details.
+2026.11.18 12:44:47 INFO  w: file:///home/mausamadh/flutter/packages/flutter_tools/gradle/src/main/kotlin/FlutterPlugin.kt:56:25 'val properties: (Mutable)Map<String, out Any?>' is deprecated. Deprecated in Java.
+2026.11.18 12:44:47 INFO  w: file:///home/mausamadh/flutter/packages/flutter_tools/gradle/src/main/kotlin/FlutterPlugin.kt:227:49 'val properties: (Mutable)Map<String, out Any?>' is deprecated. Deprecated in Java.
+2026.11.18 12:44:47 INFO  w: file:///home/mausamadh/flutter/packages/flutter_tools/gradle/src/main/kotlin/FlutterPlugin.kt:235:53 'val properties: (Mutable)Map<String, out Any?>' is deprecated. Deprecated in Java.
+2026.11.18 12:44:47 INFO  w: file:///home/mausamadh/flutter/packages/flutter_tools/gradle/src/main/kotlin/FlutterPluginUtils.kt:777:29 Condition is always 'true'.
+2026.11.18 12:44:47 INFO  w: file:///home/mausamadh/flutter/packages/flutter_tools/gradle/src/main/kotlin/VersionFetcher.kt:60:47 'val properties: (Mutable)Map<String, out Any?>' is deprecated. Deprecated in Java.
+2026.11.18 12:44:49 INFO  
+2026.11.18 12:44:49 INFO  > Task :gradle:compileJava NO-SOURCE
+2026.11.18 12:44:49 INFO  > Task :gradle:compileGroovy NO-SOURCE
+2026.11.18 12:44:49 INFO  > Task :gradle:classes UP-TO-DATE
+2026.11.18 12:44:49 INFO  > Task :gradle:jar UP-TO-DATE
+2026.11.18 12:44:54 INFO  
+2026.11.18 12:44:54 INFO  > Configure project :app
+2026.11.18 12:44:54 INFO  WARNING: The option setting 'android.newDsl=false' is deprecated.
+2026.11.18 12:44:54 INFO  The current default is 'true'.
+2026.11.18 12:44:54 INFO  It will be removed in version 10.0 of the Android Gradle plugin.
+2026.11.18 12:44:54 INFO  Add android.sync.suppressAgpWarnings=UNSUPPORTED_PROJECT_OPTION_USE to the gradle.properties file to suppress this warning.
+2026.11.18 12:45:05 INFO  w: file:///home/mausamadh/.pub-cache/hosted/pub.dev/dynamic_color-1.9.0/android/build.gradle.kts:34:1: 'fun Project.android(configure: Action<LibraryExtension>): Unit' is deprecated. Replaced by com.android.build.api.dsl.LibraryExtension.
+2026.11.18 12:45:05 INFO  This class is not used for the public extensions in AGP when android.newDsl=true, which is the default in AGP 9.0, and will be removed in AGP 10.0.
+2026.11.18 12:45:07 INFO  no build target found for /home/mausamadh/mausamadh/Expensy/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java. Using fallback presentation compiler.
+2026.11.18 12:45:43 INFO  Started: Metals version 1.6.9 in folders '/home/mausamadh/mausamadh/Expensy' for client Visual Studio Code 1.146.0.
+2026.11.18 12:45:43 INFO  Memory monitor started
+2026.11.18 12:45:48 WARN  Using H2 2.5.250 which is newer than the version Flyway has been verified with. The latest verified version of H2 is 2.3.232.
+2026.11.18 12:45:48 INFO  skipping build import with status 'Started'
+Nov 18, 2026 12:47:29 PM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
+INFO: Unsupported notification method: $/setTrace

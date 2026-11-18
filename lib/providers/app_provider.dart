@@ -272,7 +272,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   // ── Boot ─────────────────────────────────────────────────────────────
-  Future<void> load() async {
+  Future<void> load({bool skipCatchUp = false}) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('settings');
     if (raw != null) {
@@ -340,8 +340,13 @@ class AppProvider extends ChangeNotifier {
 
     _loadRates();
     await _recordNetWorthSnapshot();
-    await checkAndProcessAutoPay();
-    await checkAndProcessCertificates();
+    // Restore paths pass skipCatchUp: a restore must faithfully reproduce the
+    // backup's state, not retroactively fire auto-pay / certificate catch-up
+    // (which would add transactions that were not in the snapshot).
+    if (!skipCatchUp) {
+      await checkAndProcessAutoPay();
+      await checkAndProcessCertificates();
+    }
     try {
       await CertificateReminderService().rescheduleAllCertificates(certificates);
     } catch (_) {}
@@ -349,7 +354,9 @@ class AppProvider extends ChangeNotifier {
     await refreshAutoBackupState();
     AutoBackupService.runCatchUpIfNeeded();
 
-    startAutoPayTimer();
+    if (!skipCatchUp) {
+      startAutoPayTimer();
+    }
   }
 
   /// Schedules a one-shot evaluation timer for the next upcoming auto-pay payment
@@ -4119,7 +4126,7 @@ class AppProvider extends ChangeNotifier {
       final jsonStr = await file.readAsString();
       final data = jsonDecode(jsonStr) as Map<String, dynamic>;
       await DBHelper.importAll(data);
-      await load();
+      await load(skipCatchUp: true);
       return true;
     });
   }
@@ -4155,7 +4162,7 @@ class AppProvider extends ChangeNotifier {
       }
 
       _historyCache.clear();
-      await load();
+      await load(skipCatchUp: true);
       if (netWorthSnapshots.isEmpty) {
         await _executeRecordNetWorthSnapshot();
       }
@@ -4250,7 +4257,7 @@ class AppProvider extends ChangeNotifier {
 
       await DBHelper.importSelective(data, tables);
       _historyCache.clear();
-      await load();
+      await load(skipCatchUp: true);
 
       try {
         if (selectedGroups.contains('recurring')) {
@@ -4611,7 +4618,7 @@ class AppProvider extends ChangeNotifier {
         newTransactions: newTransactions,
         accountBalanceDeltas: accountDeltas,
       );
-      await load();
+      await load(skipCatchUp: true);
       return newTransactions.length;
     });
   }
@@ -4672,7 +4679,7 @@ class AppProvider extends ChangeNotifier {
         sg.currentAmount = currentAmount;
         await DBHelper.updateSavingsGoal(sg);
       }
-      await load();
+      await load(skipCatchUp: true);
     });
   }
 

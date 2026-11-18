@@ -13,7 +13,7 @@ void main() {
   late AppDatabase db;
   late AppProvider provider;
 
-  const dir = r'C:\Users\minaa\.gemini\antigravity\brain\a03e3698-f091-44c5-946b-cc31d9e14aa9\scratch\uploaded_backup';
+  const dir = 'test/fixtures';
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -134,7 +134,7 @@ void main() {
 
   group('Uploaded User Backup Files Restore', () {
     test('Restore expensy_backup_20261023_102358.json successfully', () async {
-      final file = File('$dir\\expensy_backup_20261023_102358.json');
+      final file = File('$dir/expensy_backup_20261023_102358.json');
       final jsonStr = await file.readAsString();
       final data = jsonDecode(jsonStr) as Map<String, dynamic>;
 
@@ -146,7 +146,7 @@ void main() {
     });
 
     test('Restore expensy_auto_20261023_064842.json successfully', () async {
-      final file = File('$dir\\expensy_auto_20261023_064842.json');
+      final file = File('$dir/expensy_auto_20261023_064842.json');
       final jsonStr = await file.readAsString();
       final data = jsonDecode(jsonStr) as Map<String, dynamic>;
 
@@ -157,7 +157,7 @@ void main() {
     });
 
     test('Restore expensy_selective_backup_20261023_102332.json successfully', () async {
-      final file = File('$dir\\expensy_selective_backup_20261023_102332.json');
+      final file = File('$dir/expensy_selective_backup_20261023_102332.json');
       final jsonStr = await file.readAsString();
       final data = jsonDecode(jsonStr) as Map<String, dynamic>;
 
