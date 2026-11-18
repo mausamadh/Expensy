@@ -111,7 +111,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settings_developer => '开发商';
 
   @override
-  String get settings_developerSubtitle => '发现 Mina Android 的更多项目';
+  String get settings_developerSubtitle => '发现 Mausam Adhikari 的更多项目';
 
   @override
   String get settings_githubProfile => 'GitHub 简介';

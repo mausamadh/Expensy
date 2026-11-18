@@ -3,9 +3,9 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/native.dart';
-import 'package:expensy/database/app_database.dart';
-import 'package:expensy/models/models.dart';
-import 'package:expensy/services/recurring_payment_processor.dart';
+import 'package:finwick/database/app_database.dart';
+import 'package:finwick/models/models.dart';
+import 'package:finwick/services/recurring_payment_processor.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

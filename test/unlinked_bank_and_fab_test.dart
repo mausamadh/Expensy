@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
-import 'package:expensy/models/models.dart';
-import 'package:expensy/providers/app_provider.dart';
-import 'package:expensy/widgets/shared_widgets.dart';
-import 'package:expensy/screens/recurring_screen.dart';
-import 'package:expensy/utils/nav_metrics.dart';
-import 'package:expensy/l10n/app_localizations.dart';
+import 'package:finwick/models/models.dart';
+import 'package:finwick/providers/app_provider.dart';
+import 'package:finwick/widgets/shared_widgets.dart';
+import 'package:finwick/screens/recurring_screen.dart';
+import 'package:finwick/utils/nav_metrics.dart';
+import 'package:finwick/l10n/app_localizations.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

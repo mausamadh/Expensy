@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:expensy/database/app_database.dart';
-import 'package:expensy/database/db_helper.dart';
-import 'package:expensy/models/models.dart';
+import 'package:finwick/database/app_database.dart';
+import 'package:finwick/database/db_helper.dart';
+import 'package:finwick/models/models.dart';
 import 'package:drift/native.dart';
 
 void main() {

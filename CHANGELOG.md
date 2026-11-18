@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.5] - 2026-11-18
+
+### Finwick Rebrand & Developer Identity
+- **Rebranded to Finwick**: The app is now published as **Finwick** (application ID `com.ma.finwick`), with the onboarding welcome, Wrapped screen, and store metadata all using the new name.
+- **Database Rebrand Migration**: The on-device database file was renamed from `expensy.db` to `finwick.db` with a one-time automatic migration — existing installs keep all their data on first launch after the update.
+- **Developer Identity**: Settings → Developer now credits **Mausam Adhikari** with links to [github.com/mausamadh](https://github.com/mausamadh) and [www.mausamadhikari.com.np](https://www.mausamadhikari.com.np) (fixed a missing URL scheme that prevented the website link from opening).
+- **Gradle & Build Tooling**: Bumped the WorkManager example's Gradle wrapper to 8.5 for Java 21 compatibility and removed redundant Android resources.
+
 ## [1.2.4] - 2026-11-17
 
 ### Recurring Transfers, 1-Tap Transfer Presets, App-Wide Localization & UI/Performance Polish

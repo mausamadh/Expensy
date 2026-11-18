@@ -4,8 +4,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:expensy/database/app_database.dart';
-import 'package:expensy/providers/app_provider.dart';
+import 'package:finwick/database/app_database.dart';
+import 'package:finwick/providers/app_provider.dart';
 import 'helpers/data_check_service.dart';
 import 'package:drift/native.dart';
 import 'package:shared_preferences/shared_preferences.dart';

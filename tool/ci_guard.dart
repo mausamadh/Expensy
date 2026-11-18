@@ -46,8 +46,8 @@ void main(List<String> args) {
       // 3. UI importing DB layer
       if (isScreen || isWidget) {
         if (line.contains("import '../database/") ||
-            line.contains('import "package:expensy/database/') ||
-            line.contains("import 'package:expensy/database/")) {
+            line.contains('import "package:finwick/database/') ||
+            line.contains("import 'package:finwick/database/")) {
           dbImportInUiCount++;
           stdout.writeln('  [DB in UI] $path:${i + 1}: ${line.trim()}');
         }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:expensy/models/models.dart';
-import 'package:expensy/theme/app_theme.dart';
-import 'package:expensy/widgets/shared_widgets.dart';
+import 'package:finwick/models/models.dart';
+import 'package:finwick/theme/app_theme.dart';
+import 'package:finwick/widgets/shared_widgets.dart';
 
 void main() {
   group('RecurringPayment upcomingPaymentDates', () {

@@ -631,7 +631,7 @@ class SettingsScreen extends StatelessWidget {
                                   onTap: () async {
                                     Navigator.pop(ctx);
                                     final uri = Uri.parse(
-                                        'www.mausamadhikari.com.np');
+                                        'https://www.mausamadhikari.com.np');
                                     if (await canLaunchUrl(uri)) {
                                       await launchUrl(uri,
                                           mode: LaunchMode.externalApplication);

@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:expensy/services/auto_backup_service.dart';
-import 'package:expensy/services/backup_encryption_service.dart';
+import 'package:finwick/services/auto_backup_service.dart';
+import 'package:finwick/services/backup_encryption_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

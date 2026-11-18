@@ -115,7 +115,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get settings_developerSubtitle =>
-      'Узнайте больше о проектах Mina Android';
+      'Узнайте больше о проектах Mausam Adhikari';
 
   @override
   String get settings_githubProfile => 'Профиль GitHub';

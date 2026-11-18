@@ -115,7 +115,8 @@ class AppLocalizationsBn extends AppLocalizations {
   String get settings_developer => 'ডেভেলপার';
 
   @override
-  String get settings_developerSubtitle => 'Mina Android-এর আরও প্রজেক্ট দেখুন';
+  String get settings_developerSubtitle =>
+      'Mausam Adhikari-এর আরও প্রজেক্ট দেখুন';
 
   @override
   String get settings_githubProfile => 'GitHub প্রোফাইল';

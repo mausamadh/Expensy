@@ -1,0 +1,3 @@
+- Recurring transfers & 1-tap transfer presets
+- 100% localization across all 12 languages
+- UI consistency, shared widgets & performance polish

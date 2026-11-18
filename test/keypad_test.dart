@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:expensy/widgets/app_numeric_keypad.dart';
+import 'package:finwick/widgets/app_numeric_keypad.dart';
 
 void main() {
   group('ExpressionEvaluator Unit Tests', () {

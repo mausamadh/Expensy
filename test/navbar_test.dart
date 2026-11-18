@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:expensy/widgets/rounded_square_border.dart';
-import 'package:expensy/screens/main_shell.dart';
-import 'package:expensy/screens/home_screen.dart';
-import 'package:expensy/screens/transactions_screen.dart';
-import 'package:expensy/screens/recurring_screen.dart';
-import 'package:expensy/screens/accounts_screen.dart';
-import 'package:expensy/screens/budget_screen.dart';
-import 'package:expensy/screens/more_screen.dart';
-import 'package:expensy/l10n/app_localizations.dart';
+import 'package:finwick/widgets/rounded_square_border.dart';
+import 'package:finwick/screens/main_shell.dart';
+import 'package:finwick/screens/home_screen.dart';
+import 'package:finwick/screens/transactions_screen.dart';
+import 'package:finwick/screens/recurring_screen.dart';
+import 'package:finwick/screens/accounts_screen.dart';
+import 'package:finwick/screens/budget_screen.dart';
+import 'package:finwick/screens/more_screen.dart';
+import 'package:finwick/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
-import 'package:expensy/providers/app_provider.dart';
+import 'package:finwick/providers/app_provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

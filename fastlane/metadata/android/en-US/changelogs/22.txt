@@ -1,0 +1,4 @@
+- Rebranded to Finwick
+- One-time database migration (existing data is preserved)
+- Updated developer links & website
+- Build tooling updates for Java 21

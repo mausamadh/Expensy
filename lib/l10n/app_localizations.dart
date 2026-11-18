@@ -325,7 +325,7 @@ abstract class AppLocalizations {
   /// No description provided for @settings_developerSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Discover more projects by Mina Android'**
+  /// **'Discover more projects by Mausam Adhikari'**
   String get settings_developerSubtitle;
 
   /// No description provided for @settings_githubProfile.

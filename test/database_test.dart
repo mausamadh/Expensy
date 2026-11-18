@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
-import 'package:expensy/database/app_database.dart';
-import 'package:expensy/models/models.dart';
+import 'package:finwick/database/app_database.dart';
+import 'package:finwick/models/models.dart';
 
 void main() {
   late AppDatabase db;

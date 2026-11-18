@@ -117,7 +117,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settings_developerSubtitle =>
-      'Découvrez d\'autres projets par Mina Android';
+      'Découvrez d\'autres projets par Mausam Adhikari';
 
   @override
   String get settings_githubProfile => 'Profil GitHub';

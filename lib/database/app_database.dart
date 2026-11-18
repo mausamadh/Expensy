@@ -15,7 +15,32 @@ part 'app_database.g.dart';
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await sqflite.getDatabasesPath();
-    final file = File(p.join(dbFolder, 'expensy.db'));
+    var file = File(p.join(dbFolder, 'finwick.db'));
+    // One-time rebrand migration: carry over the legacy expensy.db file so
+    // existing installs keep their data. Drift then applies any pending
+    // schema upgrades to the migrated file as usual.
+    if (!file.existsSync()) {
+      final legacy = File(p.join(dbFolder, 'expensy.db'));
+      if (legacy.existsSync()) {
+        try {
+          for (final suffix in ['-wal', '-shm', '-journal']) {
+            final sidecar = File('$legacy$suffix');
+            if (sidecar.existsSync()) sidecar.deleteSync();
+          }
+          legacy.rename(file.path);
+        } catch (_) {
+          // Rename can fail across filesystems; fall back to a copy.
+          try {
+            legacy.copySync(file.path);
+            legacy.deleteSync();
+          } catch (_) {
+            // If both fail, keep using the legacy file so no data is lost;
+            // the migration is retried on the next launch.
+            file = legacy;
+          }
+        }
+      }
+    }
     return NativeDatabase.createInBackground(file);
   });
 }

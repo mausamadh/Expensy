@@ -1,7 +1,7 @@
 // test/helpers/data_check_service.dart
 // note: Diagnostic service to verify database integrity, orphan records, and consistency.
 
-import 'package:expensy/database/app_database.dart';
+import 'package:finwick/database/app_database.dart';
 
 class DataHealthIssue {
   final String code; // D1, D2, D3, D5, P0_1, COUNTER_DRIFT

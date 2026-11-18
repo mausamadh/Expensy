@@ -1,10 +1,10 @@
 import 'package:drift/native.dart';
-import 'package:expensy/database/app_database.dart';
-import 'package:expensy/models/models.dart';
-import 'package:expensy/providers/aggregations.dart';
-import 'package:expensy/providers/app_provider.dart';
-import 'package:expensy/services/backup_validator.dart';
-import 'package:expensy/services/recurring_payment_processor.dart';
+import 'package:finwick/database/app_database.dart';
+import 'package:finwick/models/models.dart';
+import 'package:finwick/providers/aggregations.dart';
+import 'package:finwick/providers/app_provider.dart';
+import 'package:finwick/services/backup_validator.dart';
+import 'package:finwick/services/recurring_payment_processor.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

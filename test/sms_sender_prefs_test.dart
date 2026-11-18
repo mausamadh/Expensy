@@ -6,11 +6,11 @@
 // while transactional messages still surface. Also covers the SmsKind
 // classifier that drives per-kind suppression.
 import 'package:drift/native.dart';
-import 'package:expensy/database/app_database.dart';
-import 'package:expensy/models/models.dart';
-import 'package:expensy/providers/app_provider.dart';
-import 'package:expensy/services/sms_import_service.dart';
-import 'package:expensy/services/sms_parser/sms_parser.dart';
+import 'package:finwick/database/app_database.dart';
+import 'package:finwick/models/models.dart';
+import 'package:finwick/providers/app_provider.dart';
+import 'package:finwick/services/sms_import_service.dart';
+import 'package:finwick/services/sms_parser/sms_parser.dart';
 import 'package:expensy_sms/expensy_sms.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

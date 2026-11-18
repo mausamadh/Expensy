@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:expensy/models/models.dart';
-import 'package:expensy/providers/app_provider.dart';
+import 'package:finwick/models/models.dart';
+import 'package:finwick/providers/app_provider.dart';
 
 void main() {
   group('Certificate Yield and Due Date Calculations', () {

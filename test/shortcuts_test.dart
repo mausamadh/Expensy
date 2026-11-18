@@ -1,6 +1,6 @@
 // test/shortcuts_test.dart
 import 'package:flutter_test/flutter_test.dart';
-import 'package:expensy/services/quick_add_service.dart';
+import 'package:finwick/services/quick_add_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

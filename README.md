@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="assets/splash_icon.png" alt="Expensy Logo" width="112" height="112" />
+<img src="assets/splash_icon.png" alt="Finwick Logo" width="112" height="112" />
 
-# Expensy
+# Finwick
 
-[![Platform](https://img.shields.io/badge/Platform-Android-grey.svg?style=flat-square)](https://android.com) [![Release](https://img.shields.io/badge/Release-v1.2.4-blue.svg?style=flat-square)](https://github.com/mausamadh/Expensy/releases) [![License](https://img.shields.io/badge/License-GPL--3.0-black.svg?style=flat-square)](LICENSE) [![Build](https://img.shields.io/badge/Build-Passing-brightgreen.svg?style=flat-square)](https://github.com/mausamadh/Expensy/actions)
+[![Platform](https://img.shields.io/badge/Platform-Android-grey.svg?style=flat-square)](https://android.com) [![Release](https://img.shields.io/badge/Release-v1.2.5-blue.svg?style=flat-square)](https://github.com/mausamadh/Expensy/releases) [![License](https://img.shields.io/badge/License-GPL--3.0-black.svg?style=flat-square)](LICENSE) [![Build](https://img.shields.io/badge/Build-Passing-brightgreen.svg?style=flat-square)](https://github.com/mausamadh/Expensy/actions)
 
 <p align="center">
   A local-first personal finance tracker and budget manager for Android that keeps all financial records, accounts, and transaction history strictly on your physical device.
@@ -16,7 +16,7 @@
 
 ## Navigation
 
-[Features](#features) &bull; [Screenshots](#screenshots) &bull; [Downloads](#downloads) &bull; [Self Building & Local Setup](#self-building--local-setup) &bull; [Frequently Asked Questions](#frequently-asked-questions) &bull; [Contribution](#contribution) &bull; [About the Developer](#about-the-developer) &bull; [Donate](#donate) &bull; [License](#license)
+[Features](#features) &bull; [Screenshots](#screenshots) &bull; [Downloads](#downloads) &bull; [Self Building & Local Setup](#self-building--local-setup) &bull; [Frequently Asked Questions](#frequently-asked-questions) &bull; [Contribution](#contribution) &bull; [About the Developer](#about-the-developer) &bull; [License](#license)
 
 ---
 
@@ -30,7 +30,7 @@
 - **Budgeting with Roll-Over Tracking**: Establish category or subcategory budgets where unused allocations carry forward into subsequent billing cycles, complemented by a Safe-to-Spend daily allowance pacer.
 - **Fast Transaction Logging**: Register routine transactions using configurable one-tap presets, split transactions across multiple categories/subcategories, a dedicated `Transfer` category for internal transfers, and an integrated expression-evaluating numeric keypad.
 - **Recurring Bills, Installments, Debt & Goals**: Track recurring subscriptions and installments (with background auto-pay and skip/pay progress tracking), incoming/outgoing loans, lent/borrowed contacts, wishlists, and savings goals.
-- **Insights, Statistics & Expensy Wrapped**: Explore monthly spending trends, category-matched pie charts with subcategory drill-down, a financial calendar, and a story-style Expensy Wrapped summary.
+- **Insights, Statistics & Finwick Wrapped**: Explore monthly spending trends, category-matched pie charts with subcategory drill-down, a financial calendar, and a story-style Finwick Wrapped summary.
 - **Data Export, Encrypted Backups & Migration**: Export Excel (`.xlsx`) workbooks (with `Category` and `Subcategory` columns) and formatted PDF financial statements, create encrypted (`.enc`) or JSON backups with selective restore and scheduled SAF auto-backup, or migrate directly from **TrackWallet (`.csv`)** and **GreenStash (`.json`)**.
 - **Multi-Language & Material You**: Supports Material You dynamic colors, pitch-black AMOLED mode, and 12 languages including English, Arabic, Bangla (`বাংলা`), French, German, Hindi, Spanish, Portuguese, Chinese, Japanese, Russian, and Italian.
 
@@ -88,10 +88,10 @@ Official release packages are published under the [GitHub Releases](https://gith
 
 | Platform | Architecture | Package Type | Download Link | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| **Android** | arm64-v8a | `.apk` | [Download (v1.2.4)](https://github.com/mausamadh/Expensy/releases/latest) | Modern 64-bit devices (recommended) |
-| **Android** | armeabi-v7a | `.apk` | [Download (v1.2.4)](https://github.com/mausamadh/Expensy/releases/latest) | Legacy 32-bit devices |
-| **Android** | x86_64 | `.apk` | [Download (v1.2.4)](https://github.com/mausamadh/Expensy/releases/latest) | Android emulators and Intel-based tablets |
-| **Android** | Universal | `.apk` | [Download (v1.2.4)](https://github.com/mausamadh/Expensy/releases/latest) | Combined installer supporting all architectures |
+| **Android** | arm64-v8a | `.apk` | [Download (v1.2.5)](https://github.com/mausamadh/Expensy/releases/latest) | Modern 64-bit devices (recommended) |
+| **Android** | armeabi-v7a | `.apk` | [Download (v1.2.5)](https://github.com/mausamadh/Expensy/releases/latest) | Legacy 32-bit devices |
+| **Android** | x86_64 | `.apk` | [Download (v1.2.5)](https://github.com/mausamadh/Expensy/releases/latest) | Android emulators and Intel-based tablets |
+| **Android** | Universal | `.apk` | [Download (v1.2.5)](https://github.com/mausamadh/Expensy/releases/latest) | Combined installer supporting all architectures |
 
 ---
 
@@ -151,10 +151,10 @@ flutter run --release
 ## Frequently Asked Questions
 
 #### Where is my financial data stored?
-All data is stored locally in an SQLite database file inside the application private directory on your device storage (`/data/user/0/com.ma.expensy/`). It is never synced to any remote server.
+All data is stored locally in an SQLite database file inside the application private directory on your device storage (`/data/user/0/com.ma.finwick/`). It is never synced to any remote server.
 
 #### How do I transfer my records to a new phone or migrate from another app?
-Navigate to **Settings → Backup & Restore** within Expensy. Generate an encrypted (`.enc`) or JSON backup, save the file to your external storage or transfer folder, and import it on your new phone (during Onboarding or from Backup & Restore). You can also import existing history from **TrackWallet (`.csv`)** or **GreenStash (`.json`)**.
+Navigate to **Settings → Backup & Restore** within Finwick. Generate an encrypted (`.enc`) or JSON backup, save the file to your external storage or transfer folder, and import it on your new phone (during Onboarding or from Backup & Restore). You can also import existing history from **TrackWallet (`.csv`)** or **GreenStash (`.json`)**.
 
 #### How does balance inheritance work between Bank Accounts and Debit Cards?
 When you link a Debit Card to a specific Bank Account, transactions recorded against the debit card deduct directly from the parent bank account balance. This accurately reflects real-world banking where debit cards do not maintain an independent balance ledger.
@@ -182,20 +182,11 @@ Contributions aimed at bug fixes, translation improvements, and performance opti
 
 ## About the Developer
 
-This project is authored and maintained by **mausamadh**, focused on developing transparent, local-first Android utilities and privacy-conscious software.
+This project is authored and maintained by **Mausam Adhikari** ([mausamadh](https://github.com/mausamadh)), focused on developing transparent, local-first Android utilities and privacy-conscious software.
 
-- **Developer Portfolio**: [www.mausamadhikari.com.np](www.mausamadhikari.com.np)
+- **Developer Portfolio**: [www.mausamadhikari.com.np](https://www.mausamadhikari.com.np)
 - **GitHub Profile**: [github.com/mausamadh](https://github.com/mausamadh)
 - **Issue Tracker**: [github.com/mausamadh/Expensy/issues](https://github.com/mausamadh/Expensy/issues)
-
----
-
-## Donate
-
-Development and maintenance of this software are independent and self-supported. If this project helps you manage your finances reliably, consider supporting development:
-
-- **PayPal**: [paypal.me/minaashraf285](https://paypal.me/minaashraf285)
-- **GitHub Sponsors**: [github.com/sponsors/mausamadh](https://github.com/sponsors/mausamadh)
 
 ---
 

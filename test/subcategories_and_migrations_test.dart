@@ -5,11 +5,11 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:expensy/database/app_database.dart';
-import 'package:expensy/models/models.dart';
-import 'package:expensy/providers/aggregations.dart';
-import 'package:expensy/providers/app_provider.dart';
-import 'package:expensy/theme/app_theme.dart';
+import 'package:finwick/database/app_database.dart';
+import 'package:finwick/models/models.dart';
+import 'package:finwick/providers/aggregations.dart';
+import 'package:finwick/providers/app_provider.dart';
+import 'package:finwick/theme/app_theme.dart';
 import 'helpers/data_check_service.dart';
 
 void main() {

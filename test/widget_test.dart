@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
-import 'package:expensy/providers/app_provider.dart';
-import 'package:expensy/main.dart';
+import 'package:finwick/providers/app_provider.dart';
+import 'package:finwick/main.dart';
 
 void main() {
   testWidgets('App launches smoke test', (WidgetTester tester) async {

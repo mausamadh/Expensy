@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:expensy/screens/accounts_screen.dart';
-import 'package:expensy/providers/app_provider.dart';
-import 'package:expensy/l10n/app_localizations.dart';
+import 'package:finwick/screens/accounts_screen.dart';
+import 'package:finwick/providers/app_provider.dart';
+import 'package:finwick/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 void main() {

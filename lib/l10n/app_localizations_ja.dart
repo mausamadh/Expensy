@@ -111,7 +111,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settings_developer => '開発者';
 
   @override
-  String get settings_developerSubtitle => 'mina Android による他のプロジェクトを発見';
+  String get settings_developerSubtitle => 'Mausam Adhikari による他のプロジェクトを発見';
 
   @override
   String get settings_githubProfile => 'GitHub プロファイル';

@@ -1,5 +1,5 @@
 // lib/utils/notification_permissions.dart
-import 'package:expensy/l10n/app_localizations.dart';
+import 'package:finwick/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'service_localizations.dart';

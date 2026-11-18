@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:expensy/services/backup_encryption_service.dart';
+import 'package:finwick/services/backup_encryption_service.dart';
 
 void main() {
   group('BackupEncryptionService Tests', () {
