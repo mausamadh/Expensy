@@ -100,6 +100,11 @@ class FallbackMatcher {
     for (final m in TransactionGate.transactionCues.allMatches(body)) {
       cues.add(m.group(0)!.toLowerCase());
     }
+    // Standalone uppercase CR/DR is direction evidence even when no other
+    // cue word is present (e.g. "has been CR Rs 10000.00").
+    for (final m in TransactionGate.crDrCues.allMatches(body)) {
+      cues.add(m.group(0)!.toLowerCase());
+    }
     if (cues.isEmpty) {
       return const ParseFailure(ParseFailureReason.noMatch,
           detail: 'no transaction cue');
@@ -117,10 +122,15 @@ class FallbackMatcher {
     final hasCreditLabel = _creditLabel.hasMatch(body);
     final isProviderPayment = _paymentReceivedByProvider.hasMatch(body);
     final hasWasCharged = _wasCharged.hasMatch(body);
+    final leadingCrDr = _leadingCrDr.firstMatch(body);
     final TransactionType type;
     if (hit.directionSuffix != null && hit.directionSuffix!.toUpperCase() == 'DR') {
       type = TransactionType.expense;
     } else if (hit.directionSuffix != null && hit.directionSuffix!.toUpperCase() == 'CR') {
+      type = TransactionType.income;
+    } else if (leadingCrDr != null && leadingCrDr.group(1) == 'DR') {
+      type = TransactionType.expense;
+    } else if (leadingCrDr != null && leadingCrDr.group(1) == 'CR') {
       type = TransactionType.income;
     } else if (hasWasCharged) {
       type = TransactionType.expense;
@@ -145,9 +155,23 @@ class FallbackMatcher {
         cues.any(_directionalCues.contains);
     // A non-positive amount is not bookable money, so it never counts.
     final bookable = hit.declared && hasDirection && hit.amountMinorUnits > 0;
-    final rawMerchant = (labels['DESC']?.isNotEmpty ?? false)
+    var rawMerchant = (labels['DESC']?.isNotEmpty ?? false)
         ? labels['DESC']!
         : (_subscribedService.firstMatch(body)?.group(1)?.trim() ?? '');
+    if (rawMerchant.isEmpty) {
+      for (final re in [
+        _remarksMerchant,
+        _byMerchant,
+        _nblMerchant,
+        _ssfEmployer,
+      ]) {
+        final candidate = re.firstMatch(body)?.group(1)?.trim() ?? '';
+        if (candidate.isNotEmpty) {
+          rawMerchant = _stripTrailingBank(candidate);
+          break;
+        }
+      }
+    }
     return ParseSuccess(
       ParsedTransaction(
         amountMinorUnits: hit.amountMinorUnits,
@@ -170,6 +194,27 @@ class FallbackMatcher {
       ),
       templateId: null,
     );
+  }
+
+  // Bank signatures appended to merchant text ("... . Laxmi Bank",
+  // "... -Laxmi Sunrise", "... . NBL") plus dangling terminal punctuation.
+  // Only strips when the merchant ends with exactly one of these names, so
+  // merchants that merely mention a bank mid-text are untouched.
+  static final _trailingBank = RegExp(
+      r'\s*(?:[-–—]\s*|\.\s+)?'
+      r'(?:Laxmi\s+Sunrise|Laxmi\s+Bank|NBL|NIC\s+Bank|Nabil\s+Bank|'
+      r'Global\s+IME\s+Bank|Himalayan\s+Bank|NMB\s+Bank|Sanima\s+Bank|'
+      r'Machhapuchchhre\s+Bank|Citizen\s+Bank|Nepal\s+SBI|Bank\s+of\s+India|'
+      r'ICICI\s+Bank|Standard\s+Chartered|Global\s+Bank|'
+      r'Rastriya\s+Banijya\s+Bank|Nepal\s+Commerce\s+Bank|'
+      r'Agricultural\s+Development\s+Bank)\s*\.?\s*$',
+      caseSensitive: false);
+
+  static String _stripTrailingBank(String merchant) {
+    var m = merchant.trim();
+    m = m.replaceFirst(_trailingBank, '');
+    m = m.replaceFirst(RegExp(r'[-.\s]+$'), '');
+    return m.trim();
   }
 
   static _AmountHit? resolveAmount(
@@ -199,15 +244,20 @@ class FallbackMatcher {
     final tokenText = (match.group(1) ?? '').isNotEmpty
         ? match.group(1)!
         : (match.group(5) ?? '');
+    final tokenCode = tokenText.isEmpty ? null : currencyCodeFor(tokenText);
     final declared = tokenText.isNotEmpty && isRecognizedCurrencyToken(tokenText);
-    final currency = declared ? currencyCodeFor(tokenText) : defaultCurrency;
+    // "Rs" is an ambiguous rupee abbreviation (NPR/INR/PKR/LKR); resolve it
+    // to the user's base currency when one is provided, otherwise the hit
+    // stays undeclared and waits for review.
+    final currency = declared ? (tokenCode ?? defaultCurrency) : defaultCurrency;
+    final isDeclared = declared && currency != null;
     final magnitude = parseAmountToMinorUnits(
         match.group(3)!, Iso4217.exponentFor(currency));
     if (magnitude == null) return null;
     final signed = (match.group(2) ?? '').isEmpty ? magnitude : -magnitude;
     final suffix = match.group(6);
     return _AmountHit(signed, currency, (suffix ?? '').isEmpty ? null : suffix,
-        declared);
+        isDeclared);
   }
 
   static DateTime resolveTimestamp(

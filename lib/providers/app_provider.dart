@@ -3550,6 +3550,7 @@ class AppProvider extends ChangeNotifier {
         limit: limit,
         senderPrefs: _smsSenderPrefMap(),
         autoHideOtp: smsAutoHideOtp,
+        defaultCurrency: settings.currency,
       );
       if (inserted.isNotEmpty) {
         smsInbox = await DBHelper.getSmsInbox();
@@ -3859,7 +3860,7 @@ class AppProvider extends ChangeNotifier {
     _smsLiveSub = ExpensySms.startLiveCapture().listen((msg) async {
       // Hard deny: the user turned parsing off for this sender.
       if (!isSmsSenderParseAllowed(msg.sender)) return;
-      final item = await service.parseOne(msg);
+      final item = await service.parseOne(msg, defaultCurrency: settings.currency);
       final existing = await DBHelper.getSmsInboxByHash(item.rawHash);
       if (existing != null) return;
       // Kind suppression applies only to messages that did NOT parse into a

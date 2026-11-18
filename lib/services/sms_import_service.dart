@@ -65,6 +65,7 @@ class SmsImportService {
     int limit = 500,
     Map<String, SmsSenderPref> senderPrefs = const {},
     bool autoHideOtp = true,
+    String? defaultCurrency,
   }) async {
     final messages = await ExpensySms.scanSms(limit: limit);
     if (messages.isEmpty) return const [];
@@ -75,7 +76,8 @@ class SmsImportService {
     // 500-message scan must not block the frame pipeline. Only the DB
     // inserts stay on the main isolate.
     final toInsert = await Isolate.run(
-      () => _processBatch(messages, _registry, senderPrefs, seen, autoHideOtp),
+      () => _processBatch(
+          messages, _registry, senderPrefs, seen, autoHideOtp, defaultCurrency),
     );
 
     for (final item in toInsert) {
@@ -87,7 +89,12 @@ class SmsImportService {
   /// Parses a single message (used by live capture). Returns the candidate
   /// (not yet persisted); unclassified messages come back as low-confidence
   /// "needs review" items so nothing is silently dropped.
-  Future<SmsInboxItem> parseOne(SmsMessage msg) => _parseToItem(_registry, msg);
+  ///
+  /// [defaultCurrency] (the user's base currency) resolves ambiguous
+  /// rupee abbreviations like "Rs" in fallback-matched rows.
+  Future<SmsInboxItem> parseOne(SmsMessage msg,
+          {String? defaultCurrency}) =>
+      _parseToItem(_registry, msg, defaultCurrency);
 }
 
 /// Pure per-message pipeline: parse → dedup → sender/kind suppression.
@@ -99,12 +106,13 @@ Future<List<SmsInboxItem>> _processBatch(
   Map<String, SmsSenderPref> prefs,
   Set<String> seen,
   bool autoHideOtp,
+  String? defaultCurrency,
 ) async {
   final out = <SmsInboxItem>[];
   for (final msg in messages) {
     final pref = prefs[msg.sender];
     if (pref != null && !pref.parseAllowed) continue; // hard deny
-    final item = await _parseToItem(registry, msg);
+    final item = await _parseToItem(registry, msg, defaultCurrency);
     if (seen.contains(item.rawHash)) continue; // already processed
     if (item.parsedType == null) {
       final kind = SmsKindClassifier.classify(msg.body).name;
@@ -121,11 +129,13 @@ Future<List<SmsInboxItem>> _processBatch(
   return out;
 }
 
-Future<SmsInboxItem> _parseToItem(TemplateRegistry registry, SmsMessage msg) async {
+Future<SmsInboxItem> _parseToItem(
+    TemplateRegistry registry, SmsMessage msg, String? defaultCurrency) async {
   final ts = msg.timestamp > 0
       ? DateTime.fromMillisecondsSinceEpoch(msg.timestamp)
       : DateTime.now();
-  final result = await registry.parse(msg.sender, msg.body, ts);
+  final result =
+      await registry.parse(msg.sender, msg.body, ts, defaultCurrency: defaultCurrency);
 
   if (result is ParseFailure) {
     // noRoute = the gate found no transaction cues → surface as a
