@@ -1,0 +1,16 @@
+{
+  "id": "etica_withdrawal",
+  "senderId": "ETICALTD",
+  "serviceName": "Etica Withdrawal",
+  "anchors": [
+    { "textBefore": "processed a withdrawal of KES", "textAfter": "" }
+  ],
+  "fields": [
+    { "name": "AMOUNT", "anchor": { "textBefore": "processed a withdrawal of KES ", "textAfter": " to " }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": " to Mpesa - ", "textAfter": "." }, "type": "TEXT" }
+  ],
+  "transactionDirection": "TRANSFER",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

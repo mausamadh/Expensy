@@ -1,0 +1,19 @@
+{
+  "id": "mpesa_withdraw",
+  "senderId": "MPESA",
+  "serviceName": "M-Pesa Withdraw",
+  "anchors": [
+    { "textBefore": "Withdraw Ksh", "textAfter": " from" }
+  ],
+  "fields": [
+    { "name": "REFERENCE", "anchor": { "textBefore": "", "textAfter": " Confirmed." }, "type": "TEXT" },
+    { "name": "AMOUNT", "anchor": { "textBefore": "Withdraw Ksh", "textAfter": " from" }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": "from ", "textAfter": " New M-PESA" }, "type": "TEXT" },
+    { "name": "BALANCE", "anchor": { "textBefore": "New M-PESA balance is Ksh", "textAfter": "." }, "type": "CURRENCY" },
+    { "name": "FEE", "anchor": { "textBefore": "Transaction cost, Ksh", "textAfter": "." }, "type": "CURRENCY" }
+  ],
+  "transactionDirection": "WITHDRAWAL",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

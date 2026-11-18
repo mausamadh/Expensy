@@ -1,0 +1,16 @@
+{
+  "id": "kcb_send_to_pesalink",
+  "senderId": "KCB",
+  "serviceName": "KCB Send to PesaLink",
+  "anchors": [
+    { "textBefore": "SEND TO PESALINK request of", "textAfter": " has been processed" }
+  ],
+  "fields": [
+    { "name": "AMOUNT", "anchor": { "textBefore": "request of KES ", "textAfter": " from " }, "type": "CURRENCY" },
+    { "name": "FEE", "anchor": { "textBefore": "Transaction cost KES ", "textAfter": " Incl" }, "type": "CURRENCY" }
+  ],
+  "transactionDirection": "TRANSFER",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

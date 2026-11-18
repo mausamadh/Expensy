@@ -1,0 +1,19 @@
+{
+  "id": "mpesa_send",
+  "senderId": "MPESA",
+  "serviceName": "M-Pesa Send Money",
+  "anchors": [
+    { "textBefore": "Confirmed. Ksh", "textAfter": " sent to" }
+  ],
+  "fields": [
+    { "name": "REFERENCE", "anchor": { "textBefore": "", "textAfter": " Confirmed." }, "type": "TEXT" },
+    { "name": "AMOUNT", "anchor": { "textBefore": "Ksh", "textAfter": " sent to" }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": "sent to ", "textAfter": " on " }, "type": "TEXT" },
+    { "name": "BALANCE", "anchor": { "textBefore": "New M-PESA balance is Ksh", "textAfter": ". " }, "type": "CURRENCY" },
+    { "name": "FEE", "anchor": { "textBefore": "Transaction cost, Ksh", "textAfter": "." }, "type": "CURRENCY" }
+  ],
+  "transactionDirection": "EXPENSE",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

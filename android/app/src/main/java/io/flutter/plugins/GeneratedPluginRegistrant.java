@@ -26,9 +26,14 @@ public final class GeneratedPluginRegistrant {
       Log.e(TAG, "Error registering plugin dynamic_color, io.material.plugins.dynamic_color.DynamicColorPlugin", e);
     }
     try {
-      flutterEngine.getPlugins().add(new com.ma.expensy.saf.ExpensySafPlugin());
+      flutterEngine.getPlugins().add(new com.ma.finwick.saf.ExpensySafPlugin());
     } catch (Exception e) {
-      Log.e(TAG, "Error registering plugin expensy_saf, com.ma.expensy.saf.ExpensySafPlugin", e);
+      Log.e(TAG, "Error registering plugin expensy_saf, com.ma.finwick.saf.ExpensySafPlugin", e);
+    }
+    try {
+      flutterEngine.getPlugins().add(new com.ma.finwick.sms.ExpensySmsPlugin());
+    } catch (Exception e) {
+      Log.e(TAG, "Error registering plugin expensy_sms, com.ma.finwick.sms.ExpensySmsPlugin", e);
     }
     try {
       flutterEngine.getPlugins().add(new com.dexterous.flutterlocalnotifications.FlutterLocalNotificationsPlugin());

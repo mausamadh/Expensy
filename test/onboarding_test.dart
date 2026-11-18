@@ -39,7 +39,7 @@ void main() {
     await tester.pumpAndSettle(const Duration(milliseconds: 400));
 
     // Page 1: Welcome
-    expect(find.text('Welcome to Expensy!'), findsOneWidget);
+    expect(find.text('Welcome to Finwick!'), findsOneWidget);
     await tester.tap(find.text('Start Fresh'));
     await tester.pumpAndSettle();
 

@@ -1,4 +1,4 @@
-package com.ma.expensy.saf
+package com.ma.finwick.saf
 
 import android.app.Activity
 import android.content.Context
@@ -26,7 +26,7 @@ class ExpensySafPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Activit
     private lateinit var secretStore: SecretStore
 
     companion object {
-        private const val CHANNEL_NAME = "com.ma.expensy/saf"
+        private const val CHANNEL_NAME = "com.ma.finwick/saf"
         private const val REQUEST_CODE_PICK_DIRECTORY = 42101
     }
 

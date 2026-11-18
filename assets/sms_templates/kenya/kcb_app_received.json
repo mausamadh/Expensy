@@ -1,0 +1,17 @@
+{
+  "id": "kcb_app_received",
+  "senderId": "KCB",
+  "serviceName": "KCB App Received",
+  "anchors": [
+    { "textBefore": "Confirmed! You have received", "textAfter": " from " }
+  ],
+  "fields": [
+    { "name": "REFERENCE", "anchor": { "textBefore": "", "textAfter": " Confirmed!" }, "type": "TEXT" },
+    { "name": "AMOUNT", "anchor": { "textBefore": "You have received KES ", "textAfter": " from " }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": "from ", "textAfter": " - " }, "type": "TEXT" }
+  ],
+  "transactionDirection": "INCOME",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

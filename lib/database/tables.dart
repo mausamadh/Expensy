@@ -344,3 +344,83 @@ class Certificates extends Table {
   @override
   String get tableName => 'certificates';
 }
+
+/// Raw SMS messages captured from the device inbox, with the parser's
+/// best-guess fields. Status lifecycle: pending -> imported | dismissed.
+@DataClassName('SmsInboxEntry')
+class SmsInbox extends Table {
+  TextColumn get id => text().named('id')();
+  TextColumn get senderId => text().named('sender_id')();
+  TextColumn get body => text().named('body')();
+  /// sha256 of "senderId:body" — dedup key across scans.
+  TextColumn get rawHash => text().named('raw_hash')();
+  /// SMS timestamp in epoch millis (0 if unknown).
+  IntColumn get smsTimestamp => integer().named('sms_timestamp').withDefault(const Constant(0))();
+  // Parsed fields (null when the parser produced no match).
+  TextColumn get parsedType => text().named('parsed_type').nullable()();
+  IntColumn get parsedAmountMinorUnits => integer().named('parsed_amount_minor_units').nullable()();
+  TextColumn get parsedCurrency => text().named('parsed_currency').nullable()();
+  TextColumn get parsedMerchant => text().named('parsed_merchant').nullable()();
+  TextColumn get parsedReference => text().named('parsed_reference').nullable()();
+  TextColumn get parsedDate => text().named('parsed_date').nullable()();
+  TextColumn get confidence => text().named('confidence').nullable()();
+  TextColumn get reviewReason => text().named('review_reason').nullable()();
+  TextColumn get templateId => text().named('template_id').nullable()();
+  /// pending | imported | dismissed
+  TextColumn get status => text().named('status').withDefault(const Constant('pending'))();
+  /// Id of the AppTransaction created on import (null until imported).
+  TextColumn get importedTxId => text().named('imported_tx_id').nullable()();
+  TextColumn get createdAt => text().named('created_at')();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  String get tableName => 'sms_inbox';
+}
+
+/// Per-sender SMS parsing preferences. A sender (e.g. a bank) can send
+/// transactional, OTP, promotional and personal messages — so instead of
+/// blocking the whole sender, the user can (a) allow/deny parsing for the
+/// sender entirely ([parseAllowed]) and (b) suppress specific message kinds
+/// ([suppressedKinds], comma-separated subset of
+/// `transactional,otp,promotional,personal`). Messages from a sender are
+/// filtered at scan time when parsing is denied or their classified kind is
+/// suppressed.
+@DataClassName('SmsSenderPrefEntry')
+class SmsSenderPrefs extends Table {
+  TextColumn get id => text().named('id')();
+  TextColumn get senderId => text().named('sender_id')();
+  /// 1 = parse this sender (default), 0 = skip all its messages.
+  IntColumn get parseAllowed => integer().named('parse_allowed').withDefault(const Constant(1))();
+  /// Comma-separated kinds the user acknowledged and wants hidden, e.g.
+  /// "otp,promotional". Empty string = nothing suppressed.
+  TextColumn get suppressedKinds => text().named('suppressed_kinds').withDefault(const Constant(''))();
+  TextColumn get createdAt => text().named('created_at')();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  String get tableName => 'sms_sender_prefs';
+}
+
+/// User-confirmed routing rules: when an SMS from [senderId] (optionally
+/// matching [merchantPattern]) is imported, use these account/category/type.
+@DataClassName('SmsRuleEntry')
+class SmsRules extends Table {
+  TextColumn get id => text().named('id')();
+  TextColumn get senderId => text().named('sender_id')();
+  TextColumn get merchantPattern => text().named('merchant_pattern').nullable()();
+  TextColumn get accountId => text().named('account_id')();
+  TextColumn get categoryId => text().named('category_id')();
+  /// income | expense | transfer
+  TextColumn get transactionType => text().named('transaction_type')();
+  TextColumn get createdAt => text().named('created_at')();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  String get tableName => 'sms_rules';
+}

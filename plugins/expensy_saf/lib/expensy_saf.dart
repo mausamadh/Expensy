@@ -34,7 +34,7 @@ class SafWriteResult {
 }
 
 class ExpensySaf {
-  static const MethodChannel _channel = MethodChannel('com.ma.expensy/saf');
+  static const MethodChannel _channel = MethodChannel('com.ma.finwick/saf');
 
   static Future<SafDirectory?> pickDirectory() async {
     final res = await _channel.invokeMapMethod<String, dynamic>('pickDirectory');

@@ -9,7 +9,7 @@ class AppLocalizationsEs extends AppLocalizations {
   AppLocalizationsEs([String locale = 'es']) : super(locale);
 
   @override
-  String get appTitle => 'Caro';
+  String get appTitle => 'Finwick';
 
   @override
   String get settings_title => 'Ajustes';
@@ -220,7 +220,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get recurring_notificationPermissionDenied =>
-      'Permiso de notificación denegado. Habilítelo en Configuración → Aplicaciones → Expensy → Notificaciones.';
+      'Permiso de notificación denegado. Habilítelo en Configuración → Aplicaciones → Finwick → Notificaciones.';
 
   @override
   String get recurring_remindMeAt => 'Recuérdamelo a';
@@ -404,7 +404,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get lended_person_notificationPermissionDenied =>
-      'Permiso de notificación denegado. Habilítelo en Configuración → Aplicaciones → Expensy → Notificaciones.';
+      'Permiso de notificación denegado. Habilítelo en Configuración → Aplicaciones → Finwick → Notificaciones.';
 
   @override
   String get lended_person_remindMeAtPrompt => 'Recuérdamelo a';
@@ -506,7 +506,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get onboarding_restoreFailed =>
-      'Error de restauración: el archivo puede estar dañado o no ser una copia de seguridad de Expensy.';
+      'Error de restauración: el archivo puede estar dañado o no ser una copia de seguridad de Finwick.';
 
   @override
   String get onboarding_continue => 'Continuar';
@@ -642,7 +642,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get backup_restoreFailedCorrupted =>
-      'Error de restauración: el archivo puede estar dañado o no ser una copia de seguridad de Expensy.';
+      'Error de restauración: el archivo puede estar dañado o no ser una copia de seguridad de Finwick.';
 
   @override
   String get budget_noBudgetsYet => 'Aún no hay presupuestos';
@@ -837,7 +837,7 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get wrapped_title => 'Resumen Expensy';
+  String get wrapped_title => 'Resumen Finwick';
 
   @override
   String wrapped_bannerTitle(Object month) {
@@ -1631,7 +1631,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get export_pdfGeneratedBy =>
-      'Generado por Expensy • Privado y sin conexión';
+      'Generado por Finwick • Privado y sin conexión';
 
   @override
   String get home_totalBalance => 'Saldo total';
@@ -1753,14 +1753,14 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboarding_back => 'Atrás';
 
   @override
-  String get onboarding_welcomeToExpensy => '¡Bienvenido a Caro!';
+  String get onboarding_welcomeToExpensy => '¡Bienvenido a Finwick!';
 
   @override
   String get onboarding_restoreABackup => 'Restaurar una copia de seguridad';
 
   @override
   String get onboarding_loadAPreviouslySaved =>
-      'Cargue un archivo JSON Expensy previamente guardado';
+      'Cargue un archivo JSON Finwick previamente guardado';
 
   @override
   String get onboarding_or => 'o';
@@ -3760,7 +3760,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboarding_defaultBankName => 'Banco Principal';
 
   @override
-  String get onboarding_defaultCardholder => 'MIEMBRO EXPENSY';
+  String get onboarding_defaultCardholder => 'MIEMBRO MY FINANCIAL AGENT';
 
   @override
   String get onboarding_defaultUser => 'Usuario';
@@ -3974,7 +3974,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String notif_autoBackupFailedBody(String error) {
-    return 'Expensy no pudo crear tu copia programada: $error';
+    return 'Finwick no pudo crear tu copia programada: $error';
   }
 
   @override

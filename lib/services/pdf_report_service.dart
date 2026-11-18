@@ -117,7 +117,7 @@ class PdfReportService {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Text(
-                    'EXPENSY',
+                    'MY FINANCIAL AGENT',
                     style: pw.TextStyle(
                       fontSize: 18,
                       fontWeight: pw.FontWeight.bold,

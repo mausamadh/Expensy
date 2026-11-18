@@ -281,7 +281,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         setState(() => _nameError = null);
       }
       if (_cardHolderCtrl.text.isEmpty ||
-          _cardHolderCtrl.text == 'EXPENSY MEMBER' ||
+          _cardHolderCtrl.text == 'MY FINANCIAL AGENT MEMBER' ||
           _cardHolderCtrl.text == _defaultCardholderSeed) {
         _cardHolderCtrl.text = _nameCtrl.text.trim().toUpperCase();
       }

@@ -340,6 +340,43 @@ class DBHelper {
   static Future<void> deleteCertificate(String id) =>
       AppDatabase.instance.deleteCertificate(id);
 
+  // ── SMS Inbox & Rules ─────────────────────────────────────────────────
+  static Future<List<SmsInboxItem>> getSmsInbox({String? status}) =>
+      AppDatabase.instance.getSmsInbox(status: status);
+
+  static Future<SmsInboxItem?> getSmsInboxByHash(String rawHash) =>
+      AppDatabase.instance.getSmsInboxByHash(rawHash);
+
+  static Future<void> insertSmsInbox(SmsInboxItem item) =>
+      AppDatabase.instance.insertSmsInbox(item);
+
+  static Future<void> updateSmsInbox(SmsInboxItem item) =>
+      AppDatabase.instance.updateSmsInbox(item);
+
+  static Future<void> deleteSmsInbox(String id) =>
+      AppDatabase.instance.deleteSmsInbox(id);
+
+  static Future<List<SmsRule>> getSmsRules() =>
+      AppDatabase.instance.getSmsRules();
+
+  static Future<void> insertSmsRule(SmsRule rule) =>
+      AppDatabase.instance.insertSmsRule(rule);
+
+  static Future<void> deleteSmsRule(String id) =>
+      AppDatabase.instance.deleteSmsRule(id);
+
+  static Future<List<SmsSenderPref>> getSmsSenderPrefs() =>
+      AppDatabase.instance.getSmsSenderPrefs();
+
+  static Future<void> insertSmsSenderPref(SmsSenderPref pref) =>
+      AppDatabase.instance.insertSmsSenderPref(pref);
+
+  static Future<void> updateSmsSenderPref(SmsSenderPref pref) =>
+      AppDatabase.instance.updateSmsSenderPref(pref);
+
+  static Future<void> deleteSmsSenderPref(String id) =>
+      AppDatabase.instance.deleteSmsSenderPref(id);
+
   // ── Net Worth Snapshots ───────────────────────────────────────────────
   static Future<List<NetWorthSnapshot>> getNetWorthSnapshots(
           {DateTime? since, int? limit}) =>

@@ -1,0 +1,18 @@
+{
+  "id": "kcb_paid_to",
+  "senderId": "KCB",
+  "serviceName": "KCB Paid To",
+  "anchors": [
+    { "textBefore": " paid to ", "textAfter": " Ref: " }
+  ],
+  "fields": [
+    { "name": "AMOUNT", "anchor": { "textBefore": "", "textAfter": " paid to " }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": " paid to ", "textAfter": " (Acc" }, "type": "TEXT" },
+    { "name": "REFERENCE", "anchor": { "textBefore": "Ref: ", "textAfter": "." }, "type": "TEXT" },
+    { "name": "DATE", "anchor": { "textBefore": " on ", "textAfter": " at " }, "type": "DATE" }
+  ],
+  "transactionDirection": "EXPENSE",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

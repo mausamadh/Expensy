@@ -1,0 +1,16 @@
+{
+  "id": "evopay_lpn_parking",
+  "senderId": "EVOPAY",
+  "serviceName": "Evopay Number-Plate Parking",
+  "anchors": [
+    { "textBefore": "paid parking fee of KES", "textAfter": " for LPN" }
+  ],
+  "fields": [
+    { "name": "AMOUNT", "anchor": { "textBefore": "paid parking fee of KES ", "textAfter": " for LPN" }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": "Thank you for visiting ", "textAfter": "." }, "type": "TEXT" }
+  ],
+  "transactionDirection": "EXPENSE",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

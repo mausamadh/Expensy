@@ -1,0 +1,16 @@
+{
+  "id": "pesalink_received",
+  "senderId": "PESALINK",
+  "serviceName": "PesaLink Received",
+  "anchors": [
+    { "textBefore": " received from ", "textAfter": " into A/C " }
+  ],
+  "fields": [
+    { "name": "AMOUNT", "anchor": { "textBefore": "", "textAfter": " received from " }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": " received from ", "textAfter": " into " }, "type": "TEXT" }
+  ],
+  "transactionDirection": "TRANSFER",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

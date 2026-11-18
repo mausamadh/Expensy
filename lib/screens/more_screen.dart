@@ -26,6 +26,7 @@ import 'certificates_screen.dart';
 import 'export_screen.dart';
 import 'backup_screen.dart';
 import 'settings_screen.dart';
+import 'sms_inbox_screen.dart';
 
 // ── class MoreScreen ──────────────────────────────────────────────────────────
 // Encapsulates UI state and rendering logic for MoreScreen.
@@ -52,6 +53,13 @@ class MoreScreen extends StatelessWidget {
       _Section(
         title: l10n.more_sectionTools,
         items: [
+          _Item(
+            icon: Icons.sms_rounded,
+            label: 'SMS Inbox',
+            sub: 'Auto-capture transactions from messages',
+            color: const Color(0xFF00838F),
+            screen: const SmsInboxScreen(),
+          ),
           _Item(
             icon: Icons.currency_exchange_rounded,
             label: l10n.more_currencyConverter,

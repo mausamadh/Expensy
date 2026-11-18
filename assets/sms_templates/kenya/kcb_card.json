@@ -1,0 +1,16 @@
+{
+  "id": "kcb_card",
+  "senderId": "KCB",
+  "serviceName": "KCB Card Transaction",
+  "anchors": [
+    { "textBefore": "transaction made on KCB card", "textAfter": " at" }
+  ],
+  "fields": [
+    { "name": "AMOUNT", "anchor": { "textBefore": "", "textAfter": " transaction made" }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": "at ", "textAfter": " on" }, "type": "TEXT" }
+  ],
+  "transactionDirection": "EXPENSE",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

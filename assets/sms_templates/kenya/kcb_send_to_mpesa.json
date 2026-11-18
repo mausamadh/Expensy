@@ -1,0 +1,18 @@
+{
+  "id": "kcb_send_to_mpesa",
+  "senderId": "KCB",
+  "serviceName": "KCB Send to M-PESA",
+  "anchors": [
+    { "textBefore": "SEND TO M-PESA request of", "textAfter": " from" }
+  ],
+  "fields": [
+    { "name": "AMOUNT", "anchor": { "textBefore": "request of KES ", "textAfter": " from" }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": "SEND TO ", "textAfter": " request of" }, "type": "TEXT" },
+    { "name": "REFERENCE", "anchor": { "textBefore": "M-PESA REF: ", "textAfter": "." }, "type": "TEXT" },
+    { "name": "FEE", "anchor": { "textBefore": "Transaction cost KES ", "textAfter": " Incl" }, "type": "CURRENCY" }
+  ],
+  "transactionDirection": "TRANSFER",
+  "revision": 2,
+  "isBuiltIn": true,
+  "isActive": true
+}

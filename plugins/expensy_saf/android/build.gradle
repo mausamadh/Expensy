@@ -1,4 +1,4 @@
-group 'com.ma.expensy.saf'
+group 'com.ma.finwick.saf'
 version '1.0-SNAPSHOT'
 
 buildscript {
@@ -22,7 +22,7 @@ rootProject.allprojects {
 apply plugin: 'com.android.library'
 
 android {
-    namespace 'com.ma.expensy.saf'
+    namespace 'com.ma.finwick.saf'
 
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'

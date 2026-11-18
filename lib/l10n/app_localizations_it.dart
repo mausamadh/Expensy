@@ -9,7 +9,7 @@ class AppLocalizationsIt extends AppLocalizations {
   AppLocalizationsIt([String locale = 'it']) : super(locale);
 
   @override
-  String get appTitle => 'Caro';
+  String get appTitle => 'Finwick';
 
   @override
   String get settings_title => 'Impostazioni';
@@ -506,7 +506,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get onboarding_restoreFailed =>
-      'Ripristino non riuscito: il file potrebbe essere danneggiato o non essere un backup Expensy.';
+      'Ripristino non riuscito: il file potrebbe essere danneggiato o non essere un backup Finwick.';
 
   @override
   String get onboarding_continue => 'Continua';
@@ -641,7 +641,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get backup_restoreFailedCorrupted =>
-      'Ripristino non riuscito: il file potrebbe essere danneggiato o non essere un backup Expensy.';
+      'Ripristino non riuscito: il file potrebbe essere danneggiato o non essere un backup Finwick.';
 
   @override
   String get budget_noBudgetsYet => 'Nessun budget ancora';
@@ -836,7 +836,7 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
-  String get wrapped_title => 'Riepilogo Expensy';
+  String get wrapped_title => 'Riepilogo Finwick';
 
   @override
   String wrapped_bannerTitle(Object month) {
@@ -1631,7 +1631,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get export_pdfPrint => 'Stampa / Anteprima';
 
   @override
-  String get export_pdfGeneratedBy => 'Generato da Expensy • Privato & Offline';
+  String get export_pdfGeneratedBy => 'Generato da Finwick • Privato & Offline';
 
   @override
   String get home_totalBalance => 'Saldo Totale';
@@ -1752,14 +1752,14 @@ class AppLocalizationsIt extends AppLocalizations {
   String get onboarding_back => 'Indietro';
 
   @override
-  String get onboarding_welcomeToExpensy => 'Benvenuto in Expensy!';
+  String get onboarding_welcomeToExpensy => 'Benvenuto in Finwick!';
 
   @override
   String get onboarding_restoreABackup => 'Ripristina un Backup';
 
   @override
   String get onboarding_loadAPreviouslySaved =>
-      'Carica un file JSON Expensy salvato in precedenza';
+      'Carica un file JSON Finwick salvato in precedenza';
 
   @override
   String get onboarding_or => 'oppure';
@@ -3758,7 +3758,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get onboarding_defaultBankName => 'Banca Principale';
 
   @override
-  String get onboarding_defaultCardholder => 'MEMBRO EXPENSY';
+  String get onboarding_defaultCardholder => 'MEMBRO MY FINANCIAL AGENT';
 
   @override
   String get onboarding_defaultUser => 'Utente';
@@ -3971,7 +3971,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String notif_autoBackupFailedBody(String error) {
-    return 'Expensy non è riuscito a creare il backup programmato: $error';
+    return 'Finwick non è riuscito a creare il backup programmato: $error';
   }
 
   @override

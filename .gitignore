@@ -33,3 +33,10 @@ Thumbs.db
 
 # --- Machine-specific (each dev generates their own) ---
 android/local.properties
+
+# --- Release signing secrets (NEVER commit) ---
+android/key.properties
+android/*.keystore
+android/app/*.keystore
+android/*.jks
+android/app/*.jks

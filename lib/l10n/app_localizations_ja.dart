@@ -494,7 +494,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get onboarding_restoreFailed =>
-      '復元に失敗しました: ファイルが破損しているか、Expensy のバックアップではない可能性があります。';
+      '復元に失敗しました: ファイルが破損しているか、Finwick のバックアップではない可能性があります。';
 
   @override
   String get onboarding_continue => '続行';
@@ -629,7 +629,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get backup_restoreFailedCorrupted =>
-      '復元に失敗しました: ファイルが破損しているか、Expensy のバックアップではない可能性があります。';
+      '復元に失敗しました: ファイルが破損しているか、Finwick のバックアップではない可能性があります。';
 
   @override
   String get budget_noBudgetsYet => 'まだ予算がありません';
@@ -817,7 +817,7 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get wrapped_title => 'Expensy まとめ';
+  String get wrapped_title => 'Finwick まとめ';
 
   @override
   String wrapped_bannerTitle(Object month) {
@@ -1589,7 +1589,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get export_pdfPrint => '印刷 / プレビュー';
 
   @override
-  String get export_pdfGeneratedBy => 'Expensy により生成 • プライベート＆オフライン';
+  String get export_pdfGeneratedBy => 'Finwick により生成 • プライベート＆オフライン';
 
   @override
   String get home_totalBalance => '合計残高';
@@ -1710,13 +1710,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get onboarding_back => '戻る';
 
   @override
-  String get onboarding_welcomeToExpensy => 'Expensyへようこそ！';
+  String get onboarding_welcomeToExpensy => 'Finwickへようこそ！';
 
   @override
   String get onboarding_restoreABackup => 'バックアップを復元';
 
   @override
-  String get onboarding_loadAPreviouslySaved => '以前に保存したExpensyのJSONファイルを読み込む';
+  String get onboarding_loadAPreviouslySaved => '以前に保存したFinwickのJSONファイルを読み込む';
 
   @override
   String get onboarding_or => 'または';
@@ -3628,7 +3628,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get onboarding_defaultBankName => 'メイン銀行';
 
   @override
-  String get onboarding_defaultCardholder => 'EXPENSY メンバー';
+  String get onboarding_defaultCardholder => 'MY FINANCIAL AGENT メンバー';
 
   @override
   String get onboarding_defaultUser => 'ユーザー';

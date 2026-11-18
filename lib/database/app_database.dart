@@ -40,6 +40,9 @@ LazyDatabase _openConnection() {
   TransactionPresets,
   TransactionSplits,
   Certificates,
+  SmsInbox,
+  SmsRules,
+  SmsSenderPrefs,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(e ?? _openConnection());
@@ -52,7 +55,7 @@ class AppDatabase extends _$AppDatabase {
     _instance = db;
   }
 
-  static const int currentSchemaVersion = 31;
+  static const int currentSchemaVersion = 34;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -79,6 +82,14 @@ class AppDatabase extends _$AppDatabase {
               'CREATE INDEX IF NOT EXISTS idx_tx_category ON transactions(category_id);');
           await customStatement(
               'CREATE INDEX IF NOT EXISTS idx_cat_parent ON categories(parent_id);');
+          await customStatement(
+              'CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_inbox_raw_hash ON sms_inbox(raw_hash);');
+          await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_sms_inbox_status ON sms_inbox(status);');
+          await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_sms_rules_sender ON sms_rules(sender_id);');
+          await customStatement(
+              'CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_sender_pref ON sms_sender_prefs(sender_id);');
           await _insertDefaultCategories();
         },
         onUpgrade: (m, from, to) async {
@@ -140,6 +151,41 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(transactionPresets, transactionPresets.toAccountId);
             await m.addColumn(transactionPresets, transactionPresets.toAmount);
           }
+          if (from < 32) {
+            await m.createTable(smsInbox);
+            await m.createTable(smsRules);
+            await customStatement(
+                'CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_inbox_raw_hash ON sms_inbox(raw_hash);');
+            await customStatement(
+                'CREATE INDEX IF NOT EXISTS idx_sms_inbox_status ON sms_inbox(status);');
+            await customStatement(
+                'CREATE INDEX IF NOT EXISTS idx_sms_rules_sender ON sms_rules(sender_id);');
+          }
+          if (from < 33) {
+            // v33 created sms_blocked_senders (raw SQL: the drift table
+            // class was removed in v34, which drops the table again).
+            await customStatement(
+                'CREATE TABLE IF NOT EXISTS sms_blocked_senders (id TEXT NOT NULL, sender_id TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY (id))');
+            await customStatement(
+                'CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_blocked_sender ON sms_blocked_senders(sender_id)');
+          }
+          if (from < 34) {
+            // Blocked senders become sender prefs with parsing denied, so
+            // the user's "hide this sender" choice survives the redesign.
+            // Idempotent: a previously interrupted run may have already
+            // created the table/index before failing, so guard each step.
+            if (!await _tableExists('sms_sender_prefs')) {
+              await m.createTable(smsSenderPrefs);
+            }
+            await customStatement(
+                'CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_sender_pref ON sms_sender_prefs(sender_id);');
+            if (await _tableExists('sms_blocked_senders')) {
+              await customStatement(
+                  "INSERT OR IGNORE INTO sms_sender_prefs (id, sender_id, parse_allowed, suppressed_kinds, created_at) "
+                  "SELECT id, sender_id, 0, '', created_at FROM sms_blocked_senders");
+              await customStatement('DROP TABLE IF EXISTS sms_blocked_senders');
+            }
+          }
         },
         beforeOpen: (details) async {
           try {
@@ -149,6 +195,16 @@ class AppDatabase extends _$AppDatabase {
           }
         },
       );
+
+  /// Whether a table exists in the current schema. Used to make migration
+  /// steps idempotent so an interrupted migration can self-heal on reopen.
+  Future<bool> _tableExists(String name) async {
+    final rows = await customSelect(
+        'SELECT name FROM sqlite_master WHERE type = ? AND name = ?',
+        variables: [Variable<String>('table'), Variable<String>(name)])
+        .get();
+    return rows.isNotEmpty;
+  }
 
   Future<void> _insertSystemCategories() async {
     const sysCats = [
@@ -535,6 +591,61 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deleteCertificate(String id) async =>
       deleteRow('certificates', 'id', id);
 
+  // ── SMS Inbox & Rules ────────────────────────────────────────────────────
+  Future<List<SmsInboxItem>> getSmsInbox({String? status}) async {
+    final where = status != null ? ' WHERE status = ?' : '';
+    final rows = await customSelect(
+      'SELECT * FROM sms_inbox$where ORDER BY sms_timestamp DESC, id DESC',
+      variables: status != null ? [Variable<String>(status)] : const [],
+    ).get();
+    return rows.map((r) => SmsInboxItem.fromMap(r.data)).toList();
+  }
+
+  Future<SmsInboxItem?> getSmsInboxByHash(String rawHash) async {
+    final rows = await customSelect(
+      'SELECT * FROM sms_inbox WHERE raw_hash = ? LIMIT 1',
+      variables: [Variable<String>(rawHash)],
+    ).get();
+    if (rows.isEmpty) return null;
+    return SmsInboxItem.fromMap(rows.first.data);
+  }
+
+  Future<void> insertSmsInbox(SmsInboxItem item) async =>
+      insertMap('sms_inbox', item.toMap());
+
+  Future<void> updateSmsInbox(SmsInboxItem item) async =>
+      updateMap('sms_inbox', item.toMap(), 'id', item.id);
+
+  Future<void> deleteSmsInbox(String id) async =>
+      deleteRow('sms_inbox', 'id', id);
+
+  Future<List<SmsRule>> getSmsRules() async {
+    final rows = await customSelect(
+        'SELECT * FROM sms_rules ORDER BY created_at DESC').get();
+    return rows.map((r) => SmsRule.fromMap(r.data)).toList();
+  }
+
+  Future<void> insertSmsRule(SmsRule rule) async =>
+      insertMap('sms_rules', rule.toMap());
+
+  Future<void> deleteSmsRule(String id) async =>
+      deleteRow('sms_rules', 'id', id);
+
+  Future<List<SmsSenderPref>> getSmsSenderPrefs() async {
+    final rows = await customSelect(
+        'SELECT * FROM sms_sender_prefs ORDER BY created_at DESC').get();
+    return rows.map((r) => SmsSenderPref.fromMap(r.data)).toList();
+  }
+
+  Future<void> insertSmsSenderPref(SmsSenderPref pref) async =>
+      insertMap('sms_sender_prefs', pref.toMap());
+
+  Future<void> updateSmsSenderPref(SmsSenderPref pref) async =>
+      updateMap('sms_sender_prefs', pref.toMap(), 'id', pref.id);
+
+  Future<void> deleteSmsSenderPref(String id) async =>
+      deleteRow('sms_sender_prefs', 'id', id);
+
   // ── Recurring Payments ───────────────────────────────────────────────────
   Future<List<RecurringPayment>> getRecurring() async {
     final rows = await customSelect(
@@ -853,6 +964,9 @@ class AppDatabase extends _$AppDatabase {
     'transaction_splits',
     'certificates',
     'net_worth_snapshots',
+    'sms_inbox',
+    'sms_rules',
+    'sms_sender_prefs',
   ];
 
   /// Executes idempotent v28 data-integrity repairs (D1, D2, D3, D5, and system categories).

@@ -1,4 +1,4 @@
-package com.ma.expensy.saf
+package com.ma.finwick.saf
 
 import android.content.Context
 import android.os.Build

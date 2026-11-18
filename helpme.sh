@@ -127,7 +127,18 @@ cmd_install() {
   ensure_adb
   serial="$(device)"
   step "Installing $flavor apk on $serial"
-  "$ADB" -s "$serial" install -r "$SCRIPT_DIR/$apk"
+  if ! "$ADB" -s "$serial" install -r "$SCRIPT_DIR/$apk"; then
+    # A debug-signed install blocks a release-signed one (and vice versa).
+    if "$ADB" -s "$serial" shell pm list package "$PACKAGE" | grep -q "$PACKAGE"; then
+      warn "Install failed — existing app has a different signature. Uninstalling (app data will be lost) and retrying..."
+      "$ADB" -s "$serial" uninstall "$PACKAGE" >/dev/null 2>&1
+      if "$ADB" -s "$serial" install -r "$SCRIPT_DIR/$apk"; then
+        ok "Installed (after uninstalling the old build)."
+        return 0
+      fi
+    fi
+    die "Install failed. Check the error above (run '$0 logs' for details)."
+  fi
   ok "Installed."
 }
 

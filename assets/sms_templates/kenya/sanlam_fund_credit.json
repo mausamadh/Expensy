@@ -1,0 +1,17 @@
+{
+  "id": "sanlam_fund_credit",
+  "senderId": "SANLAM_UT",
+  "serviceName": "Sanlam Fund Credit",
+  "anchors": [
+    { "textBefore": "Money Market Fund has been credited with", "textAfter": "" }
+  ],
+  "fields": [
+    { "name": "AMOUNT", "anchor": { "textBefore": "credited with ", "textAfter": " and" }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": "account for ", "textAfter": " has been credited" }, "type": "TEXT" },
+    { "name": "DATE", "anchor": { "textBefore": "as of ", "textAfter": "." }, "type": "DATE" }
+  ],
+  "transactionDirection": "INCOME",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

@@ -1,0 +1,17 @@
+{
+  "id": "kcb_mpesa_received",
+  "senderId": "KCB",
+  "serviceName": "KCB M-PESA Received Notice",
+  "anchors": [
+    { "textBefore": "You have received KES", "textAfter": "M-PESA Ref" }
+  ],
+  "fields": [
+    { "name": "AMOUNT", "anchor": { "textBefore": "You have received KES ", "textAfter": " from " }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": "from ", "textAfter": ". M-PESA" }, "type": "TEXT" },
+    { "name": "REFERENCE", "anchor": { "textBefore": "Transaction Ref No ", "textAfter": "" }, "type": "TEXT" }
+  ],
+  "transactionDirection": "TRANSFER",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

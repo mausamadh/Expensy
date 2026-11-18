@@ -163,7 +163,7 @@ class _ExpensyAppState extends State<ExpensyApp> {
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
         return MaterialApp(
-          title: 'Expensy',
+          title: 'Finwick',
           navigatorKey: rootNavigatorKey,
           debugShowCheckedModeBanner: false,
           localizationsDelegates: AppLocalizations.localizationsDelegates,

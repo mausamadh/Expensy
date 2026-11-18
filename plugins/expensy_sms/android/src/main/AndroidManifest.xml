@@ -1,0 +1,16 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.ma.finwick.sms">
+
+    <!-- Read the user's SMS history (on-demand scan). Dangerous: requested at runtime. -->
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <!-- Receive incoming SMS in real time (live capture). Dangerous: requested at runtime. -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+
+    <application>
+        <!--
+          Live-capture receiver. Registered at runtime (registerReceiver) only
+          while the app is in the foreground, so no exported manifest receiver
+          is required and no background-start restrictions apply.
+        -->
+    </application>
+</manifest>

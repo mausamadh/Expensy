@@ -9,7 +9,7 @@ class AppLocalizationsBn extends AppLocalizations {
   AppLocalizationsBn([String locale = 'bn']) : super(locale);
 
   @override
-  String get appTitle => 'Expensy';
+  String get appTitle => 'Finwick';
 
   @override
   String get settings_title => 'সেটিংস';
@@ -219,7 +219,7 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get recurring_notificationPermissionDenied =>
-      'বিজ্ঞপ্তির অনুমতি প্রত্যাখ্যান করা হয়েছে। সেটিংস → অ্যাপস → Expensy → বিজ্ঞপ্তি থেকে চালু করুন।';
+      'বিজ্ঞপ্তির অনুমতি প্রত্যাখ্যান করা হয়েছে। সেটিংস → অ্যাপস → Finwick → বিজ্ঞপ্তি থেকে চালু করুন।';
 
   @override
   String get recurring_remindMeAt => 'আমাকে মনে করিয়ে দিন';
@@ -403,7 +403,7 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get lended_person_notificationPermissionDenied =>
-      'বিজ্ঞপ্তির অনুমতি নেই। সেটিংস → অ্যাপস → Expensy → বিজ্ঞপ্তি থেকে অনুমতি দিন।';
+      'বিজ্ঞপ্তির অনুমতি নেই। সেটিংস → অ্যাপস → Finwick → বিজ্ঞপ্তি থেকে অনুমতি দিন।';
 
   @override
   String get lended_person_remindMeAtPrompt => 'মনে করিয়ে দেওয়ার সময়';
@@ -504,7 +504,7 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get onboarding_restoreFailed =>
-      'পুনরুদ্ধার ব্যর্থ: ফাইলটি নষ্ট হতে পারে বা Expensy ব্যাকআপ নয়।';
+      'পুনরুদ্ধার ব্যর্থ: ফাইলটি নষ্ট হতে পারে বা Finwick ব্যাকআপ নয়।';
 
   @override
   String get onboarding_continue => 'চালিয়ে যান';
@@ -639,7 +639,7 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get backup_restoreFailedCorrupted =>
-      'পুনরুদ্ধার ব্যর্থ: ফাইলটি নষ্ট হতে পারে বা Expensy ব্যাকআপ নয়।';
+      'পুনরুদ্ধার ব্যর্থ: ফাইলটি নষ্ট হতে পারে বা Finwick ব্যাকআপ নয়।';
 
   @override
   String get budget_noBudgetsYet => 'এখনো কোনো বাজেট নেই';
@@ -830,7 +830,7 @@ class AppLocalizationsBn extends AppLocalizations {
   }
 
   @override
-  String get wrapped_title => 'Expensy Wrapped';
+  String get wrapped_title => 'Finwick Wrapped';
 
   @override
   String wrapped_bannerTitle(Object month) {
@@ -1617,7 +1617,7 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String get export_pdfGeneratedBy =>
-      'Expensy দ্বারা প্রস্তুত • ব্যক্তিগত ও অফলাইন';
+      'Finwick দ্বারা প্রস্তুত • ব্যক্তিগত ও অফলাইন';
 
   @override
   String get home_totalBalance => 'মোট ব্যালেন্স';
@@ -1738,14 +1738,14 @@ class AppLocalizationsBn extends AppLocalizations {
   String get onboarding_back => 'পিছনে';
 
   @override
-  String get onboarding_welcomeToExpensy => 'Expensy-তে স্বাগতম';
+  String get onboarding_welcomeToExpensy => 'Finwick-তে স্বাগতম';
 
   @override
   String get onboarding_restoreABackup => 'ব্যাকআপ পুনরুদ্ধার করুন';
 
   @override
   String get onboarding_loadAPreviouslySaved =>
-      'আগে সংরক্ষিত Expensy JSON ফাইল লোড করুন';
+      'আগে সংরক্ষিত Finwick JSON ফাইল লোড করুন';
 
   @override
   String get onboarding_or => 'অথবা';
@@ -3744,7 +3744,7 @@ class AppLocalizationsBn extends AppLocalizations {
   String get onboarding_defaultBankName => 'প্রধান ব্যাংক';
 
   @override
-  String get onboarding_defaultCardholder => 'EXPENSY সদস্য';
+  String get onboarding_defaultCardholder => 'MY FINANCIAL AGENT সদস্য';
 
   @override
   String get onboarding_defaultUser => 'ব্যবহারকারী';
@@ -3955,7 +3955,7 @@ class AppLocalizationsBn extends AppLocalizations {
 
   @override
   String notif_autoBackupFailedBody(String error) {
-    return 'Expensy নির্ধারিত ব্যাকআপ তৈরি করতে পারেনি: $error';
+    return 'Finwick নির্ধারিত ব্যাকআপ তৈরি করতে পারেনি: $error';
   }
 
   @override

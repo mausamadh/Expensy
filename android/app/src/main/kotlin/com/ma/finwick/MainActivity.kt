@@ -1,4 +1,4 @@
-package com.ma.expensy
+package com.ma.finwick
 
 import android.content.Intent
 import io.flutter.embedding.android.FlutterActivity
@@ -21,8 +21,8 @@ import io.flutter.plugin.common.MethodChannel
  *                  point.
  */
 class MainActivity : FlutterActivity() {
-    private val methodChannelName = "com.ma.expensy/quick_add"
-    private val eventChannelName = "com.ma.expensy/quick_add_stream"
+    private val methodChannelName = "com.ma.finwick/quick_add"
+    private val eventChannelName = "com.ma.finwick/quick_add_stream"
     private var eventSink: EventChannel.EventSink? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -68,11 +68,11 @@ class MainActivity : FlutterActivity() {
         if (extraRoute != null) return extraRoute
 
         return when (intent.action) {
-            "com.ma.expensy.ACTION_ADD_EXPENSE" -> "expense"
-            "com.ma.expensy.ACTION_ADD_INCOME" -> "income"
-            "com.ma.expensy.ACTION_TRANSFER" -> "transfer"
-            "com.ma.expensy.ACTION_PRESETS" -> "presets"
-            "com.ma.expensy.ACTION_QUICK_ADD" -> "quick_add_transaction"
+            "com.ma.finwick.ACTION_ADD_EXPENSE" -> "expense"
+            "com.ma.finwick.ACTION_ADD_INCOME" -> "income"
+            "com.ma.finwick.ACTION_TRANSFER" -> "transfer"
+            "com.ma.finwick.ACTION_PRESETS" -> "presets"
+            "com.ma.finwick.ACTION_QUICK_ADD" -> "quick_add_transaction"
             else -> null
         }
     }

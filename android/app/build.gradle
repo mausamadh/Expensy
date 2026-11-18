@@ -10,7 +10,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.ma.expensy"
+    namespace = "com.ma.finwick"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -28,7 +28,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.ma.expensy"
+        applicationId = "com.ma.finwick"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

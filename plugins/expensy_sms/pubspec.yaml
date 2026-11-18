@@ -1,0 +1,15 @@
+name: expensy_sms
+description: SMS access plugin for Expensy transaction import — reads SMS history, lists senders, and (optionally) captures incoming SMS in real time.
+version: 0.0.1
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: '>=3.19.0'
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.ma.finwick.sms
+        pluginClass: ExpensySmsPlugin

@@ -221,7 +221,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get recurring_notificationPermissionDenied =>
-      'Benachrichtigungsberechtigung verweigert. Aktiviere sie unter Einstellungen → Apps → Expensy → Benachrichtigungen.';
+      'Benachrichtigungsberechtigung verweigert. Aktiviere sie unter Einstellungen → Apps → Finwick → Benachrichtigungen.';
 
   @override
   String get recurring_remindMeAt => 'Erinnere mich um';
@@ -405,7 +405,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get lended_person_notificationPermissionDenied =>
-      'Benachrichtigungsberechtigung verweigert. Aktiviere sie unter Einstellungen → Apps → Expensy → Benachrichtigungen.';
+      'Benachrichtigungsberechtigung verweigert. Aktiviere sie unter Einstellungen → Apps → Finwick → Benachrichtigungen.';
 
   @override
   String get lended_person_remindMeAtPrompt => 'Erinnere mich um';
@@ -508,7 +508,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get onboarding_restoreFailed =>
-      'Wiederherstellung fehlgeschlagen: Die Datei ist möglicherweise beschädigt oder kein Expensy-Backup.';
+      'Wiederherstellung fehlgeschlagen: Die Datei ist möglicherweise beschädigt oder kein Finwick-Backup.';
 
   @override
   String get onboarding_continue => 'Weiter';
@@ -643,7 +643,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get backup_restoreFailedCorrupted =>
-      'Wiederherstellung fehlgeschlagen: Die Datei ist möglicherweise beschädigt oder kein Expensy-Backup.';
+      'Wiederherstellung fehlgeschlagen: Die Datei ist möglicherweise beschädigt oder kein Finwick-Backup.';
 
   @override
   String get budget_noBudgetsYet => 'Noch keine Budgets';
@@ -837,7 +837,7 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get wrapped_title => 'Expensy Rückblick';
+  String get wrapped_title => 'Finwick Rückblick';
 
   @override
   String wrapped_bannerTitle(Object month) {
@@ -1628,7 +1628,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get export_pdfPrint => 'Drucken / Vorschau';
 
   @override
-  String get export_pdfGeneratedBy => 'Erstellt mit Expensy • Privat & Offline';
+  String get export_pdfGeneratedBy => 'Erstellt mit Finwick • Privat & Offline';
 
   @override
   String get home_totalBalance => 'Gesamtsaldo';
@@ -1749,14 +1749,14 @@ class AppLocalizationsDe extends AppLocalizations {
   String get onboarding_back => 'Zurück';
 
   @override
-  String get onboarding_welcomeToExpensy => 'Willkommen bei Expensy!';
+  String get onboarding_welcomeToExpensy => 'Willkommen bei Finwick!';
 
   @override
   String get onboarding_restoreABackup => 'Ein Backup wiederherstellen';
 
   @override
   String get onboarding_loadAPreviouslySaved =>
-      'Laden Sie eine zuvor gespeicherte Expensy JSON-Datei';
+      'Laden Sie eine zuvor gespeicherte Finwick JSON-Datei';
 
   @override
   String get onboarding_or => 'oder';
@@ -3770,7 +3770,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get onboarding_defaultBankName => 'Hauptbank';
 
   @override
-  String get onboarding_defaultCardholder => 'EXPENSY MITGLIED';
+  String get onboarding_defaultCardholder => 'MY FINANCIAL AGENT MITGLIED';
 
   @override
   String get onboarding_defaultUser => 'Benutzer';
@@ -3983,7 +3983,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String notif_autoBackupFailedBody(String error) {
-    return 'Expensy konnte Ihr geplantes Backup nicht erstellen: $error';
+    return 'Finwick konnte Ihr geplantes Backup nicht erstellen: $error';
   }
 
   @override

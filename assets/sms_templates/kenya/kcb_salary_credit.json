@@ -1,0 +1,18 @@
+{
+  "id": "kcb_salary_credit",
+  "senderId": "KCB",
+  "serviceName": "KCB Salary Credit",
+  "anchors": [
+    { "textBefore": "credited with KES", "textAfter": "Salary Payment" }
+  ],
+  "fields": [
+    { "name": "AMOUNT", "anchor": { "textBefore": "credited with KES ", "textAfter": "-Salary" }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": "00-", "textAfter": ". KCB" }, "type": "TEXT" },
+    { "name": "REFERENCE", "anchor": { "textBefore": "KCB Channel: ", "textAfter": "." }, "type": "TEXT" },
+    { "name": "DATE", "anchor": { "textBefore": "Date: ", "textAfter": "." }, "type": "DATE" }
+  ],
+  "transactionDirection": "INCOME",
+  "revision": 2,
+  "isBuiltIn": true,
+  "isActive": true
+}

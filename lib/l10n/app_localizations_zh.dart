@@ -811,7 +811,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get wrapped_title => 'Expensy 年度总结';
+  String get wrapped_title => 'Finwick 年度总结';
 
   @override
   String wrapped_bannerTitle(Object month) {
@@ -1580,7 +1580,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get export_pdfPrint => '打印 / 预览';
 
   @override
-  String get export_pdfGeneratedBy => '由 Expensy 生成 • 私密且离线';
+  String get export_pdfGeneratedBy => '由 Finwick 生成 • 私密且离线';
 
   @override
   String get home_totalBalance => '总余额';
@@ -1700,13 +1700,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get onboarding_back => '返回';
 
   @override
-  String get onboarding_welcomeToExpensy => '欢迎使用 Expensy！';
+  String get onboarding_welcomeToExpensy => '欢迎使用 Finwick！';
 
   @override
   String get onboarding_restoreABackup => '恢复备份';
 
   @override
-  String get onboarding_loadAPreviouslySaved => '加载之前保存的 Expensy JSON 文件';
+  String get onboarding_loadAPreviouslySaved => '加载之前保存的 Finwick JSON 文件';
 
   @override
   String get onboarding_or => '或';
@@ -3611,7 +3611,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get onboarding_defaultBankName => '主银行卡';
 
   @override
-  String get onboarding_defaultCardholder => 'EXPENSY 会员';
+  String get onboarding_defaultCardholder => 'MY FINANCIAL AGENT 会员';
 
   @override
   String get onboarding_defaultUser => '用户';
@@ -3822,7 +3822,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String notif_autoBackupFailedBody(String error) {
-    return 'Expensy 无法创建计划备份: $error';
+    return 'Finwick 无法创建计划备份: $error';
   }
 
   @override

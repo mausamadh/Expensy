@@ -1,4 +1,4 @@
-package com.ma.expensy
+package com.ma.finwick
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager

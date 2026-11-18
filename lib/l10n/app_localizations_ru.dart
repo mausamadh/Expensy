@@ -833,7 +833,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get wrapped_title => 'Итоги Expensy';
+  String get wrapped_title => 'Итоги Finwick';
 
   @override
   String wrapped_bannerTitle(Object month) {
@@ -1630,7 +1630,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get export_pdfGeneratedBy =>
-      'Создано в Expensy • Конфиденциально и офлайн';
+      'Создано в Finwick • Конфиденциально и офлайн';
 
   @override
   String get home_totalBalance => 'Общий баланс';
@@ -1751,14 +1751,14 @@ class AppLocalizationsRu extends AppLocalizations {
   String get onboarding_back => 'Назад';
 
   @override
-  String get onboarding_welcomeToExpensy => 'Добро пожаловать в Expensy!';
+  String get onboarding_welcomeToExpensy => 'Добро пожаловать в Finwick!';
 
   @override
   String get onboarding_restoreABackup => 'Восстановить резервную копию';
 
   @override
   String get onboarding_loadAPreviouslySaved =>
-      'Загрузить ранее сохраненный JSON файл Expensy';
+      'Загрузить ранее сохраненный JSON файл Finwick';
 
   @override
   String get onboarding_or => 'или';
@@ -3754,7 +3754,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get onboarding_defaultBankName => 'Основной банк';
 
   @override
-  String get onboarding_defaultCardholder => 'УЧАСТНИК EXPENSY';
+  String get onboarding_defaultCardholder => 'УЧАСТНИК MY FINANCIAL AGENT';
 
   @override
   String get onboarding_defaultUser => 'Пользователь';
@@ -3967,7 +3967,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String notif_autoBackupFailedBody(String error) {
-    return 'Expensy не удалось создать резервную копию: $error';
+    return 'Finwick не удалось создать резервную копию: $error';
   }
 
   @override

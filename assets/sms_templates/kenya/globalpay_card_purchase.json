@@ -1,0 +1,17 @@
+{
+  "id": "globalpay_card_purchase",
+  "senderId": "Globalpay",
+  "serviceName": "Globalpay Card Purchase",
+  "anchors": [
+    { "textBefore": "transaction of Ksh", "textAfter": " has been approved" }
+  ],
+  "fields": [
+    { "name": "AMOUNT", "anchor": { "textBefore": "transaction of Ksh. ", "textAfter": " (inclusive" }, "type": "CURRENCY" },
+    { "name": "FEE", "anchor": { "textBefore": "inclusive of Ksh. ", "textAfter": " forex" }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": "done at ", "textAfter": " has been approved" }, "type": "TEXT" }
+  ],
+  "transactionDirection": "EXPENSE",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

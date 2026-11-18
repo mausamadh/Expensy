@@ -1,0 +1,16 @@
+{
+  "id": "etica_payment",
+  "senderId": "ETICALTD",
+  "serviceName": "Etica Payment",
+  "anchors": [
+    { "textBefore": "Your payment of KES", "textAfter": " from account" }
+  ],
+  "fields": [
+    { "name": "AMOUNT", "anchor": { "textBefore": "Your payment of KES ", "textAfter": " to " }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": " to ", "textAfter": " from account" }, "type": "TEXT" }
+  ],
+  "transactionDirection": "EXPENSE",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

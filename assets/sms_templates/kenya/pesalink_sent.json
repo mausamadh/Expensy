@@ -1,0 +1,16 @@
+{
+  "id": "pesalink_sent",
+  "senderId": "PESALINK",
+  "serviceName": "PesaLink Sent",
+  "anchors": [
+    { "textBefore": " sent to ", "textAfter": " A/C " }
+  ],
+  "fields": [
+    { "name": "AMOUNT", "anchor": { "textBefore": "KES ", "textAfter": " sent to " }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": " sent to ", "textAfter": " A/C " }, "type": "TEXT" }
+  ],
+  "transactionDirection": "TRANSFER",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

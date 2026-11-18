@@ -22,9 +22,9 @@ class QuickAddService {
   static const String routePresets = 'presets';
 
   static const MethodChannel _methodChannel =
-      MethodChannel('com.ma.expensy/quick_add');
+      MethodChannel('com.ma.finwick/quick_add');
   static const EventChannel _eventChannel =
-      EventChannel('com.ma.expensy/quick_add_stream');
+      EventChannel('com.ma.finwick/quick_add_stream');
 
   Stream<String?>? _routeStream;
 

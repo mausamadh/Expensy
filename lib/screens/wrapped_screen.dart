@@ -899,7 +899,7 @@ class _ReceiptSummarySlide extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'EXPENSY',
+                      'MY FINANCIAL AGENT',
                       style: TextStyle(
                         fontSize: 14,
                         letterSpacing: 2,

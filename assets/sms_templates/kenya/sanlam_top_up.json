@@ -1,0 +1,15 @@
+{
+  "id": "sanlam_top_up",
+  "senderId": "SANLAM_UT",
+  "serviceName": "Sanlam Top Up",
+  "anchors": [
+    { "textBefore": "topped up your account with", "textAfter": "" }
+  ],
+  "fields": [
+    { "name": "AMOUNT", "anchor": { "textBefore": "topped up your account with ", "textAfter": ", your account" }, "type": "CURRENCY" }
+  ],
+  "transactionDirection": "EXPENSE",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

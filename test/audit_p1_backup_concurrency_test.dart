@@ -206,7 +206,7 @@ void main() {
       expect(catIds.contains('sys_investment'), isTrue);
     });
 
-    test('B8 & B13: exportAll and importAll include net_worth_snapshots (18 tables) and unified schema version', () async {
+    test('B8 & B13: exportAll and importAll include net_worth_snapshots (21 tables) and unified schema version', () async {
       expect(
         BackupValidator.currentSchemaVersion,
         equals(AppDatabase.currentSchemaVersion),
@@ -215,8 +215,11 @@ void main() {
         provider.schemaVersion,
         equals(AppDatabase.currentSchemaVersion),
       );
-      expect(AppDatabase.backupTables.length, 18);
+      expect(AppDatabase.backupTables.length, 21);
       expect(AppDatabase.backupTables.contains('net_worth_snapshots'), isTrue);
+      expect(AppDatabase.backupTables.contains('sms_inbox'), isTrue);
+      expect(AppDatabase.backupTables.contains('sms_rules'), isTrue);
+      expect(AppDatabase.backupTables.contains('sms_sender_prefs'), isTrue);
 
       await db.insertNetWorthSnapshot(
         NetWorthSnapshot(

@@ -1,0 +1,16 @@
+{
+  "id": "stanchart_card",
+  "senderId": "StanChart",
+  "serviceName": "StanChart Card Transaction",
+  "anchors": [
+    { "textBefore": "transaction of", "textAfter": " was made on card" }
+  ],
+  "fields": [
+    { "name": "AMOUNT", "anchor": { "textBefore": "transaction of ", "textAfter": " was made" }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": "at ", "textAfter": " on" }, "type": "TEXT" }
+  ],
+  "transactionDirection": "EXPENSE",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

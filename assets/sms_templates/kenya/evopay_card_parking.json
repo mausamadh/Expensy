@@ -1,0 +1,17 @@
+{
+  "id": "evopay_card_parking",
+  "senderId": "EVOPAY",
+  "serviceName": "Evopay Card Parking",
+  "anchors": [
+    { "textBefore": "parking fee has been charged to your card", "textAfter": "Your new card balance" }
+  ],
+  "fields": [
+    { "name": "AMOUNT", "anchor": { "textBefore": "Ksh. ", "textAfter": " parking fee" }, "type": "CURRENCY" },
+    { "name": "BALANCE", "anchor": { "textBefore": "Your new card balance is Ksh. ", "textAfter": "." }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": "Thank you for visiting ", "textAfter": "." }, "type": "TEXT" }
+  ],
+  "transactionDirection": "EXPENSE",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

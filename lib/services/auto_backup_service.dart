@@ -71,7 +71,7 @@ class AutoBackupState {
 }
 
 class AutoBackupService {
-  static const String taskKey = 'com.ma.expensy.autoBackupTask';
+  static const String taskKey = 'com.ma.finwick.autoBackupTask';
   static const String secretKey = 'ab_encryption_password';
   static const String channelId = 'expensy_backup';
 

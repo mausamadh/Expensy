@@ -1,0 +1,19 @@
+{
+  "id": "mpesa_airtime",
+  "senderId": "MPESA",
+  "serviceName": "M-Pesa Airtime",
+  "anchors": [
+    { "textBefore": "bought Ksh", "textAfter": " of airtime" }
+  ],
+  "fields": [
+    { "name": "REFERENCE", "anchor": { "textBefore": "", "textAfter": " confirmed." }, "type": "TEXT" },
+    { "name": "AMOUNT", "anchor": { "textBefore": "bought Ksh", "textAfter": " of airtime" }, "type": "CURRENCY" },
+    { "name": "BALANCE", "anchor": { "textBefore": "New M-PESA balance is Ksh", "textAfter": "." }, "type": "CURRENCY" },
+    { "name": "FEE", "anchor": { "textBefore": "Transaction cost, Ksh", "textAfter": "." }, "type": "CURRENCY" },
+    { "name": "DATE", "anchor": { "textBefore": " on ", "textAfter": " at " }, "type": "DATE" }
+  ],
+  "transactionDirection": "EXPENSE",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

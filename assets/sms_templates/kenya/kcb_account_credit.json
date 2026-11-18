@@ -1,0 +1,17 @@
+{
+  "id": "kcb_account_credit",
+  "senderId": "KCB",
+  "serviceName": "KCB Account Credit",
+  "anchors": [
+    { "textBefore": "your acc", "textAfter": "has been credited" }
+  ],
+  "fields": [
+    { "name": "AMOUNT", "anchor": { "textBefore": "has been credited ", "textAfter": " at " }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": " at ", "textAfter": " at " }, "type": "TEXT" },
+    { "name": "DATE", "anchor": { "textBefore": " on ", "textAfter": "." }, "type": "DATE" }
+  ],
+  "transactionDirection": "INCOME",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

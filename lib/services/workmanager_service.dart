@@ -7,7 +7,7 @@ import '../database/app_database.dart';
 import 'recurring_payment_processor.dart';
 import 'auto_backup_service.dart';
 
-const String autoPayTaskKey = 'com.ma.expensy.autoPayTask';
+const String autoPayTaskKey = 'com.ma.finwick.autoPayTask';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {

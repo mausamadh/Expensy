@@ -1,0 +1,19 @@
+{
+  "id": "kcb_mpesa_sent",
+  "senderId": "KCB",
+  "serviceName": "KCB Sent to M-PESA Confirmation",
+  "anchors": [
+    { "textBefore": " sent to M-PESA ", "textAfter": " on " }
+  ],
+  "fields": [
+    { "name": "REFERENCE", "anchor": { "textBefore": "", "textAfter": " completed." }, "type": "TEXT" },
+    { "name": "AMOUNT", "anchor": { "textBefore": "completed.KES ", "textAfter": " sent to" }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": " sent to M-PESA ", "textAfter": " on " }, "type": "TEXT" },
+    { "name": "FEE", "anchor": { "textBefore": "Transaction cost KES ", "textAfter": " Incl" }, "type": "CURRENCY" },
+    { "name": "DATE", "anchor": { "textBefore": " on ", "textAfter": " at " }, "type": "DATE" }
+  ],
+  "transactionDirection": "TRANSFER",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

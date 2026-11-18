@@ -1,0 +1,16 @@
+{
+  "id": "etica_redemption",
+  "senderId": "ETICALTD",
+  "serviceName": "Etica Redemption",
+  "anchors": [
+    { "textBefore": "You have sent ", "textAfter": " to Mr." }
+  ],
+  "fields": [
+    { "name": "AMOUNT", "anchor": { "textBefore": "You have sent ", "textAfter": " from your account" }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": " in ", "textAfter": " to Mr." }, "type": "TEXT" }
+  ],
+  "transactionDirection": "TRANSFER",
+  "revision": 1,
+  "isBuiltIn": true,
+  "isActive": true
+}

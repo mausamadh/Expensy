@@ -1,0 +1,19 @@
+{
+  "id": "mpesa_buy_goods",
+  "senderId": "MPESA",
+  "serviceName": "M-Pesa Buy Goods",
+  "anchors": [
+    { "textBefore": "Confirmed. Ksh", "textAfter": " paid to" }
+  ],
+  "fields": [
+    { "name": "REFERENCE", "anchor": { "textBefore": "", "textAfter": " Confirmed." }, "type": "TEXT" },
+    { "name": "AMOUNT", "anchor": { "textBefore": "Ksh", "textAfter": " paid to" }, "type": "CURRENCY" },
+    { "name": "MERCHANT", "anchor": { "textBefore": "paid to ", "textAfter": " on " }, "type": "TEXT" },
+    { "name": "BALANCE", "anchor": { "textBefore": "New M-PESA balance is Ksh", "textAfter": "." }, "type": "CURRENCY" },
+    { "name": "FEE", "anchor": { "textBefore": "Transaction cost, Ksh", "textAfter": "." }, "type": "CURRENCY" }
+  ],
+  "transactionDirection": "EXPENSE",
+  "revision": 2,
+  "isBuiltIn": true,
+  "isActive": true
+}
