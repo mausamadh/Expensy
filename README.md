@@ -4,7 +4,7 @@
 
 # Expensy
 
-[![Platform](https://img.shields.io/badge/Platform-Android-grey.svg?style=flat-square)](https://android.com) [![Release](https://img.shields.io/badge/Release-v1.2.4-blue.svg?style=flat-square)](https://github.com/mina-android/Expensy/releases) [![License](https://img.shields.io/badge/License-GPL--3.0-black.svg?style=flat-square)](LICENSE) [![Build](https://img.shields.io/badge/Build-Passing-brightgreen.svg?style=flat-square)](https://github.com/mina-android/Expensy/actions)
+[![Platform](https://img.shields.io/badge/Platform-Android-grey.svg?style=flat-square)](https://android.com) [![Release](https://img.shields.io/badge/Release-v1.2.4-blue.svg?style=flat-square)](https://github.com/mausamadh/Expensy/releases) [![License](https://img.shields.io/badge/License-GPL--3.0-black.svg?style=flat-square)](LICENSE) [![Build](https://img.shields.io/badge/Build-Passing-brightgreen.svg?style=flat-square)](https://github.com/mausamadh/Expensy/actions)
 
 <p align="center">
   A local-first personal finance tracker and budget manager for Android that keeps all financial records, accounts, and transaction history strictly on your physical device.
@@ -84,14 +84,14 @@
 
 ## Downloads
 
-Official release packages are published under the [GitHub Releases](https://github.com/mina-android/Expensy/releases) repository page.
+Official release packages are published under the [GitHub Releases](https://github.com/mausamadh/Expensy/releases) repository page.
 
 | Platform | Architecture | Package Type | Download Link | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| **Android** | arm64-v8a | `.apk` | [Download (v1.2.4)](https://github.com/mina-android/Expensy/releases/latest) | Modern 64-bit devices (recommended) |
-| **Android** | armeabi-v7a | `.apk` | [Download (v1.2.4)](https://github.com/mina-android/Expensy/releases/latest) | Legacy 32-bit devices |
-| **Android** | x86_64 | `.apk` | [Download (v1.2.4)](https://github.com/mina-android/Expensy/releases/latest) | Android emulators and Intel-based tablets |
-| **Android** | Universal | `.apk` | [Download (v1.2.4)](https://github.com/mina-android/Expensy/releases/latest) | Combined installer supporting all architectures |
+| **Android** | arm64-v8a | `.apk` | [Download (v1.2.4)](https://github.com/mausamadh/Expensy/releases/latest) | Modern 64-bit devices (recommended) |
+| **Android** | armeabi-v7a | `.apk` | [Download (v1.2.4)](https://github.com/mausamadh/Expensy/releases/latest) | Legacy 32-bit devices |
+| **Android** | x86_64 | `.apk` | [Download (v1.2.4)](https://github.com/mausamadh/Expensy/releases/latest) | Android emulators and Intel-based tablets |
+| **Android** | Universal | `.apk` | [Download (v1.2.4)](https://github.com/mausamadh/Expensy/releases/latest) | Combined installer supporting all architectures |
 
 ---
 
@@ -111,7 +111,7 @@ Ensure your development environment has the following software installed:
 
 ```bash
 # Clone the repository
-git clone https://github.com/mina-android/Expensy.git
+git clone https://github.com/mausamadh/Expensy.git
 
 # Navigate into the project root
 cd Expensy
@@ -182,11 +182,11 @@ Contributions aimed at bug fixes, translation improvements, and performance opti
 
 ## About the Developer
 
-This project is authored and maintained by **mina-android**, focused on developing transparent, local-first Android utilities and privacy-conscious software.
+This project is authored and maintained by **mausamadh**, focused on developing transparent, local-first Android utilities and privacy-conscious software.
 
-- **Developer Portfolio**: [portfolio.minaashraf285.workers.dev](https://portfolio.minaashraf285.workers.dev/)
-- **GitHub Profile**: [github.com/mina-android](https://github.com/mina-android)
-- **Issue Tracker**: [github.com/mina-android/Expensy/issues](https://github.com/mina-android/Expensy/issues)
+- **Developer Portfolio**: [www.mausamadhikari.com.np](www.mausamadhikari.com.np)
+- **GitHub Profile**: [github.com/mausamadh](https://github.com/mausamadh)
+- **Issue Tracker**: [github.com/mausamadh/Expensy/issues](https://github.com/mausamadh/Expensy/issues)
 
 ---
 
@@ -195,7 +195,7 @@ This project is authored and maintained by **mina-android**, focused on developi
 Development and maintenance of this software are independent and self-supported. If this project helps you manage your finances reliably, consider supporting development:
 
 - **PayPal**: [paypal.me/minaashraf285](https://paypal.me/minaashraf285)
-- **GitHub Sponsors**: [github.com/sponsors/mina-android](https://github.com/sponsors/mina-android)
+- **GitHub Sponsors**: [github.com/sponsors/mausamadh](https://github.com/sponsors/mausamadh)
 
 ---
 
@@ -204,6 +204,6 @@ Development and maintenance of this software are independent and self-supported.
 Distributed under the **GNU General Public License v3.0**. See the [`LICENSE`](LICENSE) file in the root directory for the complete legal text.
 
 ```text
-Copyright (c) 2026 mina-android
+Copyright (c) 2026 mausamadh
 Licensed under the GNU General Public License v3.0.
 ```

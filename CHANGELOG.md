@@ -735,7 +735,7 @@
 ### Added
 - **Localization Support** — Fully localized the app into 4 new languages: Arabic (ar), French (fr), German (de), and Hindi (hi). Translated over 450 UI strings and configured dynamic language switching.
 - **Onboarding Language Selector** — Added a new Language Selection page to the start of the onboarding flow to immediately adapt the app to the user's preferred language.
-- **Developer Links Dialog** — The "Developer" tile in Settings now opens a dialog offering links to both the GitHub Profile and the Developer Website (portfolio.minaashraf285.workers.dev).
+- **Developer Links Dialog** — The "Developer" tile in Settings now opens a dialog offering links to both the GitHub Profile and the Developer Website (www.mausamadhikari.com.np).
 
 ### Changed
 - **Bottom Navigation Bar** — Localized the `NavigationBar` labels (`Home`, `Transactions`, `Recurring`, etc.) which were previously hardcoded.
@@ -897,7 +897,7 @@
 - **Currency column in export** — The Excel export now includes a `Currency` column showing the effective currency of each transaction
 
 #### Settings → About
-- **Developer link** — New tile below the GitHub row: "Discover more projects by Mina Android" opens `https://github.com/mina-android` in the browser
+- **Developer link** — New tile below the GitHub row: "Discover more projects by Mina Android" opens `https://github.com/mausamadh` in the browser
 
 ### Changed
 - **Startup flow** — `main()` is now `async`. It awaits `NotificationService().initialize()` then `provider.load()` (DB reads) before calling `runApp()`. The native launch background stays visible during startup; Flutter draws the real app as its very first frame — no intermediate loading screen

@@ -584,7 +584,7 @@ class SettingsScreen extends StatelessWidget {
                           size: 18, color: cs.onSurface.withValues(alpha: 0.4)),
                       onTap: () async {
                         final uri = Uri.parse(
-                            'https://github.com/mina-android/Expensy');
+                            'https://github.com/mausamadh/Expensy');
                         if (await canLaunchUrl(uri)) {
                           await launchUrl(uri,
                               mode: LaunchMode.externalApplication);
@@ -618,7 +618,7 @@ class SettingsScreen extends StatelessWidget {
                                   onTap: () async {
                                     Navigator.pop(ctx);
                                     final uri = Uri.parse(
-                                        'https://github.com/mina-android');
+                                        'https://github.com/mausamadh');
                                     if (await canLaunchUrl(uri)) {
                                       await launchUrl(uri,
                                           mode: LaunchMode.externalApplication);
@@ -631,7 +631,7 @@ class SettingsScreen extends StatelessWidget {
                                   onTap: () async {
                                     Navigator.pop(ctx);
                                     final uri = Uri.parse(
-                                        'https://portfolio.minaashraf285.workers.dev');
+                                        'www.mausamadhikari.com.np');
                                     if (await canLaunchUrl(uri)) {
                                       await launchUrl(uri,
                                           mode: LaunchMode.externalApplication);

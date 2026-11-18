@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# helpme.sh — Expensy build / deploy / run helper
+# helpme.sh — finwick build / deploy / run helper
 #
 # A single entry point for the day-to-day workflow on this machine:
 #   env setup, doctor, build, install, live-run, tests, logs, cleanup.
@@ -24,7 +24,7 @@ export PATH="$HOME/flutter/bin:$ANDROID_HOME/platform-tools:$JAVA_HOME/bin:$PATH
 
 FLUTTER="${FLUTTER:-$HOME/flutter/bin/flutter}"
 ADB="${ADB:-$ANDROID_HOME/platform-tools/adb}"
-PACKAGE="${PACKAGE:-com.ma.expensy}"
+PACKAGE="${PACKAGE:-com.ma.finwick}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APK_DEBUG="build/app/outputs/flutter-apk/app-debug.apk"
 APK_RELEASE="build/app/outputs/flutter-apk/app-release.apk"
@@ -268,23 +268,23 @@ cmd_backup() {
   serial="$(device)"
   local ts dest
   ts="$(date +%Y%m%d_%H%M%S)"
-  dest="backups/expensy_backup_$ts"
+  dest="backups/finwick_backup_$ts"
   mkdir -p "$dest"
   step "Backing up $PACKAGE (device $serial) → $dest/"
-  "$ADB" -s "$serial" shell "run-as $PACKAGE cat databases/expensy.db" > "$dest/expensy.db" 2>/dev/null
+  "$ADB" -s "$serial" shell "run-as $PACKAGE cat databases/finwick.db" > "$dest/finwick.db" 2>/dev/null
   local dbbytes
-  dbbytes="$(wc -c < "$dest/expensy.db" 2>/dev/null || echo 0)"
-  [[ "$dbbytes" -gt 0 ]] || die "Failed to pull expensy.db (0 bytes). backup/restore need a DEBUG build (run: $0 build debug && $0 install debug)."
+  dbbytes="$(wc -c < "$dest/finwick.db" 2>/dev/null || echo 0)"
+  [[ "$dbbytes" -gt 0 ]] || die "Failed to pull finwick.db (0 bytes). backup/restore need a DEBUG build (run: $0 build debug && $0 install debug)."
   while IFS= read -r f; do
     [[ -n "$f" ]] || continue
     "$ADB" -s "$serial" shell "run-as $PACKAGE cat shared_prefs/$f" > "$dest/$f" 2>/dev/null
   done < <("$ADB" -s "$serial" shell "run-as $PACKAGE ls shared_prefs/ 2>/dev/null")
   if command -v sqlite3 >/dev/null 2>&1; then
     local tables
-    tables="$(sqlite3 "$dest/expensy.db" ".tables" 2>/dev/null | wc -w)"
-    ok "Pulled expensy.db ($dbbytes bytes, $tables tables) + shared_prefs."
+    tables="$(sqlite3 "$dest/finwick.db" ".tables" 2>/dev/null | wc -w)"
+    ok "Pulled finwick.db ($dbbytes bytes, $tables tables) + shared_prefs."
   else
-    ok "Pulled expensy.db ($dbbytes bytes) + shared_prefs. (sqlite3 not installed — skipped table validation)"
+    ok "Pulled finwick.db ($dbbytes bytes) + shared_prefs. (sqlite3 not installed — skipped table validation)"
   fi
   ok "Backup saved to: $SCRIPT_DIR/$dest"
 }
@@ -294,10 +294,10 @@ cmd_backups() {
   step "Local backups (backups/)"
   local found=0
   local d
-  for d in $(ls -1d backups/expensy_backup_* backups/expensy_prerestore_* 2>/dev/null | sort -r); do
+  for d in $(ls -1d backups/finwick_backup_* backups/finwick_prerestore_* 2>/dev/null | sort -r); do
     found=1
     local db
-    db="$([[ -f "$d/expensy.db" ]] && du -h "$d/expensy.db" | cut -f1 || echo '-')"
+    db="$([[ -f "$d/finwick.db" ]] && du -h "$d/finwick.db" | cut -f1 || echo '-')"
     printf '  %s  (db: %s)\n' "$d" "$db"
   done
   [[ "$found" -eq 1 ]] || info "No backups yet. Create one with: $0 backup"
@@ -311,21 +311,21 @@ cmd_restore() {
   serial="$(device)"
   local src="${1:-}"
   if [[ -z "$src" ]]; then
-    src="$(ls -1d backups/expensy_backup_* 2>/dev/null | sort | tail -1)"
+    src="$(ls -1d backups/finwick_backup_* 2>/dev/null | sort | tail -1)"
     [[ -n "$src" ]] || die "No backups found in backups/. Create one with: $0 backup"
     info "Using latest backup: $src"
   fi
-  [[ -f "$src/expensy.db" ]] || die "No expensy.db in $src"
+  [[ -f "$src/finwick.db" ]] || die "No finwick.db in $src"
   local ts snap
   ts="$(date +%Y%m%d_%H%M%S)"
-  snap="backups/expensy_prerestore_$ts"
+  snap="backups/finwick_prerestore_$ts"
   mkdir -p "$snap"
   step "Creating pre-restore safety snapshot → $snap/"
-  "$ADB" -s "$serial" shell "run-as $PACKAGE cat databases/expensy.db" > "$snap/expensy.db" 2>/dev/null
+  "$ADB" -s "$serial" shell "run-as $PACKAGE cat databases/finwick.db" > "$snap/finwick.db" 2>/dev/null
   ok "Safety snapshot saved (roll back with: $0 restore $snap)"
-  step "Stopping app, restoring $src/expensy.db → device"
+  step "Stopping app, restoring $src/finwick.db → device"
   "$ADB" -s "$serial" shell am force-stop "$PACKAGE"
-  "$ADB" -s "$serial" shell "run-as $PACKAGE sh -c 'cat > databases/expensy.db'" < "$src/expensy.db"
+  "$ADB" -s "$serial" shell "run-as $PACKAGE sh -c 'cat > databases/finwick.db'" < "$src/finwick.db"
   local f base
   for f in "$src"/*.xml; do
     [[ -e "$f" ]] || continue
@@ -334,8 +334,8 @@ cmd_restore() {
   done
   # verify the DB landed with the expected size
   local want got
-  want="$(wc -c < "$src/expensy.db")"
-  got="$("$ADB" -s "$serial" shell "run-as $PACKAGE sh -c 'wc -c < databases/expensy.db' 2>/dev/null" | tr -d '[:space:]')"
+  want="$(wc -c < "$src/finwick.db")"
+  got="$("$ADB" -s "$serial" shell "run-as $PACKAGE sh -c 'wc -c < databases/finwick.db' 2>/dev/null" | tr -d '[:space:]')"
   if [[ "$got" == "$want" ]]; then
     ok "Verified: device DB is $got bytes (matches backup)."
   else
@@ -348,7 +348,7 @@ cmd_restore() {
 
 cmd_help() {
   cat <<EOF
-${C_BOLD}helpme.sh — Expensy build / deploy / run helper${C_RESET}
+${C_BOLD}helpme.sh — finwick build / deploy / run helper${C_RESET}
 
 ${C_BOLD}Build & deploy${C_RESET}
   build [debug|release]   Build the APK (default: debug)
