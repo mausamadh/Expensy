@@ -653,6 +653,9 @@ class AppDatabase extends _$AppDatabase {
   Future<void> insertSmsRule(SmsRule rule) async =>
       insertMap('sms_rules', rule.toMap());
 
+  Future<void> updateSmsRule(SmsRule rule) async =>
+      updateMap('sms_rules', rule.toMap(), 'id', rule.id);
+
   Future<void> deleteSmsRule(String id) async =>
       deleteRow('sms_rules', 'id', id);
 

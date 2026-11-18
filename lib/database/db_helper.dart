@@ -362,6 +362,9 @@ class DBHelper {
   static Future<void> insertSmsRule(SmsRule rule) =>
       AppDatabase.instance.insertSmsRule(rule);
 
+  static Future<void> updateSmsRule(SmsRule rule) =>
+      AppDatabase.instance.updateSmsRule(rule);
+
   static Future<void> deleteSmsRule(String id) =>
       AppDatabase.instance.deleteSmsRule(id);
 

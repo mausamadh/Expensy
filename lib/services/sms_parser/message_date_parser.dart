@@ -75,7 +75,7 @@ class MessageDateParser {
   static final _templateIso = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$');
 
   static final _isoDate = RegExp(r'\b(\d{4}-\d{2}-\d{2})\b');
-  static final _numericDate = RegExp(r'\b(\d{1,2})/(\d{1,2})/(\d{4})\b');
+  static final _numericDate = RegExp(r'\b(\d{1,2})/(\d{1,2})/(\d{2,4})\b');
   static final _textualDate = RegExp(r'\b([A-Za-z]{3,9})\s+(\d{1,2}),\s*(\d{4})\b');
   static final _twelveHourTime =
       RegExp(r'(\d{1,2}):(\d{2})\s*([AP])\.?M\.?', caseSensitive: false);
@@ -101,7 +101,10 @@ class MessageDateParser {
   static DateTime? resolvedNumericDate(RegExpMatch match, bool preferMonthFirst) {
     final first = int.parse(match.group(1)!);
     final second = int.parse(match.group(2)!);
-    final year = int.parse(match.group(3)!);
+    final rawYear = match.group(3)!;
+    // 2-digit years read as 2000+yy, matching the template dd/mm/yy shape.
+    final year =
+        rawYear.length == 2 ? 2000 + int.parse(rawYear) : int.parse(rawYear);
     final monthFirst = preferMonthFirst && first <= 12;
     final month = monthFirst ? first : second;
     final day = monthFirst ? second : first;

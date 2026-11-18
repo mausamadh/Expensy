@@ -3567,9 +3567,10 @@ class AppProvider extends ChangeNotifier {
   }
 
   /// Imports a pending candidate into the ledger. [overrides] lets the user
-  /// adjust fields before committing; when [rememberRule] is set, a routing
-  /// rule is saved for this sender/merchant so future imports are automatic.
-  /// Returns the created transaction id, or null on failure.
+  /// adjust fields before committing. The sender→account/category mapping is
+  /// always remembered (upserted) so future messages from this sender are
+  /// pre-filled automatically. Returns the created transaction id, or null on
+  /// failure.
   Future<String?> importSmsCandidate(
     String inboxId, {
     String? type,
@@ -3579,7 +3580,6 @@ class AppProvider extends ChangeNotifier {
     String? categoryId,
     String? description,
     DateTime? date,
-    bool rememberRule = false,
   }) async {
     return await _serializeMutation<String?>(() async {
       final item = smsInbox.firstWhereOrNull((i) => i.id == inboxId);
@@ -3635,9 +3635,9 @@ class AppProvider extends ChangeNotifier {
 
       if (txId == null) return null;
 
-      if (rememberRule) {
-        await _saveSmsRuleFor(item, effAccountId, effCategoryId, effType);
-      }
+      // Always remember the sender→account/category mapping so the user
+      // doesn't have to re-select it for future messages from this sender.
+      await _saveSmsRuleFor(item, effAccountId, effCategoryId, effType);
 
       final updated = item.copyWith(status: 'imported', importedTxId: txId);
       await DBHelper.updateSmsInbox(updated);
@@ -3678,6 +3678,9 @@ class AppProvider extends ChangeNotifier {
     });
   }
 
+  /// Creates or updates a routing rule for [senderId]. If a rule already
+  /// exists for the same sender (and merchant pattern), it is updated in
+  /// place instead of creating a duplicate.
   Future<void> saveSmsRule({
     required String senderId,
     String? merchantPattern,
@@ -3686,15 +3689,33 @@ class AppProvider extends ChangeNotifier {
     required String transactionType,
   }) async {
     await _serializeMutation(() async {
-      final rule = SmsRule(
-        id: newId(),
-        senderId: senderId,
-        merchantPattern: merchantPattern,
-        accountId: accountId,
-        categoryId: categoryId,
-        transactionType: transactionType,
-      );
-      await DBHelper.insertSmsRule(rule);
+      final pattern = (merchantPattern ?? '').trim();
+      final existing = smsRules.firstWhereOrNull((r) {
+        if (r.senderId != senderId) return false;
+        final rPattern = (r.merchantPattern ?? '').trim();
+        return rPattern == pattern;
+      });
+      if (existing != null) {
+        final updated = SmsRule(
+          id: existing.id,
+          senderId: senderId,
+          merchantPattern: pattern.isEmpty ? null : pattern,
+          accountId: accountId,
+          categoryId: categoryId,
+          transactionType: transactionType,
+        );
+        await DBHelper.updateSmsRule(updated);
+      } else {
+        final rule = SmsRule(
+          id: newId(),
+          senderId: senderId,
+          merchantPattern: pattern.isEmpty ? null : pattern,
+          accountId: accountId,
+          categoryId: categoryId,
+          transactionType: transactionType,
+        );
+        await DBHelper.insertSmsRule(rule);
+      }
       smsRules = await DBHelper.getSmsRules();
       notifyListeners();
     });
@@ -3922,21 +3943,39 @@ class AppProvider extends ChangeNotifier {
     return accounts.firstWhereOrNull((a) => a.id != fromId)?.id;
   }
 
+  /// Upserts the routing rule for this item: if a rule already covers the
+  /// sender (optionally scoped to a merchant pattern), it is updated with the
+  /// latest account/category/type; otherwise a new rule is created.
   Future<void> _saveSmsRuleFor(
       SmsInboxItem item, String accountId, String categoryId, String type) async {
     final existing = _matchSmsRule(item);
-    if (existing != null) return; // a rule already covers this sender
-    final rule = SmsRule(
-      id: newId(),
-      senderId: item.senderId,
-      merchantPattern: item.parsedMerchant,
-      accountId: accountId,
-      categoryId: categoryId,
-      transactionType: type,
-    );
-    await DBHelper.insertSmsRule(rule);
+    if (existing != null) {
+      final updated = SmsRule(
+        id: existing.id,
+        senderId: existing.senderId,
+        merchantPattern: existing.merchantPattern,
+        accountId: accountId,
+        categoryId: categoryId,
+        transactionType: type,
+      );
+      await DBHelper.updateSmsRule(updated);
+    } else {
+      final rule = SmsRule(
+        id: newId(),
+        senderId: item.senderId,
+        merchantPattern: item.parsedMerchant,
+        accountId: accountId,
+        categoryId: categoryId,
+        transactionType: type,
+      );
+      await DBHelper.insertSmsRule(rule);
+    }
     smsRules = await DBHelper.getSmsRules();
   }
+
+  /// Public accessor so the UI can pre-fill the verify sheet from a saved
+  /// sender→account/category mapping.
+  SmsRule? smsRuleForItem(SmsInboxItem item) => _matchSmsRule(item);
 
   // ── Backup ────────────────────────────────────────────────────────────
   Future<String?> createBackup({String? dialogTitle, String? password}) async {

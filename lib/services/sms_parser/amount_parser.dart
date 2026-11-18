@@ -39,7 +39,7 @@ const _currencySymbolAlternation = r'\$|₦|₹|£|€';
 // Word tokens need boundaries so they never fire inside unrelated words
 // ("grand", "brand").
 const currencyWordAlternation =
-    r'\b(?:shillings?|dollars?|naira|rupees?|euros?|pounds?|cedis?|rand|birr)\b';
+    r'\b(?:shillings?|dollars?|naira|rupees?|euros?|pounds?|cedis?|rand|birr|rs)\b';
 
 final allCurrencyTokens =
     'KShs?|$_currencyCodeAlternation|$_currencySymbolAlternation|$currencyWordAlternation';
@@ -78,7 +78,10 @@ String? detectCurrencyCode(String value) {
   String? last;
   for (final m in currencyTokens.allMatches(value)) {
     final token = m.group(1)!;
-    if (isRecognizedCurrencyToken(token)) last = token;
+    // Skip ambiguous tokens (e.g. "Rs") so they never resolve to a code.
+    if (isRecognizedCurrencyToken(token) && currencyCodeFor(token) != null) {
+      last = token;
+    }
   }
   return last == null ? null : currencyCodeFor(last);
 }
@@ -113,9 +116,13 @@ int? parseAmountToMinorUnits(String value, int exponent) {
 }
 
 // ISO code for a recognized currency token; unknown tokens pass through
-// uppercased so plain ISO codes map to themselves.
-String currencyCodeFor(String token) {
+// uppercased so plain ISO codes map to themselves. Returns null for the
+// ambiguous rupee abbreviation "Rs" (shared by NPR/INR/PKR/LKR), which the
+// caller resolves against the user's base currency.
+String? currencyCodeFor(String token) {
   switch (token.toUpperCase()) {
+    case 'RS':
+      return null;
     case 'KSH':
     case 'KSHS':
     case 'SHILLING':

@@ -32,7 +32,7 @@ class FallbackMatcher {
       '($allCurrencyTokens)?\\.?[ ]?(-)?(\\d[\\d,]*(?:\\.\\d+)?)([ ]?($allCurrencyTokens))?\\.?[ ]?(DR|CR)?\\b',
       caseSensitive: false);
 
-  static const _incomeCues = {'received', 'credited', 'deposit'};
+  static const _incomeCues = {'received', 'credited', 'deposit', 'deposited'};
   static final _incomePhrases = RegExp(r'\bcredit\s+posted\b', caseSensitive: false);
 
   // "payment of X ... has been received" is a provider confirming money it
@@ -62,8 +62,26 @@ class FallbackMatcher {
   // Direction evidence must be an explicit word, not a default; new cue
   // words stay flagged for review until they are added here on purpose.
   static const _directionalCues = {
-    'paid', 'sent', 'bought', 'received', 'withdraw', 'debited', 'credited', 'purchase',
+    'paid', 'sent', 'bought', 'received', 'withdraw', 'withdrawn', 'withdrawal',
+    'debited', 'credited', 'purchase', 'deposit', 'deposited', 'cr', 'dr',
   };
+
+  // Standalone uppercase CR/DR before the amount ("has been CR Rs 10000.00")
+  // is direction evidence; lowercase "cr"/"dr" in prose is not.
+  static final _leadingCrDr = RegExp(r'\b(CR|DR)\b');
+
+  // Merchant extraction for sender-agnostic bank alerts. First non-empty
+  // match wins; trailing bank names are stripped by _stripTrailingBank.
+  // "Remarks" may or may not carry a colon ("Remarks:cIPS..." vs
+  // "Remarks eSewa Load"); the capture runs to end of line and the bank
+  // name is stripped afterwards.
+  static final _remarksMerchant =
+      RegExp(r'Remarks\s*:?\s*(.+)$', caseSensitive: false);
+  static final _byMerchant = RegExp(r'\bby\s*:\s*([^.]+)', caseSensitive: false);
+  static final _nblMerchant = RegExp(
+      r'\d{1,2}:\d{2}(?::\d{2})?,\s*([^.]+?)\.\s*(?:[A-Z][A-Za-z .]{2,30}\s*)?$');
+  static final _ssfEmployer = RegExp(
+      r'from your employer\s+(.+?)(?:\s+Thank you\b|\s*$)', caseSensitive: false);
 
   static Future<ParseResult> detect(
     String senderId,

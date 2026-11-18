@@ -105,7 +105,11 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
         app.smsInbox.where((i) => i.status == 'pending').toList()
           ..sort((a, b) => b.smsTimestamp.compareTo(a.smsTimestamp));
     final filtered = _filtered(pending);
-    final senders = pending
+    // Derive senders from ALL inbox items (not just pending) so the sender
+    // filter dropdown stays valid after the last pending item of a sender is
+    // imported/dismissed — otherwise the DropdownButtonFormField assertion
+    // fires (value not in items) and the screen goes red.
+    final senders = app.smsInbox
         .map((i) => i.senderId)
         .where((s) => s.isNotEmpty)
         .toSet()
@@ -672,11 +676,14 @@ class _CandidateCard extends StatelessWidget {
   Future<void> _decline(BuildContext context, SmsInboxItem item) async {
     final app = context.read<AppProvider>();
     final sender = item.senderId;
+    // Declines ONLY this message — the sender is not blocked, so its future
+    // messages will still be parsed and shown as candidates.
     await app.dismissSmsCandidate(item.id);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Declined message from ${sender.isEmpty ? 'unknown' : sender}'),
+        content: Text(
+            'Declined this message only — ${sender.isEmpty ? 'sender' : sender} will still be parsed'),
         action: SnackBarAction(
           label: 'Undo',
           onPressed: () => app.restoreSmsCandidate(item.id),
@@ -732,7 +739,6 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
   late String? _toAccountId;
   late String? _categoryId;
   late DateTime _date;
-  bool _remember = false;
   /// Kind to suppress for this sender on dismiss (null = don't suppress).
   String? _dontShowAgain;
   bool _busy = false;
@@ -742,29 +748,65 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
     super.initState();
     final app = context.read<AppProvider>();
     final item = widget.item;
-    _type = item.parsedType == 'income' || item.parsedType == 'transfer'
-        ? item.parsedType!
-        : 'expense';
+
+    // Pre-fill from a saved sender→account/category mapping, if any, so the
+    // user doesn't have to re-select the account for a known sender.
+    final rule = app.smsRuleForItem(item);
+    _type = rule?.transactionType ??
+        (item.parsedType == 'income' || item.parsedType == 'transfer'
+            ? item.parsedType!
+            : 'expense');
+
     final cur = item.parsedCurrency ?? app.settings.currency;
     final major = item.parsedAmountMinorUnits != null
         ? item.parsedAmountMinorUnits! / math.pow(10, Iso4217.exponentFor(cur))
         : 0.0;
     _amountCtrl = TextEditingController(text: major > 0 ? major.toStringAsFixed(2) : '');
-    _descCtrl = TextEditingController(text: item.parsedMerchant ?? '');
+    _descCtrl = TextEditingController(text: _autoDescription(item));
     _date = item.parsedDate ??
         (item.smsTimestamp > 0 ? DateTime.fromMillisecondsSinceEpoch(item.smsTimestamp) : DateTime.now());
 
-    // Default account: first non-credit account.
+    // Default account: the saved rule's account if it still exists, else the
+    // first non-credit account.
     final accounts = app.accounts.where((a) => !a.isCredit).toList();
-    _accountId = accounts.isNotEmpty ? accounts.first.id : null;
+    final ruleAccount = rule?.accountId;
+    _accountId = (ruleAccount != null &&
+            accounts.any((a) => a.id == ruleAccount))
+        ? ruleAccount
+        : (accounts.isNotEmpty ? accounts.first.id : null);
 
     // Default destination for transfers: first account that isn't the source.
     final toCandidates = accounts.where((a) => a.id != _accountId).toList();
     _toAccountId = toCandidates.isNotEmpty ? toCandidates.first.id : null;
 
-    // Default category: first user category matching the type.
+    // Default category: the saved rule's category if it still exists, else the
+    // first user category matching the type.
+    final ruleCat = rule?.categoryId;
     final cats = app.userCategories.where((c) => c.type == _type).toList();
-    _categoryId = cats.isNotEmpty ? cats.first.id : null;
+    _categoryId = _type == 'transfer'
+        ? 'sys_transfer'
+        : ((ruleCat != null && cats.any((c) => c.id == ruleCat))
+            ? ruleCat
+            : (cats.isNotEmpty ? cats.first.id : null));
+  }
+
+  /// Builds the auto-filled description from the SMS content: the parsed
+  /// merchant when available, otherwise a cleaned snippet of the body, with
+  /// the parsed reference appended as "(Ref: …)" when present.
+  static String _autoDescription(SmsInboxItem item) {
+    final merchant = (item.parsedMerchant ?? '').trim();
+    String base;
+    if (merchant.isNotEmpty) {
+      base = merchant;
+    } else {
+      final body = item.body.replaceAll(RegExp(r'\s+'), ' ').trim();
+      base = body.length > 80 ? '${body.substring(0, 77)}…' : body;
+    }
+    final ref = (item.parsedReference ?? '').trim();
+    if (ref.isNotEmpty) {
+      base = base.isEmpty ? 'Ref: $ref' : '$base (Ref: $ref)';
+    }
+    return base;
   }
 
   @override
@@ -833,7 +875,6 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
       categoryId: _type == 'transfer' ? null : _categoryId,
       description: _descCtrl.text,
       date: _date,
-      rememberRule: _remember,
     );
     if (!mounted) return;
     if (txId != null) {
@@ -1069,18 +1110,24 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
         ),
         const SizedBox(height: 8),
 
-        // ── Remember rule ─────────────────────────────────────────────────
-        CheckboxListTile(
-          contentPadding: EdgeInsets.zero,
-          controlAffinity: ListTileControlAffinity.leading,
-          value: _remember,
-          onChanged: (v) => setState(() => _remember = v ?? false),
-          title: const Text('Remember this rule', style: TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: const Text(
-            'Future messages from this sender will be imported automatically.',
-            style: TextStyle(fontSize: 11.5),
-          ),
+        // ── Remembered mapping ────────────────────────────────────────────
+        Row(
+          children: [
+            Icon(Icons.memory_rounded,
+                size: 16, color: cs.onSurface.withValues(alpha: 0.5)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Account & category are remembered for this sender — '
+                'next time it will be pre-filled.',
+                style: TextStyle(
+                    fontSize: 11.5,
+                    color: cs.onSurface.withValues(alpha: 0.6)),
+              ),
+            ),
+          ],
         ),
+        const SizedBox(height: 8),
         // ── Don't show again (per-kind suppression) ───────────────────────
         Row(
           children: [
