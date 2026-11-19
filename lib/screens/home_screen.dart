@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/budgets_view_model.dart';
 import '../presentation/viewmodels/categories_view_model.dart';
 import '../providers/aggregations.dart';
 import '../theme/app_theme.dart';
@@ -99,6 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final l10n = AppLocalizations.of(context)!;
     final app = context.watch<AppProvider>();
     context.watch<CategoriesViewModel>();
+    context.watch<BudgetsViewModel>();
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 

@@ -3,6 +3,7 @@ import 'package:get_it/get_it.dart';
 import '../adapters/backup/drift_backup_data_repository.dart';
 import '../adapters/backup/expensy_saf_keychain.dart';
 import '../adapters/backup/safety_snapshot_store.dart';
+import '../adapters/budgeting/drift_budget_store.dart';
 import '../adapters/budgeting/drift_budget_write_repository.dart';
 import '../adapters/categories/drift_category_store.dart';
 import '../adapters/fx/http_exchange_rate_provider.dart';
@@ -24,6 +25,7 @@ import '../application/backup/backup_use_cases.dart';
 import '../application/mutation_gate.dart';
 import '../domain/backup/backup_validator.dart';
 import '../domain/backup/ports/ports.dart';
+import '../domain/budgeting/ports/budget_store.dart';
 import '../domain/budgeting/ports/budget_write_port.dart';
 import '../domain/categories/ports/category_store.dart';
 import '../domain/fx/ports/exchange_rate_provider.dart';
@@ -39,6 +41,7 @@ import '../domain/wealth/ports/asset_repository.dart';
 import '../database/app_database.dart';
 import '../providers/app_provider.dart';
 import '../presentation/viewmodels/assets_view_model.dart';
+import '../presentation/viewmodels/budgets_view_model.dart';
 import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/goals_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
@@ -87,6 +90,9 @@ class CompositionRoot {
     // Budgeting write port (Phase 3) — budget persistence.
     getIt.registerSingleton<BudgetWriteRepository>(
         const DriftBudgetWriteRepository());
+
+    // Budgeting read+write store (Phase 6) — used by BudgetsViewModel.
+    getIt.registerSingleton<BudgetStore>(const DriftBudgetStore());
 
     // Wealth persistence port (Phase 6) — asset (valuables) storage.
     getIt.registerSingleton<AssetRepository>(const DriftAssetRepository());
@@ -305,6 +311,29 @@ class CompositionRoot {
       ),
     );
     provider.wireCategoriesVm(getIt<CategoriesViewModel>());
+  }
+
+  /// Registers the Budgets view model (Phase 6) and wires it into the
+  /// provider. Budget mutations have no ledger side effects, but the budget
+  /// read math needs the provider's ledger state (transactions, categories,
+  /// accounts, exchange rates, settings) — captured as tear-offs so the
+  /// view model never holds a provider reference.
+  static void initBudgets(AppProvider provider) {
+    getIt.registerLazySingleton<BudgetsViewModel>(
+      () => BudgetsViewModel(
+        store: getIt<BudgetStore>(),
+        transactions: () => provider.transactions,
+        categories: () => provider.categories,
+        accountById: provider.accountById,
+        settingsCurrency: () => provider.settings.currency,
+        exchangeRates: () => provider.exchangeRates,
+        weekStart: () => provider.settings.weekStart,
+        getSplits: provider.getSplits,
+        updateHomeWidgets: provider.updateHomeWidgets,
+        serializeMutation: provider.serializeMutation,
+      ),
+    );
+    provider.wireBudgetsVm(getIt<BudgetsViewModel>());
   }
 
   /// Test hook: clears all registrations so a test can build its own

@@ -8,6 +8,7 @@ import 'package:finwick/providers/app_provider.dart';
 import 'package:finwick/screens/budget_screen.dart';
 import 'package:finwick/screens/home_screen.dart';
 import 'package:finwick/l10n/app_localizations.dart';
+import 'helpers/budgets_test_harness.dart';
 import 'helpers/categories_test_harness.dart';
 import 'helpers/presets_test_harness.dart';
 import 'helpers/goals_test_harness.dart';
@@ -492,14 +493,17 @@ void main() {
 
       // Wire the view models first (the wraps do this), then assign data so
       // it lands in the VMs, then pump.
-      final widget = wrapWithGoals(
+      final widget = wrapWithBudgets(
         app,
-        wrapWithCategories(
+        wrapWithGoals(
           app,
-          const MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            home: BudgetScreen(),
+          wrapWithCategories(
+            app,
+            const MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: BudgetScreen(),
+            ),
           ),
         ),
       );
@@ -547,14 +551,17 @@ void main() {
 
       // Wire the view models first (the wraps do this), then assign data so
       // it lands in the VMs, then pump.
-      final widget = wrapWithPresets(
+      final widget = wrapWithBudgets(
         app,
-        wrapWithCategories(
+        wrapWithPresets(
           app,
-          const MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            home: HomeScreen(),
+          wrapWithCategories(
+            app,
+            const MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: HomeScreen(),
+            ),
           ),
         ),
       );

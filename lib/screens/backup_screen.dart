@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/budgets_view_model.dart';
 import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/goals_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
@@ -289,6 +290,9 @@ class _BackupScreenState extends State<BackupScreen> {
     // Keep the loan counts in sync (the view model owns that state slice,
     // Phase 6).
     context.watch<LoansViewModel>();
+    // Keep the budget count in sync (the view model owns that state slice,
+    // Phase 6).
+    context.watch<BudgetsViewModel>();
     final cs = Theme.of(context).colorScheme;
 
     // Live counts for the "what's included" breakdown. This list is kept in
@@ -1101,6 +1105,9 @@ class _SelectiveBackupSheetState extends State<_SelectiveBackupSheet> {
     // Keep the loan counts in sync (the view model owns that state slice,
     // Phase 6).
     context.watch<LoansViewModel>();
+    // Keep the budget count in sync (the view model owns that state slice,
+    // Phase 6).
+    context.watch<BudgetsViewModel>();
     final cs = Theme.of(context).colorScheme;
 
     final entities = [

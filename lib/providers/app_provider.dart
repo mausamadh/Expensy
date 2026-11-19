@@ -55,6 +55,7 @@ import '../presentation/viewmodels/goals_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
 import '../presentation/viewmodels/loans_view_model.dart';
 import '../presentation/viewmodels/categories_view_model.dart';
+import '../presentation/viewmodels/budgets_view_model.dart';
 
 class AppSettings {
   String currency;
@@ -354,13 +355,41 @@ class AppProvider extends ChangeNotifier {
     _categoriesFallback = vm.categories;
   }
 
+// ── Budgets (delegated to BudgetsViewModel, Phase 6) ──────────────────
+  /// Back-reference to the budgets view model, wired by the composition
+  /// root before [load] runs. Null in standalone/test construction, in
+  /// which case the local fallback field is used so the budget shims and
+  /// the screens keep working without a view model.
+  BudgetsViewModel? _budgetsVm;
+  List<Budget> _budgetsFallback = [];
+
+  /// All budgets. Delegates to the view model when wired.
+  List<Budget> get budgets => _budgetsVm?.budgets ?? _budgetsFallback;
+
+  /// Replaces the budgets list. Delegates to the view model when wired;
+  /// the view model's setter notifies its own listeners.
+  set budgets(List<Budget> value) {
+    if (_budgetsVm != null) {
+      _budgetsVm!.budgets = value;
+    } else {
+      _budgetsFallback = value;
+    }
+  }
+
+  /// Wires the budgets view model (composition root, before [load]).
+  void wireBudgetsVm(BudgetsViewModel vm) {
+    _budgetsVm = vm;
+    _budgetsFallback = vm.budgets;
+  }
+
   List<AppTransaction>        transactions = [];
   List<RecurringPayment>      recurring    = [];
   // wishlist / savingsGoals / savingsContributions are delegated to
   // GoalsViewModel (Phase 6) — see the delegation block below.
   // lendedPeople / lended are delegated to LendedViewModel (Phase 6) — see
   // the delegation block below.
-  List<Budget>                budgets      = [];
+  // budgets is delegated to BudgetsViewModel (Phase 6) — see the delegation
+  // block below.
   List<NetWorthSnapshot>      netWorthSnapshots = [];
   List<TransactionSplit>      splits       = [];
   Map<String, List<TransactionSplit>> _splitsByTxId = {};
@@ -2628,8 +2657,17 @@ class AppProvider extends ChangeNotifier {
   double get totalAssetsValue =>
       assets.fold(0.0, (sum, a) => sum + convertToMain(a.value, a.currency));
 
-  // ── Budgets ───────────────────────────────────────────────────────────
+  // ── Budgets (delegated to BudgetsViewModel, Phase 6) ──────────────────
+  // Mutations and budget period / pacing math live in BudgetsViewModel.
+  // These shims delegate to the view model when wired, and fall back to the
+  // application-layer write use cases + pure BudgetService in standalone /
+  // test construction.
   Future<void> addBudget(Budget b) async {
+    final vm = _budgetsVm;
+    if (vm != null) {
+      await vm.addBudget(b);
+      return;
+    }
     await _addBudget(b);
     budgets = await AppDatabase.instance.getBudgets();
     notifyListeners();
@@ -2637,6 +2675,11 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> updateBudget(Budget b) async {
+    final vm = _budgetsVm;
+    if (vm != null) {
+      await vm.updateBudget(b);
+      return;
+    }
     await _updateBudget(b);
     budgets = await AppDatabase.instance.getBudgets();
     notifyListeners();
@@ -2644,6 +2687,11 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> deleteBudget(String id) async {
+    final vm = _budgetsVm;
+    if (vm != null) {
+      await vm.deleteBudget(id);
+      return;
+    }
     await _deleteBudget(id);
     budgets = await AppDatabase.instance.getBudgets();
     notifyListeners();
@@ -2651,6 +2699,10 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<VoidCallback> deleteBudgetWithUndo(String id) async {
+    final vm = _budgetsVm;
+    if (vm != null) {
+      return vm.deleteBudgetWithUndo(id);
+    }
     final b = budgets.firstWhere((b) => b.id == id);
     await deleteBudget(id);
     return () async {
@@ -2658,7 +2710,8 @@ class AppProvider extends ChangeNotifier {
     };
   }
 
-  /// The in-memory budgeting state handed to the pure [BudgetService].
+  /// The in-memory budgeting state handed to the pure [BudgetService]
+  /// (fallback path only — the view model builds its own context).
   BudgetContext get _budgetContext => BudgetContext(
         transactions: transactions,
         categories: categories,
@@ -2670,64 +2723,105 @@ class AppProvider extends ChangeNotifier {
         getSplits: getSplits,
       );
 
-  Budget? budgetForCategory(String categoryId) =>
-      _budgetService.budgetForCategory(_budgetContext, categoryId);
+  Budget? budgetForCategory(String categoryId) {
+    final vm = _budgetsVm;
+    if (vm != null) return vm.budgetForCategory(categoryId);
+    return _budgetService.budgetForCategory(_budgetContext, categoryId);
+  }
 
   /// Returns budgets excluding child subcategory budgets whose parent category
   /// also has an active budget of the same period, preventing double-counting
   /// in aggregate budget totals and pacing.
-  List<Budget> get nonOverlappingBudgets =>
-      _budgetService.nonOverlappingBudgets(_budgetContext);
+  List<Budget> get nonOverlappingBudgets {
+    final vm = _budgetsVm;
+    if (vm != null) return vm.nonOverlappingBudgets;
+    return _budgetService.nonOverlappingBudgets(_budgetContext);
+  }
 
-  DateTime getCurrentPeriodStart(Budget budget, [DateTime? referenceDate]) =>
-      _budgetService.getCurrentPeriodStart(_budgetContext, budget, referenceDate);
+  DateTime getCurrentPeriodStart(Budget budget, [DateTime? referenceDate]) {
+    final vm = _budgetsVm;
+    if (vm != null) return vm.getCurrentPeriodStart(budget, referenceDate);
+    return _budgetService.getCurrentPeriodStart(_budgetContext, budget, referenceDate);
+  }
 
-  DateTime getPreviousPeriodStart(Budget budget, [DateTime? referenceDate]) =>
-      _budgetService.getPreviousPeriodStart(_budgetContext, budget, referenceDate);
+  DateTime getPreviousPeriodStart(Budget budget, [DateTime? referenceDate]) {
+    final vm = _budgetsVm;
+    if (vm != null) return vm.getPreviousPeriodStart(budget, referenceDate);
+    return _budgetService.getPreviousPeriodStart(_budgetContext, budget, referenceDate);
+  }
 
   /// Calculates spending for a budget's category (including any child
   /// subcategories) within the half-open date interval [start, end).
-  double budgetSpentInPeriod(Budget budget, DateTime start, DateTime end) =>
-      _budgetService.budgetSpentInPeriod(_budgetContext, budget, start, end);
+  double budgetSpentInPeriod(Budget budget, DateTime start, DateTime end) {
+    final vm = _budgetsVm;
+    if (vm != null) return vm.budgetSpentInPeriod(budget, start, end);
+    return _budgetService.budgetSpentInPeriod(_budgetContext, budget, start, end);
+  }
 
   /// Sum of all expenses for [budget]'s category in the current period,
   /// converted to the main currency.
-  double budgetSpent(Budget budget, [DateTime? referenceDate]) =>
-      _budgetService.budgetSpent(_budgetContext, budget, referenceDate);
+  double budgetSpent(Budget budget, [DateTime? referenceDate]) {
+    final vm = _budgetsVm;
+    if (vm != null) return vm.budgetSpent(budget, referenceDate);
+    return _budgetService.budgetSpent(_budgetContext, budget, referenceDate);
+  }
 
   /// Computes the rollover surplus (positive) or overspending deficit (negative)
   /// from the previous period if [budget.allowRollover] is true.
   /// If rollover is disabled, returns 0.0.
-  double budgetRollover(Budget budget, [DateTime? referenceDate]) =>
-      _budgetService.budgetRollover(_budgetContext, budget, referenceDate);
+  double budgetRollover(Budget budget, [DateTime? referenceDate]) {
+    final vm = _budgetsVm;
+    if (vm != null) return vm.budgetRollover(budget, referenceDate);
+    return _budgetService.budgetRollover(_budgetContext, budget, referenceDate);
+  }
 
   /// Effective budget allowance for the current period:
   /// Base Budget + Rollover (if enabled). Clamped to at least 0.
-  double budgetEffectiveAllowance(Budget budget, [DateTime? referenceDate]) =>
-      _budgetService.budgetEffectiveAllowance(_budgetContext, budget, referenceDate);
+  double budgetEffectiveAllowance(Budget budget, [DateTime? referenceDate]) {
+    final vm = _budgetsVm;
+    if (vm != null) return vm.budgetEffectiveAllowance(budget, referenceDate);
+    return _budgetService.budgetEffectiveAllowance(_budgetContext, budget, referenceDate);
+  }
 
   /// Progress against the effective budget allowance (0.0 to 1.0).
-  double budgetProgress(Budget b) =>
-      _budgetService.budgetProgress(_budgetContext, b);
+  double budgetProgress(Budget b) {
+    final vm = _budgetsVm;
+    if (vm != null) return vm.budgetProgress(b);
+    return _budgetService.budgetProgress(_budgetContext, b);
+  }
 
   /// True if current spending exceeds the effective budget allowance.
-  bool budgetExceeded(Budget b) =>
-      _budgetService.budgetExceeded(_budgetContext, b);
+  bool budgetExceeded(Budget b) {
+    final vm = _budgetsVm;
+    if (vm != null) return vm.budgetExceeded(b);
+    return _budgetService.budgetExceeded(_budgetContext, b);
+  }
 
   /// Label of the previous period (e.g. "Aug", "Last Week") for rollover subheaders.
   String previousPeriodName(Budget budget,
-          [String? lastWeekLabel, DateTime? referenceDate]) =>
-      _budgetService.previousPeriodName(
-          _budgetContext, budget, lastWeekLabel, referenceDate);
+          [String? lastWeekLabel, DateTime? referenceDate]) {
+    final vm = _budgetsVm;
+    if (vm != null) {
+      return vm.previousPeriodName(budget, lastWeekLabel, referenceDate);
+    }
+    return _budgetService.previousPeriodName(
+        _budgetContext, budget, lastWeekLabel, referenceDate);
+  }
 
   /// Computes the daily Safe-to-Spend pacing analysis for [budget].
-  BudgetPacingInfo budgetPacing(Budget budget, [DateTime? referenceDate]) =>
-      _budgetService.budgetPacing(_budgetContext, budget, referenceDate);
+  BudgetPacingInfo budgetPacing(Budget budget, [DateTime? referenceDate]) {
+    final vm = _budgetsVm;
+    if (vm != null) return vm.budgetPacing(budget, referenceDate);
+    return _budgetService.budgetPacing(_budgetContext, budget, referenceDate);
+  }
 
   /// Aggregated Safe-to-Spend daily pacing analysis across all monthly category budgets.
   /// Returns null if no monthly budgets are configured.
-  BudgetPacingInfo? overallMonthlyBudgetPacing([DateTime? referenceDate]) =>
-      _budgetService.overallMonthlyBudgetPacing(_budgetContext, referenceDate);
+  BudgetPacingInfo? overallMonthlyBudgetPacing([DateTime? referenceDate]) {
+    final vm = _budgetsVm;
+    if (vm != null) return vm.overallMonthlyBudgetPacing(referenceDate);
+    return _budgetService.overallMonthlyBudgetPacing(_budgetContext, referenceDate);
+  }
 
   // ── Financial Calendar & Spending Heatmap ──────────────────────────────────
 

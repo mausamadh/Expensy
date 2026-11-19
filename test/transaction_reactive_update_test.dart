@@ -7,6 +7,7 @@ import 'package:finwick/screens/home_screen.dart';
 import 'package:finwick/screens/transactions_screen.dart';
 import 'package:finwick/l10n/app_localizations.dart';
 import 'package:drift/native.dart';
+import 'helpers/budgets_test_harness.dart';
 import 'helpers/categories_test_harness.dart';
 import 'helpers/presets_test_harness.dart';
 import 'helpers/goals_test_harness.dart';
@@ -148,7 +149,7 @@ void main() {
 
   group('Cross-Screen Two-Way Deletion & Sync Widget Tests', () {
     Widget buildTestApp(Widget child) {
-      return wrapWithLended(
+      return wrapWithBudgets(provider, wrapWithLended(
         provider,
         wrapWithGoals(
           provider,
@@ -168,7 +169,7 @@ void main() {
             ),
           ),
         ),
-      );
+      ));
     }
 
     testWidgets('TransactionsScreen updates immediately when transaction added/deleted',

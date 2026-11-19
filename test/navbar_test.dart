@@ -10,6 +10,7 @@ import 'package:finwick/screens/budget_screen.dart';
 import 'package:finwick/screens/more_screen.dart';
 import 'package:finwick/l10n/app_localizations.dart';
 import 'package:finwick/providers/app_provider.dart';
+import 'helpers/budgets_test_harness.dart';
 import 'helpers/categories_test_harness.dart';
 import 'helpers/presets_test_harness.dart';
 import 'helpers/goals_test_harness.dart';
@@ -61,7 +62,7 @@ void main() {
     testWidgets('MainShell renders floating navbar with rounded square highlight', (tester) async {
       final app = AppProvider();
       await tester.pumpWidget(
-        wrapWithLended(
+        wrapWithBudgets(app, wrapWithLended(
           app,
           wrapWithGoals(
             app,
@@ -80,7 +81,7 @@ void main() {
               ),
             ),
           ),
-        ),
+        )),
       );
 
       expect(find.byType(NavigationBar), findsOneWidget);
@@ -138,7 +139,7 @@ void main() {
     testWidgets('Tapping all tabs displays each screen and never renders blank SizedBox', (tester) async {
       final app = AppProvider();
       await tester.pumpWidget(
-        wrapWithLended(
+        wrapWithBudgets(app, wrapWithLended(
           app,
           wrapWithGoals(
             app,
@@ -157,7 +158,7 @@ void main() {
               ),
             ),
           ),
-        ),
+        )),
       );
 
       // Tab 0: Home is visible
