@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'composition/root.dart';
+import 'presentation/viewmodels/assets_view_model.dart';
 import 'presentation/viewmodels/sms_inbox_view_model.dart';
 import 'providers/app_provider.dart';
 import 'l10n/app_localizations.dart';
@@ -47,6 +48,10 @@ void main() async {
   }
 
   final provider = AppProvider();
+  // Wire the assets view model before load(): load() assigns the asset list
+  // through the provider's delegating setter, which needs the VM in place.
+  CompositionRoot.initAssets(provider);
+  final assetsVm = CompositionRoot.getIt<AssetsViewModel>();
   try {
     await provider.load(); // DB reads finish before Flutter draws anything
   } catch (e, stack) {
@@ -63,6 +68,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider<AppProvider>.value(value: provider),
+        ChangeNotifierProvider<AssetsViewModel>.value(value: assetsVm),
         ChangeNotifierProvider<SmsInboxViewModel>.value(value: smsVm),
       ],
       child: const ExpensyApp(),

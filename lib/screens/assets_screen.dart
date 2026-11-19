@@ -4,6 +4,7 @@ import '../utils/snackbar.dart';
 import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/assets_view_model.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
@@ -18,8 +19,9 @@ class AssetsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final app = context.watch<AppProvider>();
+    final assetsVm = context.watch<AssetsViewModel>();
     final cs = Theme.of(context).colorScheme;
-    final total = app.totalAssetsValue;
+    final total = assetsVm.totalAssetsValue;
 
     return Scaffold(
       appBar: AppBar(
@@ -38,7 +40,7 @@ class AssetsScreen extends StatelessWidget {
             const SizedBox(width: 8),
             FintechSummaryChip(
               label: l10n.assets_items,
-              value: '${app.assets.length}',
+              value: '${assetsVm.assets.length}',
               color: cs.primary,
             ),
           ]),
@@ -46,7 +48,7 @@ class AssetsScreen extends StatelessWidget {
 
         // ── Asset list ──────────────────────────────────────────────────
         Expanded(
-          child: app.assets.isEmpty
+          child: assetsVm.assets.isEmpty
               ? EmptyState(
                   icon: Icons.inventory_2_outlined,
                   message: l10n.assets_noAssetsYet,
@@ -54,12 +56,12 @@ class AssetsScreen extends StatelessWidget {
                 )
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(14, 8, 14, 110),
-                  itemCount: app.assets.length,
+                  itemCount: assetsVm.assets.length,
                   itemBuilder: (_, i) => _AssetCard(
-                    asset: app.assets[i],
+                    asset: assetsVm.assets[i],
                     mainCurrency: app.settings.currency,
-                    convertedValue: app.assets[i].currency != app.settings.currency
-                        ? app.convertToMain(app.assets[i].value, app.assets[i].currency)
+                    convertedValue: assetsVm.assets[i].currency != app.settings.currency
+                        ? app.convertToMain(assetsVm.assets[i].value, assetsVm.assets[i].currency)
                         : null,
                   ),
                 ),
@@ -169,7 +171,7 @@ class _AssetCard extends StatelessWidget {
               onPressed: () async {
                 AppHaptics.tap(context, HapticStrength.medium);
                 final undo = await context
-                    .read<AppProvider>()
+                    .read<AssetsViewModel>()
                     .deleteAssetWithUndo(asset.id);
                 if (context.mounted) {
                   showAppSnackbar(
@@ -231,18 +233,18 @@ class _AssetSheetState extends State<_AssetSheet> {
     if (_nameCtrl.text.trim().isEmpty) return;
     final value = double.tryParse(_valueCtrl.text);
     if (value == null || value < 0) return;
-    final app = context.read<AppProvider>();
+    final vm = context.read<AssetsViewModel>();
 
     if (isEdit) {
-      await app.updateAsset(widget.existing!.copyWith(
+      await vm.updateAsset(widget.existing!.copyWith(
         name: _nameCtrl.text.trim(),
         value: value,
         currency: _currency,
         notes: _notesCtrl.text.trim(),
       ));
     } else {
-      await app.addAsset(AssetItem(
-        id: app.newId(),
+      await vm.addAsset(AssetItem(
+        id: vm.newId(),
         name: _nameCtrl.text.trim(),
         value: value,
         currency: _currency,

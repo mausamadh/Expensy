@@ -49,6 +49,7 @@ import '../domain/shared/clock.dart';
 import 'package:expensy_saf/expensy_saf.dart';
 import '../theme/app_theme.dart';
 import '../utils/service_localizations.dart';
+import '../presentation/viewmodels/assets_view_model.dart';
 
 class AppSettings {
   String currency;
@@ -333,7 +334,6 @@ class AppProvider extends ChangeNotifier {
   List<WishlistItem>          wishlist     = [];
   List<LendedPerson>          lendedPeople = [];
   List<LendedMoney>           lended       = [];
-  List<AssetItem>             assets       = [];
   List<Budget>                budgets      = [];
   List<SavingsGoal>           savingsGoals = [];
   List<SavingsContribution>   savingsContributions = [];
@@ -341,6 +341,33 @@ class AppProvider extends ChangeNotifier {
   List<TransactionPreset>     presets      = [];
   List<TransactionSplit>      splits       = [];
   Map<String, List<TransactionSplit>> _splitsByTxId = {};
+
+  // ── Assets (delegated to AssetsViewModel, Phase 6) ────────────────────
+  /// Back-reference to the assets view model, wired by the composition root
+  /// before [load] runs. Null in standalone/test construction, in which case
+  /// the local [_assetsFallback] field is used so the net-worth engine and
+  /// backup/more screens keep working without a view model.
+  AssetsViewModel? _assetsVm;
+  List<AssetItem> _assetsFallback = [];
+
+  /// All assets in creation order. Delegates to the view model when wired.
+  List<AssetItem> get assets => _assetsVm?.assets ?? _assetsFallback;
+
+  /// Replaces the asset list. Delegates to the view model when wired; the
+  /// view model's setter notifies its own listeners.
+  set assets(List<AssetItem> next) {
+    if (_assetsVm != null) {
+      _assetsVm!.assets = next;
+    } else {
+      _assetsFallback = next;
+    }
+  }
+
+  /// Wires the assets view model (composition root, before [load]).
+  void wireAssetsVm(AssetsViewModel vm) {
+    _assetsVm = vm;
+    _assetsFallback = vm.assets;
+  }
 
   /// Total row count in `recurring_history` — kept for display purposes
   /// (e.g. the Backup screen's "what's included" list) without needing to
@@ -640,6 +667,7 @@ class AppProvider extends ChangeNotifier {
       ratesFetching    = false;
       ratesLastFetched = await _erService.lastFetchedAt();
       notifyListeners();
+      _assetsVm?.onRatesChanged();
       await _refreshGoldBalances();
     } else {
       // 1. Serve cached rates immediately so the UI is not blocked.
@@ -659,6 +687,7 @@ class AppProvider extends ChangeNotifier {
         ratesFetching    = false;
         ratesLastFetched = await _erService.lastFetchedAt();
         notifyListeners();
+        _assetsVm?.onRatesChanged();
         await _refreshGoldBalances();
       }
 
@@ -685,6 +714,7 @@ class AppProvider extends ChangeNotifier {
         }
         ratesFetching = false;
         notifyListeners();
+        _assetsVm?.onRatesChanged();
         await _refreshGoldBalances();
       }
     }
@@ -2258,46 +2288,11 @@ class AppProvider extends ChangeNotifier {
   }
 
   // ── Assets ────────────────────────────────────────────────────────────
-  Future<void> addAsset(AssetItem a) async {
-    await AppDatabase.instance.insertAsset(a);
-    assets = await AppDatabase.instance.getAssets();
-    notifyListeners();
-    recordNetWorthSnapshot();
-  }
-
-  Future<void> updateAsset(AssetItem a) async {
-    await AppDatabase.instance.updateAsset(a);
-    assets = await AppDatabase.instance.getAssets();
-    notifyListeners();
-    recordNetWorthSnapshot();
-  }
-
-  Future<void> deleteAsset(String id) async {
-    await AppDatabase.instance.deleteAsset(id);
-    assets = await AppDatabase.instance.getAssets();
-    notifyListeners();
-    recordNetWorthSnapshot();
-  }
-
-  Future<VoidCallback> deleteAssetWithUndo(String id) async {
-    final asset = assets.firstWhere((a) => a.id == id);
-    await deleteAsset(id);
-    return () async {
-      await AppDatabase.instance.insertAsset(asset);
-      assets = await AppDatabase.instance.getAssets();
-      notifyListeners();
-      recordNetWorthSnapshot();
-    };
-  }
-
-  double get totalAssetsValue => assets.fold(0.0, (sum, a) {
-    if (exchangeRates.isEmpty || a.currency == settings.currency) {
-      return sum + a.value;
-    }
-    return sum +
-        (_erService.convert(a.value, a.currency, settings.currency, exchangeRates)
-            ?? a.value);
-  });
+  // Mutations (add/update/delete/undo) live in AssetsViewModel (Phase 6).
+  // This getter stays on the provider because it is part of the cross-cutting
+  // net-worth engine (totalWealthAssets / liveNetWorth).
+  double get totalAssetsValue =>
+      assets.fold(0.0, (sum, a) => sum + convertToMain(a.value, a.currency));
 
   // ── Budgets ───────────────────────────────────────────────────────────
   Future<void> addBudget(Budget b) async {
