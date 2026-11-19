@@ -8,6 +8,7 @@ import 'package:finwick/providers/app_provider.dart';
 import 'package:finwick/screens/financial_calendar_screen.dart';
 import 'package:finwick/l10n/app_localizations.dart';
 import 'helpers/lended_test_harness.dart';
+import 'helpers/loans_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -219,10 +220,13 @@ void main() {
       // this), then assign data so it lands in the VM, then pump.
       final widget = wrapWithLended(
         app,
-        MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: FinancialCalendarScreen(initialDate: testDate),
+        wrapWithLoans(
+          app,
+          MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: FinancialCalendarScreen(initialDate: testDate),
+          ),
         ),
       );
 

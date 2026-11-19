@@ -13,6 +13,7 @@ import 'package:finwick/providers/app_provider.dart';
 import 'helpers/presets_test_harness.dart';
 import 'helpers/goals_test_harness.dart';
 import 'helpers/lended_test_harness.dart';
+import 'helpers/loans_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -65,10 +66,13 @@ void main() {
             app,
             wrapWithPresets(
               app,
-              const MaterialApp(
-                localizationsDelegates: AppLocalizations.localizationsDelegates,
-                supportedLocales: AppLocalizations.supportedLocales,
-                home: MainShell(),
+              wrapWithLoans(
+                app,
+                const MaterialApp(
+                  localizationsDelegates: AppLocalizations.localizationsDelegates,
+                  supportedLocales: AppLocalizations.supportedLocales,
+                  home: MainShell(),
+                ),
               ),
             ),
           ),
@@ -136,10 +140,13 @@ void main() {
             app,
             wrapWithPresets(
               app,
-              const MaterialApp(
-                localizationsDelegates: AppLocalizations.localizationsDelegates,
-                supportedLocales: AppLocalizations.supportedLocales,
-                home: MainShell(),
+              wrapWithLoans(
+                app,
+                const MaterialApp(
+                  localizationsDelegates: AppLocalizations.localizationsDelegates,
+                  supportedLocales: AppLocalizations.supportedLocales,
+                  home: MainShell(),
+                ),
               ),
             ),
           ),

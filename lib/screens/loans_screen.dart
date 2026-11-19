@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/loans_view_model.dart';
 import '../widgets/shared_widgets.dart';
 import '../widgets/fintech_components.dart';
 import '../theme/app_theme.dart';
@@ -37,6 +38,7 @@ class _LoansScreenState extends State<LoansScreen> {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    context.watch<LoansViewModel>();
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
     final cur = app.settings.currency;

@@ -10,6 +10,7 @@ import '../adapters/lended/drift_lended_repository.dart';
 import '../adapters/ledger/drift_ledger_repositories.dart';
 import '../adapters/ledger/drift_ledger_write_repositories.dart';
 import '../adapters/ledger/drift_preset_repository.dart';
+import '../adapters/loans/drift_loan_repository.dart';
 import '../adapters/sms/app_provider_ledger_context.dart';
 import '../adapters/sms/app_provider_ledger_gateway.dart';
 import '../adapters/sms/drift_sms_repositories.dart';
@@ -29,6 +30,7 @@ import '../domain/lended/ports/lended_repository.dart';
 import '../domain/ledger/ports/ports.dart';
 import '../domain/ledger/ports/preset_repository.dart';
 import '../domain/ledger/ports/write_ports.dart';
+import '../domain/loans/ports/loan_repository.dart';
 import '../domain/shared/clock.dart';
 import '../domain/sms_import/ports/ports.dart';
 import '../domain/wealth/ports/asset_repository.dart';
@@ -37,6 +39,7 @@ import '../providers/app_provider.dart';
 import '../presentation/viewmodels/assets_view_model.dart';
 import '../presentation/viewmodels/goals_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
+import '../presentation/viewmodels/loans_view_model.dart';
 import '../presentation/viewmodels/presets_view_model.dart';
 import '../presentation/viewmodels/sms_inbox_view_model.dart';
 
@@ -94,6 +97,10 @@ class CompositionRoot {
     // Lended persistence port (Phase 6) — lended people + lended-money
     // ledger storage.
     getIt.registerSingleton<LendedRepository>(const DriftLendedRepository());
+
+    // Loans persistence port (Phase 6) — loans + loan-payment ledger
+    // storage.
+    getIt.registerSingleton<LoanRepository>(const DriftLoanRepository());
 
     // Backup ports (Phase 5) — data export/import, keychain, safety
     // snapshots. Resolved by the backup use cases below.
@@ -256,6 +263,27 @@ class CompositionRoot {
       ),
     );
     provider.wireLendedVm(getIt<LendedViewModel>());
+  }
+
+  /// Registers the Loans view model (Phase 6).
+  ///
+  /// Called from `main()` right after the [AppProvider] is constructed and
+  /// BEFORE `provider.load()` runs, because `load()` assigns the loans /
+  /// loan-payments lists through the provider's delegating setters, which
+  /// require the view model to already be wired. The view model captures
+  /// the provider's account-balance-delta, net-worth, and mutation-mutex
+  /// hooks as tear-offs so loan mutations stay atomic with the provider's
+  /// own writes.
+  static void initLoans(AppProvider provider) {
+    getIt.registerLazySingleton<LoansViewModel>(
+      () => LoansViewModel(
+        repository: getIt<LoanRepository>(),
+        applyAccountBalanceDelta: provider.applyAccountBalanceDelta,
+        onNetWorthChanged: provider.recordNetWorthSnapshot,
+        serializeMutation: provider.serializeMutation,
+      ),
+    );
+    provider.wireLoansVm(getIt<LoansViewModel>());
   }
 
   /// Test hook: clears all registrations so a test can build its own

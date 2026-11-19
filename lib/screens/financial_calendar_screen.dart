@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/app_provider.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
+import '../presentation/viewmodels/loans_view_model.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import '../widgets/shared_widgets.dart';
@@ -65,6 +66,7 @@ class _FinancialCalendarScreenState extends State<FinancialCalendarScreen> {
     final l10n = AppLocalizations.of(context)!;
     final app = context.watch<AppProvider>();
     context.watch<LendedViewModel>();
+    context.watch<LoansViewModel>();
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cur = app.settings.currency;

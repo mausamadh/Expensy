@@ -10,6 +10,7 @@ import '../l10n/app_localizations.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
+import '../presentation/viewmodels/loans_view_model.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import '../utils/snackbar.dart';
@@ -43,6 +44,9 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
     // The lended slice is owned by LendedViewModel (Phase 6) — watch it so
     // the lent/borrowed totals rebuild when lended entries mutate.
     context.watch<LendedViewModel>();
+    // The loans slice is owned by LoansViewModel (Phase 6) — watch it so
+    // the outstanding-debt total rebuilds when loans mutate.
+    context.watch<LoansViewModel>();
 
     final currency = app.settings.currency;
     // Helper method `fmt`: handles user action or computes derived UI state.

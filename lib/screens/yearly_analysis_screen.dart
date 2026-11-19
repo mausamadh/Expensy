@@ -6,6 +6,7 @@ import '../l10n/app_localizations.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
+import '../presentation/viewmodels/loans_view_model.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import '../widgets/shared_widgets.dart';
@@ -166,6 +167,9 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
     // The lended slice is owned by LendedViewModel (Phase 6) — watch it so
     // the memoized yearly data rebuilds when lended entries mutate.
     context.watch<LendedViewModel>();
+    // The loans slice is owned by LoansViewModel (Phase 6) — watch it so
+    // the memoized yearly data rebuilds when loans mutate.
+    context.watch<LoansViewModel>();
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 

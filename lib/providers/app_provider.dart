@@ -53,6 +53,7 @@ import '../presentation/viewmodels/assets_view_model.dart';
 import '../presentation/viewmodels/presets_view_model.dart';
 import '../presentation/viewmodels/goals_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
+import '../presentation/viewmodels/loans_view_model.dart';
 
 class AppSettings {
   String currency;
@@ -511,6 +512,60 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+// ── Loans (delegated to LoansViewModel, Phase 6) ──────────────────────
+  /// Back-reference to the loans view model, wired by the composition root
+  /// before [load] runs. Null in standalone/test construction, in which
+  /// case the local fallback fields are used so the loan shims and the
+  /// screens keep working without a view model.
+  LoansViewModel? _loansVm;
+  List<Loan> _loansFallback = [];
+  List<LoanPayment> _loanPaymentsFallback = [];
+
+  /// All loans. Delegates to the view model when wired.
+  List<Loan> get loans => _loansVm?.loans ?? _loansFallback;
+
+  /// Replaces the loans list. Delegates to the view model when wired; the
+  /// view model's setter notifies its own listeners.
+  set loans(List<Loan> next) {
+    if (_loansVm != null) {
+      _loansVm!.loans = next;
+    } else {
+      _loansFallback = next;
+    }
+  }
+
+  /// All loan payments. Delegates to the view model when wired.
+  List<LoanPayment> get loanPayments =>
+      _loansVm?.loanPayments ?? _loanPaymentsFallback;
+
+  /// Replaces the loan-payments list. Delegates to the view model when
+  /// wired; the view model's setter notifies its own listeners.
+  set loanPayments(List<LoanPayment> next) {
+    if (_loansVm != null) {
+      _loansVm!.loanPayments = next;
+    } else {
+      _loanPaymentsFallback = next;
+    }
+  }
+
+  /// Wires the loans view model (composition root, before [load]).
+  void wireLoansVm(LoansViewModel vm) {
+    _loansVm = vm;
+    _loansFallback = vm.loans;
+    _loanPaymentsFallback = vm.loanPayments;
+  }
+
+  /// Applies an atomic account-balance delta (resolves a debit card to its
+  /// linked account, applies the SQL delta, and patches the in-memory
+  /// account list).
+  ///
+  /// Exposed so the loans view model (wired via the composition root) can
+  /// reverse/apply principal transfers and installment debits without the
+  /// composition root having to reach into the provider's private balance
+  /// helpers.
+  Future<void> applyAccountBalanceDelta(String accountId, double delta) =>
+      _updateAccountBalance(accountId, delta);
+
   /// Total row count in `recurring_history` — kept for display purposes
   /// (e.g. the Backup screen's "what's included" list) without needing to
   /// load every history row for every recurring payment into memory.
@@ -526,8 +581,8 @@ class AppProvider extends ChangeNotifier {
   // ── Recurring history (lazy cache) ────────────────────────────────────
   final Map<String, List<RecurringHistoryEntry>> _historyCache = {};
 
-  List<Loan> loans = [];
-  List<LoanPayment> loanPayments = [];
+  // loans / loanPayments are delegated to LoansViewModel (Phase 6) — see
+  // the delegation block below.
   List<Certificate> certificates = [];
 
   final _erService = ExchangeRateService();
@@ -2993,7 +3048,16 @@ class AppProvider extends ChangeNotifier {
   }
 
   // ── Loans ────────────────────────────────────────────────────────────
+  // Thin delegating shims. When the LoansViewModel is wired (production),
+  // the mutation runs through the view model so its listeners update. In
+  // standalone/test construction (no VM) the shims hit the DB directly and
+  // update the local fallback lists, preserving the pre-Phase-6 behavior.
   Future<void> addLoan(Loan l) async {
+    final vm = _loansVm;
+    if (vm != null) {
+      await vm.addLoan(l);
+      return;
+    }
     await serializeMutation(() async {
       await AppDatabase.instance.insertLoan(l);
       if (l.transferAccountId != null) {
@@ -3007,6 +3071,11 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> updateLoan(Loan l) async {
+    final vm = _loansVm;
+    if (vm != null) {
+      await vm.updateLoan(l);
+      return;
+    }
     await serializeMutation(() async {
       await _loanNotif.cancelReminder(l.id);
       final oldL = loans.firstWhere((x) => x.id == l.id);
@@ -3029,6 +3098,11 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> deleteLoan(String id) async {
+    final vm = _loansVm;
+    if (vm != null) {
+      await vm.deleteLoan(id);
+      return;
+    }
     await serializeMutation(() async {
       await _loanNotif.cancelReminder(id);
       final l = loans.firstWhere((x) => x.id == id);
@@ -3052,6 +3126,10 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<VoidCallback> deleteLoanWithUndo(String id) async {
+    final vm = _loansVm;
+    if (vm != null) {
+      return await vm.deleteLoanWithUndo(id);
+    }
     final l = loans.firstWhere((x) => x.id == id);
     final payments = loanPaymentsFor(id);
     await deleteLoan(id);
@@ -3077,6 +3155,11 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> payLoanInstallment(Loan l, {double? amount, String? accountId, String notes = ''}) async {
+    final vm = _loansVm;
+    if (vm != null) {
+      await vm.payLoanInstallment(l, amount: amount, accountId: accountId, notes: notes);
+      return;
+    }
     await serializeMutation(() async {
       final payAmount = amount ?? l.monthlyPayment;
       final useAccount = accountId ?? l.accountId;
@@ -3110,6 +3193,11 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> skipLoanInstallment(Loan l, {String notes = 'Skipped'}) async {
+    final vm = _loansVm;
+    if (vm != null) {
+      await vm.skipLoanInstallment(l, notes: notes);
+      return;
+    }
     await serializeMutation(() async {
       final payment = LoanPayment(
         id: newId(),
@@ -3127,6 +3215,11 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> deleteLoanPayment(String id) async {
+    final vm = _loansVm;
+    if (vm != null) {
+      await vm.deleteLoanPayment(id);
+      return;
+    }
     await serializeMutation(() async {
       final p = loanPayments.firstWhere((x) => x.id == id);
       if (p.accountId != null) {
@@ -3154,6 +3247,10 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<VoidCallback> deleteLoanPaymentWithUndo(String id) async {
+    final vm = _loansVm;
+    if (vm != null) {
+      return await vm.deleteLoanPaymentWithUndo(id);
+    }
     final p = loanPayments.firstWhere((x) => x.id == id);
     await deleteLoanPayment(id);
     return () async {

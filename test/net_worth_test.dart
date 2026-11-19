@@ -8,6 +8,7 @@ import 'package:finwick/providers/app_provider.dart';
 import 'package:finwick/screens/net_worth_screen.dart';
 import 'package:finwick/l10n/app_localizations.dart';
 import 'helpers/lended_test_harness.dart';
+import 'helpers/loans_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -169,15 +170,19 @@ void main() {
       addTearDown(() => tester.view.resetPhysicalSize());
 
       final app = AppProvider();
-      // Wire the LendedViewModel into the provider first (wrapWithLended does
-      // this), then assign data so it lands in the VM, then pump.
+      // Wire the LendedViewModel and LoansViewModel into the provider first
+      // (wrapWithLended / wrapWithLoans do this), then assign data so it
+      // lands in the VMs, then pump.
       final widget = wrapWithLended(
         app,
-        const MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: Locale('en'),
-          home: NetWorthScreen(),
+        wrapWithLoans(
+          app,
+          const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: Locale('en'),
+            home: NetWorthScreen(),
+          ),
         ),
       );
       app.accounts = [

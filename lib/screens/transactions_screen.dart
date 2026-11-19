@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
 import '../presentation/viewmodels/goals_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
+import '../presentation/viewmodels/loans_view_model.dart';
 import '../providers/aggregations.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
@@ -214,6 +215,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     // The lended slice is owned by LendedViewModel (Phase 6) — watch it so
     // the memoized filter list rebuilds when lended entries mutate.
     context.watch<LendedViewModel>();
+    // The loans slice is owned by LoansViewModel (Phase 6) — watch it so
+    // the memoized filter list rebuilds when loan payments mutate.
+    context.watch<LoansViewModel>();
     final cs  = Theme.of(context).colorScheme;
 
     // ── Memoized filtered item list ─────────────────────────────────────
