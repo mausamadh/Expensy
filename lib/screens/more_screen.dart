@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/goals_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
 import '../presentation/viewmodels/loans_view_model.dart';
@@ -42,6 +43,7 @@ class MoreScreen extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final app = context.watch<AppProvider>();
+    context.watch<CategoriesViewModel>();
     // The wishlist slice is owned by GoalsViewModel (Phase 6) — watch it so
     // the badge count stays in sync.
     context.watch<GoalsViewModel>();

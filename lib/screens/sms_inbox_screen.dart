@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import '../models/models.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/categories_view_model.dart';
 import 'accounts_screen.dart';
 import '../domain/sms_import/sms_parser.dart';
 import '../presentation/viewmodels/sms_inbox_view_model.dart';
@@ -934,6 +935,7 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    context.watch<CategoriesViewModel>();
     final cs = Theme.of(context).colorScheme;
     final cur = widget.item.parsedCurrency ?? app.settings.currency;
     final cats = app.userCategories.where((c) => c.type == _type).toList();
@@ -1272,6 +1274,7 @@ class _RulesSheetState extends State<_RulesSheet> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final app = context.watch<AppProvider>();
+    context.watch<CategoriesViewModel>();
     final vm = context.watch<SmsInboxViewModel>();
     final rules = vm.smsRules;
 
@@ -1751,6 +1754,7 @@ class _SenderMapSheetState extends State<_SenderMapSheet> {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    context.watch<CategoriesViewModel>();
     final cs = Theme.of(context).colorScheme;
     final cats = app.userCategories.where((c) => c.type == _type).toList();
     final accounts = app.accounts.where((a) => !a.isCredit).toList();

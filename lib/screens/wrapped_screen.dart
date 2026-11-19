@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/categories_view_model.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 
@@ -507,6 +508,7 @@ class _TopCategorySlide extends StatelessWidget {
   // Builds the widget subtree using theme-adaptive colors and localization.
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    context.watch<CategoriesViewModel>();
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
 
@@ -624,6 +626,7 @@ class _BiggestSplurgeSlide extends StatelessWidget {
   // Builds the widget subtree using theme-adaptive colors and localization.
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    context.watch<CategoriesViewModel>();
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
 
@@ -863,6 +866,7 @@ class _ReceiptSummarySlide extends StatelessWidget {
   // Builds the widget subtree using theme-adaptive colors and localization.
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    context.watch<CategoriesViewModel>();
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
 

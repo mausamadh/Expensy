@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/presets_view_model.dart';
 import '../widgets/shared_widgets.dart';
 import '../theme/app_theme.dart';
@@ -232,6 +233,7 @@ class _PresetSheetState extends State<PresetSheet> {
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
     final app = context.watch<AppProvider>();
+    context.watch<CategoriesViewModel>();
     final cats = app.userCategories.where((c) => c.type == _type).toList();
     final transferable = _type == 'transfer'
         ? app.transferableAccounts

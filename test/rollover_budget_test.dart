@@ -7,6 +7,7 @@ import 'package:finwick/models/models.dart';
 import 'package:finwick/providers/app_provider.dart';
 import 'package:finwick/screens/budget_screen.dart';
 import 'package:finwick/l10n/app_localizations.dart';
+import 'helpers/categories_test_harness.dart';
 import 'helpers/goals_test_harness.dart';
 
 void main() {
@@ -367,12 +368,11 @@ void main() {
         date: lastMonth,
       );
 
-      app.categories = [cat];
-      app.budgets = [budget];
-      app.transactions = [txPrev];
-
-      await tester.pumpWidget(
-        wrapWithGoals(
+      // Wire the view models first (the wraps do this), then assign data so
+      // it lands in the VMs, then pump.
+      final widget = wrapWithGoals(
+        app,
+        wrapWithCategories(
           app,
           const MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -381,6 +381,12 @@ void main() {
           ),
         ),
       );
+
+      app.categories = [cat];
+      app.budgets = [budget];
+      app.transactions = [txPrev];
+
+      await tester.pumpWidget(widget);
 
       await tester.pumpAndSettle();
 
@@ -432,12 +438,11 @@ void main() {
         date: lastMonth,
       );
 
-      app.categories = [cat];
-      app.budgets = [budget];
-      app.transactions = [txPrev];
-
-      await tester.pumpWidget(
-        wrapWithGoals(
+      // Wire the view models first (the wraps do this), then assign data so
+      // it lands in the VMs, then pump.
+      final widget = wrapWithGoals(
+        app,
+        wrapWithCategories(
           app,
           const MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -446,6 +451,12 @@ void main() {
           ),
         ),
       );
+
+      app.categories = [cat];
+      app.budgets = [budget];
+      app.transactions = [txPrev];
+
+      await tester.pumpWidget(widget);
 
       await tester.pumpAndSettle();
 

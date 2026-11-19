@@ -1,13 +1,13 @@
 // test/wrapped_test.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 import 'package:drift/native.dart';
 import 'package:finwick/database/app_database.dart';
 import 'package:finwick/models/models.dart';
 import 'package:finwick/providers/app_provider.dart';
 import 'package:finwick/screens/wrapped_screen.dart';
 import 'package:finwick/l10n/app_localizations.dart';
+import 'helpers/categories_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -159,14 +159,29 @@ void main() {
         colorValue: 0xFFE65100,
       );
 
-      app.accounts.clear();
-      app.accounts.add(acc);
-      app.categories.clear();
-      app.categories.add(cat);
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      // Wire the view models first (the wrap does this), then assign data so
+      // it lands in the VMs, then pump.
+      final widget = wrapWithCategories(
+        app,
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: WrappedScreen(initialMonth: month),
+        ),
+      );
+
+      app.accounts = [acc];
+      app.categories = [cat];
       app.settings.currency = 'USD';
 
-      app.transactions.clear();
-      app.transactions.addAll([
+      app.transactions = [
         AppTransaction(
           id: 'tx1',
           type: 'income',
@@ -187,25 +202,9 @@ void main() {
           date: DateTime(2026, 8, 14, 20, 0),
           currency: 'USD',
         ),
-      ]);
+      ];
 
-      tester.view.physicalSize = const Size(1080, 2400);
-      tester.view.devicePixelRatio = 2.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
-
-      await tester.pumpWidget(
-        ChangeNotifierProvider<AppProvider>.value(
-          value: app,
-          child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            home: WrappedScreen(initialMonth: month),
-          ),
-        ),
-      );
+      await tester.pumpWidget(widget);
 
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));

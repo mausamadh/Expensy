@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/presets_view_model.dart';
 import '../models/models.dart';
 import '../domain/ledger/rates_unavailable_exception.dart';
@@ -524,6 +525,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final app = context.watch<AppProvider>();
+    context.watch<CategoriesViewModel>();
     // Rebuild when presets change (the view model owns that state slice,
     // Phase 6) so the quick-log preset row stays in sync.
     context.watch<PresetsViewModel>();

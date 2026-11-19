@@ -7,6 +7,7 @@ import 'package:finwick/screens/home_screen.dart';
 import 'package:finwick/screens/transactions_screen.dart';
 import 'package:finwick/l10n/app_localizations.dart';
 import 'package:drift/native.dart';
+import 'helpers/categories_test_harness.dart';
 import 'helpers/presets_test_harness.dart';
 import 'helpers/goals_test_harness.dart';
 import 'helpers/lended_test_harness.dart';
@@ -18,6 +19,7 @@ void main() {
 
   late AppDatabase db;
   late AppProvider provider;
+  late AppCategory cat;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -35,7 +37,7 @@ void main() {
     );
     await db.insertAccount(bank);
 
-    final cat = AppCategory(
+    cat = AppCategory(
       id: 'cat_groceries',
       name: 'Groceries',
       type: 'expense',
@@ -154,11 +156,14 @@ void main() {
             provider,
             wrapWithLoans(
               provider,
-              MaterialApp(
-                localizationsDelegates: AppLocalizations.localizationsDelegates,
-                supportedLocales: AppLocalizations.supportedLocales,
-                locale: const Locale('en'),
-                home: Scaffold(body: child),
+              wrapWithCategories(
+                provider,
+                MaterialApp(
+                  localizationsDelegates: AppLocalizations.localizationsDelegates,
+                  supportedLocales: AppLocalizations.supportedLocales,
+                  locale: const Locale('en'),
+                  home: Scaffold(body: child),
+                ),
               ),
             ),
           ),
@@ -169,6 +174,9 @@ void main() {
     testWidgets('TransactionsScreen updates immediately when transaction added/deleted',
         (tester) async {
       await tester.pumpWidget(buildTestApp(const TransactionsScreen()));
+      // Re-assign after the wraps wired the VMs so the category lands in the
+      // CategoriesViewModel, not the pre-wire fallback.
+      provider.categories = [cat];
       await tester.pump();
 
       expect(find.text('Reactive Sync Item'), findsNothing);
@@ -207,6 +215,9 @@ void main() {
       });
 
       await tester.pumpWidget(buildTestApp(const HomeScreen()));
+      // Re-assign after the wraps wired the VMs so the category lands in the
+      // CategoriesViewModel, not the pre-wire fallback.
+      provider.categories = [cat];
       await tester.pump();
 
       expect(find.text('Home Sync Item'), findsNothing);

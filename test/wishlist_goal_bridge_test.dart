@@ -7,6 +7,7 @@ import 'package:finwick/models/models.dart';
 import 'package:finwick/providers/app_provider.dart';
 import 'package:finwick/screens/wishlist_screen.dart';
 import 'package:finwick/l10n/app_localizations.dart';
+import 'helpers/categories_test_harness.dart';
 import 'helpers/goals_test_harness.dart';
 
 void main() {
@@ -297,10 +298,13 @@ void main() {
     Widget createTestApp(AppProvider app) {
       return wrapWithGoals(
         app,
-        const MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: WishlistScreen(),
+        wrapWithCategories(
+          app,
+          const MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: WishlistScreen(),
+          ),
         ),
       );
     }

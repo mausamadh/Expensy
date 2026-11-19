@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/goals_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
 import '../presentation/viewmodels/loans_view_model.dart';
@@ -275,6 +276,7 @@ class _BackupScreenState extends State<BackupScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final app = context.watch<AppProvider>();
+    context.watch<CategoriesViewModel>();
     // Keep the preset count in sync (the view model owns that state slice,
     // Phase 6).
     context.watch<PresetsViewModel>();
@@ -1086,6 +1088,7 @@ class _SelectiveBackupSheetState extends State<_SelectiveBackupSheet> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final app = context.watch<AppProvider>();
+    context.watch<CategoriesViewModel>();
     // Keep the preset count in sync (the view model owns that state slice,
     // Phase 6).
     context.watch<PresetsViewModel>();

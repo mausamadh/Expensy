@@ -8,6 +8,7 @@ import 'package:finwick/providers/app_provider.dart';
 import 'package:finwick/screens/budget_screen.dart';
 import 'package:finwick/screens/home_screen.dart';
 import 'package:finwick/l10n/app_localizations.dart';
+import 'helpers/categories_test_harness.dart';
 import 'helpers/presets_test_harness.dart';
 import 'helpers/goals_test_harness.dart';
 
@@ -489,13 +490,11 @@ void main() {
         createdAt: DateTime.now(),
       );
 
-      app.categories = [cat];
-      app.accounts = [acc];
-      app.budgets = [budget];
-      app.transactions = [];
-
-      await tester.pumpWidget(
-        wrapWithGoals(
+      // Wire the view models first (the wraps do this), then assign data so
+      // it lands in the VMs, then pump.
+      final widget = wrapWithGoals(
+        app,
+        wrapWithCategories(
           app,
           const MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -504,6 +503,13 @@ void main() {
           ),
         ),
       );
+
+      app.categories = [cat];
+      app.accounts = [acc];
+      app.budgets = [budget];
+      app.transactions = [];
+
+      await tester.pumpWidget(widget);
 
       await tester.pumpAndSettle();
 
@@ -539,13 +545,11 @@ void main() {
         createdAt: DateTime.now(),
       );
 
-      app.categories = [cat];
-      app.accounts = [acc];
-      app.budgets = [budget];
-      app.transactions = [];
-
-      await tester.pumpWidget(
-        wrapWithPresets(
+      // Wire the view models first (the wraps do this), then assign data so
+      // it lands in the VMs, then pump.
+      final widget = wrapWithPresets(
+        app,
+        wrapWithCategories(
           app,
           const MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -554,6 +558,13 @@ void main() {
           ),
         ),
       );
+
+      app.categories = [cat];
+      app.accounts = [acc];
+      app.budgets = [budget];
+      app.transactions = [];
+
+      await tester.pumpWidget(widget);
 
       await tester.pumpAndSettle();
 

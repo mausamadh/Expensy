@@ -4,6 +4,7 @@ import '../adapters/backup/drift_backup_data_repository.dart';
 import '../adapters/backup/expensy_saf_keychain.dart';
 import '../adapters/backup/safety_snapshot_store.dart';
 import '../adapters/budgeting/drift_budget_write_repository.dart';
+import '../adapters/categories/drift_category_store.dart';
 import '../adapters/fx/http_exchange_rate_provider.dart';
 import '../adapters/goals/drift_goals_repository.dart';
 import '../adapters/lended/drift_lended_repository.dart';
@@ -24,6 +25,7 @@ import '../application/mutation_gate.dart';
 import '../domain/backup/backup_validator.dart';
 import '../domain/backup/ports/ports.dart';
 import '../domain/budgeting/ports/budget_write_port.dart';
+import '../domain/categories/ports/category_store.dart';
 import '../domain/fx/ports/exchange_rate_provider.dart';
 import '../domain/goals/ports/goals_repository.dart';
 import '../domain/lended/ports/lended_repository.dart';
@@ -37,6 +39,7 @@ import '../domain/wealth/ports/asset_repository.dart';
 import '../database/app_database.dart';
 import '../providers/app_provider.dart';
 import '../presentation/viewmodels/assets_view_model.dart';
+import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/goals_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
 import '../presentation/viewmodels/loans_view_model.dart';
@@ -101,6 +104,11 @@ class CompositionRoot {
     // Loans persistence port (Phase 6) — loans + loan-payment ledger
     // storage.
     getIt.registerSingleton<LoanRepository>(const DriftLoanRepository());
+
+    // Categories persistence port (Phase 6) — user categories +
+    // subcategories. Distinct from the ledger's read-only
+    // CategoryRepository above.
+    getIt.registerSingleton<CategoryStore>(const DriftCategoryStore());
 
     // Backup ports (Phase 5) — data export/import, keychain, safety
     // snapshots. Resolved by the backup use cases below.
@@ -284,6 +292,19 @@ class CompositionRoot {
       ),
     );
     provider.wireLoansVm(getIt<LoansViewModel>());
+  }
+
+  /// Registers the Categories view model (Phase 6) and wires it into the
+  /// provider. Categories have no ledger side effects, so the view model
+  /// only needs the CategoryStore port.
+  static void initCategories(AppProvider provider) {
+    getIt.registerLazySingleton<CategoriesViewModel>(
+      () => CategoriesViewModel(
+        store: getIt<CategoryStore>(),
+        serializeMutation: provider.serializeMutation,
+      ),
+    );
+    provider.wireCategoriesVm(getIt<CategoriesViewModel>());
   }
 
   /// Test hook: clears all registrations so a test can build its own

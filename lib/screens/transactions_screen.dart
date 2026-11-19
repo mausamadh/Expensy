@@ -7,6 +7,7 @@ import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/goals_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
 import '../presentation/viewmodels/loans_view_model.dart';
@@ -813,6 +814,7 @@ class _TxTile extends StatelessWidget {
   @override
   // Builds the widget subtree using theme-adaptive colors and localization.
   Widget build(BuildContext context) {
+  context.watch<CategoriesViewModel>();
     final l10n = AppLocalizations.of(context)!;
     final cs    = Theme.of(context).colorScheme;
     final cat   = app.categoryById(t.categoryId);
@@ -1312,6 +1314,7 @@ class _AdvancedFilterSheetState extends State<_AdvancedFilterSheet> {
   @override
   // Builds the widget subtree using theme-adaptive colors and localization.
   Widget build(BuildContext context) {
+  context.watch<CategoriesViewModel>();
     final l10n = AppLocalizations.of(context)!;
     final kbOpen = MediaQuery.of(context).viewInsets.bottom > 100;
     final showPad = _showKeypad && !kbOpen;

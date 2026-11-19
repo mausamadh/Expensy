@@ -54,6 +54,7 @@ import '../presentation/viewmodels/presets_view_model.dart';
 import '../presentation/viewmodels/goals_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
 import '../presentation/viewmodels/loans_view_model.dart';
+import '../presentation/viewmodels/categories_view_model.dart';
 
 class AppSettings {
   String currency;
@@ -325,12 +326,32 @@ class AppProvider extends ChangeNotifier {
     _accountsById = {for (final a in value) a.id: a};
   }
 
-  List<AppCategory> _categories = [];
-  Map<String, AppCategory> _categoriesById = {};
-  List<AppCategory> get categories => _categories;
+// ── Categories (delegated to CategoriesViewModel, Phase 6) ────────────
+  /// Back-reference to the categories view model, wired by the composition
+  /// root before [load] runs. Null in standalone/test construction, in which
+  /// case the local fallback field is used so the category shims and the
+  /// screens keep working without a view model.
+  CategoriesViewModel? _categoriesVm;
+  List<AppCategory> _categoriesFallback = [];
+
+  /// All categories. Delegates to the view model when wired.
+  List<AppCategory> get categories =>
+      _categoriesVm?.categories ?? _categoriesFallback;
+
+  /// Replaces the categories list. Delegates to the view model when wired;
+  /// the view model's setter notifies its own listeners.
   set categories(List<AppCategory> value) {
-    _categories = value;
-    _categoriesById = {for (final c in value) c.id: c};
+    if (_categoriesVm != null) {
+      _categoriesVm!.categories = value;
+    } else {
+      _categoriesFallback = value;
+    }
+  }
+
+  /// Wires the categories view model (composition root, before [load]).
+  void wireCategoriesVm(CategoriesViewModel vm) {
+    _categoriesVm = vm;
+    _categoriesFallback = vm.categories;
   }
 
   List<AppTransaction>        transactions = [];
@@ -1155,17 +1176,22 @@ class AppProvider extends ChangeNotifier {
       );
 
   AppCategory get transferCategory =>
-      _categoriesById['sys_transfer'] ??
-      AppCategory(
-        id: 'sys_transfer',
-        name: 'Transfer',
-        type: 'transfer',
-        colorValue: 0xFF4CAF50,
+      _categoriesVm?.transferCategory ??
+      _categoriesFallback.firstWhere(
+        (c) => c.id == 'sys_transfer',
+        orElse: () => AppCategory(
+          id: 'sys_transfer',
+          name: 'Transfer',
+          type: 'transfer',
+          colorValue: 0xFF4CAF50,
+        ),
       );
 
   AppCategory? categoryById(String id) {
+    final vm = _categoriesVm;
+    if (vm != null) return vm.categoryById(id);
     if (id == 'sys_transfer') return transferCategory;
-    return _categoriesById[id];
+    return _categoriesFallback.where((c) => c.id == id).firstOrNull;
   }
 
   /// User-editable categories (excludes hidden system categories like sys_transfer).
@@ -1310,6 +1336,8 @@ class AppProvider extends ChangeNotifier {
   /// Seeds curated default subcategories under matching default parent categories.
   /// Returns the number of newly created subcategories.
   Future<int> seedDefaultSubcategories() async {
+    final vm = _categoriesVm;
+    if (vm != null) return vm.seedDefaultSubcategories();
     return await serializeMutation(() async {
       const defaults = <String, List<String>>{
         'food_exp': ['Groceries', 'Restaurants', 'Delivery', 'Coffee & Tea'],
@@ -1697,18 +1725,33 @@ class AppProvider extends ChangeNotifier {
 
   // ── Categories ────────────────────────────────────────────────────────
   Future<void> addCategory(AppCategory c) async {
+    final vm = _categoriesVm;
+    if (vm != null) {
+      await vm.addCategory(c);
+      return;
+    }
     await AppDatabase.instance.insertCategory(c);
     categories = await AppDatabase.instance.getCategories();
     notifyListeners();
   }
 
   Future<void> updateCategory(AppCategory c) async {
+    final vm = _categoriesVm;
+    if (vm != null) {
+      await vm.updateCategory(c);
+      return;
+    }
     await AppDatabase.instance.updateCategory(c);
     categories = await AppDatabase.instance.getCategories();
     notifyListeners();
   }
 
   Future<void> deleteCategory(String id) async {
+    final vm = _categoriesVm;
+    if (vm != null) {
+      await vm.deleteCategory(id);
+      return;
+    }
     await AppDatabase.instance.deleteCategory(id);
     categories = await AppDatabase.instance.getCategories();
     notifyListeners();
@@ -4342,6 +4385,11 @@ class AppProvider extends ChangeNotifier {
 
   void reorderCategories(int oldIndex, int newIndex, String type,
       {String? parentId}) {
+    final vm = _categoriesVm;
+    if (vm != null) {
+      vm.reorderCategories(oldIndex, newIndex, type, parentId: parentId);
+      return;
+    }
     if (oldIndex < newIndex) newIndex -= 1;
 
     final scoped = categories
@@ -4390,6 +4438,8 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<VoidCallback> deleteCategoryWithUndo(String id) async {
+    final vm = _categoriesVm;
+    if (vm != null) return vm.deleteCategoryWithUndo(id);
     final cat = categories.firstWhere((c) => c.id == id);
     final idx = categories.indexOf(cat);
     final childSnapshots = categories

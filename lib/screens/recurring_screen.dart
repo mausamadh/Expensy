@@ -8,6 +8,7 @@ import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/categories_view_model.dart';
 import '../models/models.dart';
 import '../domain/ledger/rates_unavailable_exception.dart';
 import '../presentation/recurring_localizations.dart';
@@ -471,6 +472,7 @@ class _RecurringCardState extends State<_RecurringCard> {
   @override
   // Builds the widget subtree using theme-adaptive colors and localization.
   Widget build(BuildContext context) {
+  context.watch<CategoriesViewModel>();
     final r = widget.r;
     final app = widget.app;
     final fmt = widget.fmt;
@@ -1088,6 +1090,7 @@ class _RecurringSheetState extends State<_RecurringSheet> {
   // Builds the widget subtree using theme-adaptive colors and localization.
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    context.watch<CategoriesViewModel>();
     final cs = Theme.of(context).colorScheme;
     final selectedAcc =
         _accountId != null ? app.accountById(_accountId!) : null;

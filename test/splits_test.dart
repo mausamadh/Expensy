@@ -1,13 +1,13 @@
 // test/splits_test.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 import 'package:drift/native.dart';
 import 'package:finwick/database/app_database.dart';
 import 'package:finwick/models/models.dart';
 import 'package:finwick/providers/app_provider.dart';
 import 'package:finwick/widgets/split_transaction_sheet.dart';
 import 'package:finwick/l10n/app_localizations.dart';
+import 'helpers/categories_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -73,6 +73,24 @@ void main() {
       ];
 
       final provider = AppProvider();
+
+      // Wire the view models first (the wrap does this), then assign data so
+      // it lands in the VMs, then pump.
+      final widget = wrapWithCategories(
+        provider,
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: SplitTransactionSheet(
+              transaction: tx,
+              splits: splits,
+              app: provider,
+            ),
+          ),
+        ),
+      );
+
       provider.accounts = [
         Account(
           id: 'acc_main',
@@ -91,22 +109,7 @@ void main() {
       provider.transactions = [tx];
       provider.splits = splits;
 
-      await tester.pumpWidget(
-        ChangeNotifierProvider<AppProvider>.value(
-          value: provider,
-          child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            home: Scaffold(
-              body: SplitTransactionSheet(
-                transaction: tx,
-                splits: splits,
-                app: provider,
-              ),
-            ),
-          ),
-        ),
-      );
+      await tester.pumpWidget(widget);
 
       await tester.pumpAndSettle();
 

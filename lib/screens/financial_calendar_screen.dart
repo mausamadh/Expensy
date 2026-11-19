@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
 import '../presentation/viewmodels/loans_view_model.dart';
 import '../theme/app_theme.dart';
@@ -65,6 +66,7 @@ class _FinancialCalendarScreenState extends State<FinancialCalendarScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final app = context.watch<AppProvider>();
+    context.watch<CategoriesViewModel>();
     context.watch<LendedViewModel>();
     context.watch<LoansViewModel>();
     final cs = Theme.of(context).colorScheme;

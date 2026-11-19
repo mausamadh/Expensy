@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/goals_view_model.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
@@ -432,6 +433,7 @@ class _BudgetCard extends StatelessWidget {
   @override
   // Builds the widget subtree using theme-adaptive colors and localization.
   Widget build(BuildContext context) {
+  context.watch<CategoriesViewModel>();
     final l10n = AppLocalizations.of(context)!;
     final cs        = Theme.of(context).colorScheme;
     final isDark    = Theme.of(context).brightness == Brightness.dark;
@@ -920,6 +922,7 @@ class _BudgetSheetState extends State<_BudgetSheet> {
   @override
   // Builds the widget subtree using theme-adaptive colors and localization.
   Widget build(BuildContext context) {
+  context.watch<CategoriesViewModel>();
     final l10n = AppLocalizations.of(context)!;
     final app     = context.watch<AppProvider>();
     final cs      = Theme.of(context).colorScheme;

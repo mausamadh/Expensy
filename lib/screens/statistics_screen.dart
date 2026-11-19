@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/categories_view_model.dart';
 import '../providers/aggregations.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
@@ -133,6 +134,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    context.watch<CategoriesViewModel>();
     final cs = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
     String fmt(double v) => formatAmount(v, app.settings.currency);

@@ -10,6 +10,7 @@ import 'package:finwick/screens/budget_screen.dart';
 import 'package:finwick/screens/more_screen.dart';
 import 'package:finwick/l10n/app_localizations.dart';
 import 'package:finwick/providers/app_provider.dart';
+import 'helpers/categories_test_harness.dart';
 import 'helpers/presets_test_harness.dart';
 import 'helpers/goals_test_harness.dart';
 import 'helpers/lended_test_harness.dart';
@@ -68,10 +69,13 @@ void main() {
               app,
               wrapWithLoans(
                 app,
-                const MaterialApp(
-                  localizationsDelegates: AppLocalizations.localizationsDelegates,
-                  supportedLocales: AppLocalizations.supportedLocales,
-                  home: MainShell(),
+                wrapWithCategories(
+                  app,
+                  const MaterialApp(
+                    localizationsDelegates: AppLocalizations.localizationsDelegates,
+                    supportedLocales: AppLocalizations.supportedLocales,
+                    home: MainShell(),
+                  ),
                 ),
               ),
             ),
@@ -142,10 +146,13 @@ void main() {
               app,
               wrapWithLoans(
                 app,
-                const MaterialApp(
-                  localizationsDelegates: AppLocalizations.localizationsDelegates,
-                  supportedLocales: AppLocalizations.supportedLocales,
-                  home: MainShell(),
+                wrapWithCategories(
+                  app,
+                  const MaterialApp(
+                    localizationsDelegates: AppLocalizations.localizationsDelegates,
+                    supportedLocales: AppLocalizations.supportedLocales,
+                    home: MainShell(),
+                  ),
                 ),
               ),
             ),

@@ -5,6 +5,7 @@ import '../utils/snackbar.dart';
 import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/categories_view_model.dart';
 import '../models/models.dart';
 import '../widgets/shared_widgets.dart';
 import '../widgets/fintech_components.dart';
@@ -17,6 +18,7 @@ class CategoriesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final app = context.watch<AppProvider>();
+    context.watch<CategoriesViewModel>();
     final expenses = app.rootCategoriesForType('expense');
     final incomes = app.rootCategoriesForType('income');
 
@@ -348,6 +350,7 @@ class _CategorySheetState extends State<_CategorySheet> {
 
   @override
   Widget build(BuildContext context) {
+  context.watch<CategoriesViewModel>();
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;

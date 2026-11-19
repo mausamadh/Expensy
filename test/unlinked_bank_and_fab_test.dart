@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 import 'package:finwick/models/models.dart';
 import 'package:finwick/providers/app_provider.dart';
 import 'package:finwick/widgets/shared_widgets.dart';
 import 'package:finwick/screens/recurring_screen.dart';
 import 'package:finwick/utils/nav_metrics.dart';
 import 'package:finwick/l10n/app_localizations.dart';
+import 'helpers/categories_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -78,9 +78,9 @@ void main() {
       final app = AppProvider();
 
       await tester.pumpWidget(
-        ChangeNotifierProvider<AppProvider>.value(
-          value: app,
-          child: const MaterialApp(
+        wrapWithCategories(
+          app,
+          const MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: RecurringScreen(),

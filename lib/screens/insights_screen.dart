@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/loans_view_model.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
@@ -242,6 +243,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final app = context.watch<AppProvider>();
+    context.watch<CategoriesViewModel>();
     context.watch<LoansViewModel>();
     final cs  = Theme.of(context).colorScheme;
     final cur = app.settings.currency;

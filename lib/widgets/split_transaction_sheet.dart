@@ -1,9 +1,11 @@
 // lib/widgets/split_transaction_sheet.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/categories_view_model.dart';
 import '../screens/add_transaction_screen.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
@@ -41,6 +43,7 @@ class SplitTransactionSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<CategoriesViewModel>();
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
     final acc = app.accountById(transaction.accountId);

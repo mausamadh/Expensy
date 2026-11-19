@@ -7,6 +7,7 @@ import 'package:finwick/models/models.dart';
 import 'package:finwick/providers/app_provider.dart';
 import 'package:finwick/screens/financial_calendar_screen.dart';
 import 'package:finwick/l10n/app_localizations.dart';
+import 'helpers/categories_test_harness.dart';
 import 'helpers/lended_test_harness.dart';
 import 'helpers/loans_test_harness.dart';
 
@@ -212,23 +213,26 @@ void main() {
         currency: 'USD',
       );
 
-      app.categories = [cat];
-      app.accounts = [acc];
-      app.transactions = [tx];
-
-      // Wire the LendedViewModel into the provider first (wrapWithLended does
-      // this), then assign data so it lands in the VM, then pump.
+      // Wire the view models into the provider first (the wraps do this),
+      // then assign data so it lands in the VMs, then pump.
       final widget = wrapWithLended(
         app,
         wrapWithLoans(
           app,
-          MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            home: FinancialCalendarScreen(initialDate: testDate),
+          wrapWithCategories(
+            app,
+            MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: FinancialCalendarScreen(initialDate: testDate),
+            ),
           ),
         ),
       );
+
+      app.categories = [cat];
+      app.accounts = [acc];
+      app.transactions = [tx];
 
       await tester.pumpWidget(widget);
 

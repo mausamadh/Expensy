@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/categories_view_model.dart';
 import '../domain/ledger/rates_unavailable_exception.dart';
 import '../theme/app_theme.dart';
 import '../widgets/presets_carousel.dart';
@@ -110,6 +111,7 @@ class _TransferScreenState extends State<TransferScreen> {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    context.watch<CategoriesViewModel>();
     final cs = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
     // Accounts only (not cards, and exclude gold accounts with synthetic balances)
