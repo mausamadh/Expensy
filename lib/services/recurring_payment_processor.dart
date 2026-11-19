@@ -1,50 +1,34 @@
 // lib/services/recurring_payment_processor.dart
 // note: Shared recurring payment processor for both foreground AppProvider and background Workmanager worker.
+//
+// Hexagonal (Phase 4): the pure planning rules (due-date gating, catch-up,
+// debit-card redirect, cross-currency transfer) live in the domain
+// `RecurringPaymentPlanner`. This adapter keeps the DB transaction, the
+// idempotency check, and the atomic write, and exposes the same public API
+// (constructor over [AppDatabase], `processDuePayments`, `isPaymentDue`,
+// `occurrenceDateFor`, `hasHistoryForDate`) so the provider, the workmanager
+// worker, and the tests are unchanged.
 
-import 'package:uuid/uuid.dart';
+import '../adapters/fx/http_exchange_rate_provider.dart';
 import '../database/app_database.dart';
+import '../domain/fx/ports/exchange_rate_provider.dart';
+import '../domain/recurring/recurring_planner.dart';
 import '../models/models.dart';
-import 'exchange_rate_service.dart';
 
 class RecurringPaymentProcessor {
   final AppDatabase db;
-  static const _uuid = Uuid();
+  final RecurringPaymentPlanner _planner;
 
-  RecurringPaymentProcessor(this.db);
+  RecurringPaymentProcessor(this.db, {RecurringPaymentPlanner? planner})
+      : _planner = planner ?? RecurringPaymentPlanner();
 
   /// Checks if a payment is due based on nextDate, endDate, and autoPayTime.
-  static bool isPaymentDue(RecurringPayment r, DateTime now) {
-    if (!r.autoPayEnabled) return false;
-    if (r.endDate != null && r.nextDate.isAfter(r.endDate!)) return false;
-
-    final today = DateTime(now.year, now.month, now.day);
-    final dueDate = DateTime(r.nextDate.year, r.nextDate.month, r.nextDate.day);
-
-    if (dueDate.isBefore(today)) return true;
-    if (dueDate.isAtSameMomentAs(today)) {
-      final parts = r.autoPayTime.split(':');
-      final targetHour = int.tryParse(parts[0]) ?? 9;
-      final targetMinute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
-      final currentMinutes = now.hour * 60 + now.minute;
-      final targetMinutes = targetHour * 60 + targetMinute;
-      return currentMinutes >= targetMinutes;
-    }
-    return false;
-  }
+  static bool isPaymentDue(RecurringPayment r, DateTime now) =>
+      RecurringPaymentPlanner.isPaymentDue(r, now);
 
   /// Calculates the exact DateTime occurrence for a given nextDate and autoPayTime.
-  static DateTime occurrenceDateFor(RecurringPayment r) {
-    final parts = r.autoPayTime.split(':');
-    final hour = int.tryParse(parts[0]) ?? 9;
-    final minute = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
-    return DateTime(
-      r.nextDate.year,
-      r.nextDate.month,
-      r.nextDate.day,
-      hour,
-      minute,
-    );
-  }
+  static DateTime occurrenceDateFor(RecurringPayment r) =>
+      RecurringPaymentPlanner.occurrenceDateFor(r);
 
   /// Processes all due recurring payments with auto-pay enabled.
   /// Runs inside a database transaction per payment for idempotency and atomicity.
@@ -61,6 +45,9 @@ class RecurringPaymentProcessor {
     // Build account lookup
     final accountMap = {for (final a in accountsList) a.id: a};
 
+    // Cross-currency transfers consult the live rate cache (adapter concern).
+    final ExchangeRateProvider ratesProvider = HttpExchangeRateProvider();
+
     for (var r in recurringList) {
       if (!r.autoPayEnabled) continue;
 
@@ -68,168 +55,20 @@ class RecurringPaymentProcessor {
       const maxCycles = 24;
 
       while (catchUpCycles < maxCycles) {
-        if (!isPaymentDue(r, now)) break;
-
-        final occurrence = occurrenceDateFor(r);
-
-        if (r.isTransfer) {
-          final toId = r.toAccountId;
-          if (toId == null || toId.isEmpty || toId == r.accountId) break;
-
-          final fromAcc = accountMap[r.accountId];
-          final toAcc = accountMap[toId];
-          final fromBalId = (fromAcc != null &&
-                  fromAcc.isDebit &&
-                  fromAcc.linkedAccountId != null &&
-                  fromAcc.linkedAccountId!.isNotEmpty)
-              ? fromAcc.linkedAccountId!
-              : r.accountId;
-          final toBalId = (toAcc != null &&
-                  toAcc.isDebit &&
-                  toAcc.linkedAccountId != null &&
-                  toAcc.linkedAccountId!.isNotEmpty)
-              ? toAcc.linkedAccountId!
-              : toId;
-          if (fromBalId == toBalId) break;
-
-          final fromBalAcc = accountMap[fromBalId] ?? fromAcc;
-          final toBalAcc = accountMap[toBalId] ?? toAcc;
-          final fromCurrency = fromBalAcc?.currency ?? defaultCurrency;
-          final toCurrency = toBalAcc?.currency ?? defaultCurrency;
-
-          double? creditAmount;
-          if (r.toAmount != null && r.toAmount! > 0) {
-            creditAmount = r.toAmount!;
-          } else if (fromCurrency == toCurrency) {
-            creditAmount = r.amount;
-          } else {
-            final er = ExchangeRateService();
-            final rates = await er.getRates();
-            if (rates.isNotEmpty) {
-              creditAmount =
-                  er.convert(r.amount, fromCurrency, toCurrency, rates);
-            }
-          }
-          if (creditAmount == null || creditAmount <= 0) {
-            // Skip cross-currency auto-pay when no target amount or rates exist.
-            break;
-          }
-
-          final transferGroupId = _uuid.v4();
-          final outTx = AppTransaction(
-            id: _uuid.v4(),
-            type: 'expense',
-            amount: r.amount,
-            description: '${r.name} (Transfer out)',
-            accountId: fromBalId,
-            paidViaAccountId: fromBalId != r.accountId ? r.accountId : null,
-            categoryId: 'sys_transfer',
-            date: occurrence,
-            note: r.notes,
-            currency: fromCurrency,
-            transferGroupId: transferGroupId,
-          );
-          final inTx = AppTransaction(
-            id: _uuid.v4(),
-            type: 'income',
-            amount: creditAmount,
-            description: '${r.name} (Transfer in)',
-            accountId: toBalId,
-            paidViaAccountId: toBalId != toId ? toId : null,
-            categoryId: 'sys_transfer',
-            date: occurrence,
-            note: r.notes,
-            currency: toCurrency,
-            transferGroupId: transferGroupId,
-          );
-
-          final updatedR = r.copyWith(
-            nextDate: r.calcNextDate(),
-            paidPayments: r.paidPayments + 1,
-          );
-
-          final historyEntry = RecurringHistoryEntry(
-            id: _uuid.v4(),
-            recurringId: r.id,
-            action: 'paid',
-            date: occurrence,
-            amount: r.amount,
-            currency: fromCurrency,
-          );
-
-          final didPay = await db.transaction(() async {
-            final alreadyPaid = await hasHistoryForDate(
-              r.id,
-              occurrence,
-              action: 'paid',
-            );
-            if (alreadyPaid) return false;
-            await db.applyTransferWithBalances(
-              outTx,
-              inTx,
-              -r.amount,
-              creditAmount!,
-            );
-            await db.insertRecurringHistory(historyEntry);
-            await db.updateRecurring(updatedR);
-            return true;
-          });
-
-          if (!didPay) {
-            r = r.copyWith(nextDate: r.calcNextDate());
-            break;
-          }
-
-          processedIds.add(r.id);
-          r = updatedR;
-          catchUpCycles++;
-
-          if (r.endDate != null && r.nextDate.isAfter(r.endDate!)) break;
-          continue;
-        }
-
-        // Determine balance-holding account (Debit Card redirect)
-        final acc = accountMap[r.accountId];
-        final balanceAccountId = (acc != null &&
-                acc.isDebit &&
-                acc.linkedAccountId != null &&
-                acc.linkedAccountId!.isNotEmpty)
-            ? acc.linkedAccountId!
-            : r.accountId;
-        final paidViaAccountId =
-            (acc != null && acc.isDebit) ? r.accountId : null;
-        final balAcc = accountMap[balanceAccountId] ?? acc;
-        final resolvedCurrency =
-            balAcc?.currency ?? acc?.currency ?? defaultCurrency;
-
-        final txId = _uuid.v4();
-        final tx = AppTransaction(
-          id: txId,
-          type: r.paymentType,
-          amount: r.amount,
-          description: '${r.name} (recurring)',
-          accountId: balanceAccountId,
-          paidViaAccountId: paidViaAccountId,
-          categoryId: r.categoryId,
-          date: occurrence,
-          currency: resolvedCurrency,
+        final step = await _planner.planNextStep(
+          r: r,
+          accounts: accountMap,
+          now: now,
+          ratesProvider: ratesProvider,
+          defaultCurrency: defaultCurrency,
         );
+        if (step == null) break;
 
-        final balanceDelta = r.paymentType == 'income' ? r.amount : -r.amount;
-
-        final updatedR = r.copyWith(
-          nextDate: r.calcNextDate(),
-          paidPayments: r.paidPayments + 1,
-        );
-
-        final historyEntry = RecurringHistoryEntry(
-          id: _uuid.v4(),
-          recurringId: r.id,
-          action: 'paid',
-          date: occurrence,
-          amount: r.amount,
-          currency: resolvedCurrency,
-        );
+        final updatedR = step.updatedRecurring;
+        final historyEntry = step.historyEntry;
+        final occurrence = step.occurrence;
+        final transfer = step is TransferStep ? step : null;
+        final payment = step is PaymentStep ? step : null;
 
         // Execute idempotency check and payment atomically inside a DB transaction
         final didPay = await db.transaction(() async {
@@ -241,7 +80,17 @@ class RecurringPaymentProcessor {
           if (alreadyPaid) {
             return false;
           }
-          await db.applyTransactionWithBalance(tx, balanceDelta);
+          if (transfer != null) {
+            await db.applyTransferWithBalances(
+              transfer.outTx,
+              transfer.inTx,
+              transfer.fromDelta,
+              transfer.toDelta,
+            );
+          } else if (payment != null) {
+            await db.applyTransactionWithBalance(
+                payment.tx, payment.balanceDelta);
+          }
           await db.insertRecurringHistory(historyEntry);
           await db.updateRecurring(updatedR);
           return true;

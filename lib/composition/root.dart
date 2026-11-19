@@ -1,6 +1,7 @@
 import 'package:get_it/get_it.dart';
 
 import '../adapters/budgeting/drift_budget_write_repository.dart';
+import '../adapters/fx/http_exchange_rate_provider.dart';
 import '../adapters/ledger/drift_ledger_repositories.dart';
 import '../adapters/ledger/drift_ledger_write_repositories.dart';
 import '../adapters/sms/app_provider_ledger_context.dart';
@@ -12,6 +13,7 @@ import '../adapters/sms/template_registry_loader.dart';
 import '../adapters/time/system_clock.dart';
 import '../application/mutation_gate.dart';
 import '../domain/budgeting/ports/budget_write_port.dart';
+import '../domain/fx/ports/exchange_rate_provider.dart';
 import '../domain/ledger/ports/ports.dart';
 import '../domain/ledger/ports/write_ports.dart';
 import '../domain/shared/clock.dart';
@@ -38,6 +40,9 @@ class CompositionRoot {
     // Cross-cutting ports
     getIt.registerSingleton<Clock>(SystemClock());
     getIt.registerSingleton<MutationGate>(MutationGate());
+
+    // FX read port (Phase 4) — exchange rates over the HTTP/cache adapter.
+    getIt.registerSingleton<ExchangeRateProvider>(HttpExchangeRateProvider());
 
     // Ledger read ports (Phase 2a) — stateless Drift adapters over the
     // existing AppDatabase. Resolved by ledger use cases (Phase 2b).
