@@ -1,13 +1,13 @@
 // test/net_worth_test.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 import 'package:drift/native.dart';
 import 'package:finwick/database/app_database.dart';
 import 'package:finwick/models/models.dart';
 import 'package:finwick/providers/app_provider.dart';
 import 'package:finwick/screens/net_worth_screen.dart';
 import 'package:finwick/l10n/app_localizations.dart';
+import 'helpers/lended_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -169,6 +169,17 @@ void main() {
       addTearDown(() => tester.view.resetPhysicalSize());
 
       final app = AppProvider();
+      // Wire the LendedViewModel into the provider first (wrapWithLended does
+      // this), then assign data so it lands in the VM, then pump.
+      final widget = wrapWithLended(
+        app,
+        const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: Locale('en'),
+          home: NetWorthScreen(),
+        ),
+      );
       app.accounts = [
         Account(id: 'a1', name: 'Checking', type: 'bank', balance: 12000, colorValue: 0xFF000000, currency: 'USD'),
       ];
@@ -178,17 +189,7 @@ void main() {
       app.loans = [];
       app.lended = [];
 
-      await tester.pumpWidget(
-        ChangeNotifierProvider<AppProvider>.value(
-          value: app,
-          child: const MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: Locale('en'),
-            home: NetWorthScreen(),
-          ),
-        ),
-      );
+      await tester.pumpWidget(widget);
       await tester.pumpAndSettle();
 
       // Check for title and hero text

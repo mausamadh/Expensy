@@ -5,6 +5,7 @@ import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/lended_view_model.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
@@ -26,6 +27,7 @@ class LendedPersonScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final app = context.watch<AppProvider>();
+    context.watch<LendedViewModel>();
     final cs = Theme.of(context).colorScheme;
     // Re-resolve in case the person was edited since this screen was pushed.
     final current = app.personById(person.id) ?? person;
@@ -615,6 +617,7 @@ class _EntrySheetState extends State<_EntrySheet> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final app = context.watch<AppProvider>();
+    context.watch<LendedViewModel>();
     final cs = Theme.of(context).colorScheme;
     final sym = currencyInfo(app.settings.currency).symbol;
 

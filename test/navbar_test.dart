@@ -12,6 +12,7 @@ import 'package:finwick/l10n/app_localizations.dart';
 import 'package:finwick/providers/app_provider.dart';
 import 'helpers/presets_test_harness.dart';
 import 'helpers/goals_test_harness.dart';
+import 'helpers/lended_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -58,14 +59,17 @@ void main() {
     testWidgets('MainShell renders floating navbar with rounded square highlight', (tester) async {
       final app = AppProvider();
       await tester.pumpWidget(
-        wrapWithGoals(
+        wrapWithLended(
           app,
-          wrapWithPresets(
+          wrapWithGoals(
             app,
-            const MaterialApp(
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              home: MainShell(),
+            wrapWithPresets(
+              app,
+              const MaterialApp(
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                home: MainShell(),
+              ),
             ),
           ),
         ),
@@ -126,14 +130,17 @@ void main() {
     testWidgets('Tapping all tabs displays each screen and never renders blank SizedBox', (tester) async {
       final app = AppProvider();
       await tester.pumpWidget(
-        wrapWithGoals(
+        wrapWithLended(
           app,
-          wrapWithPresets(
+          wrapWithGoals(
             app,
-            const MaterialApp(
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              home: MainShell(),
+            wrapWithPresets(
+              app,
+              const MaterialApp(
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                home: MainShell(),
+              ),
             ),
           ),
         ),

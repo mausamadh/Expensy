@@ -7,6 +7,7 @@ import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../presentation/viewmodels/goals_view_model.dart';
+import '../presentation/viewmodels/lended_view_model.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import '../widgets/fintech_components.dart';
@@ -43,6 +44,9 @@ class MoreScreen extends StatelessWidget {
     // The wishlist slice is owned by GoalsViewModel (Phase 6) — watch it so
     // the badge count stays in sync.
     context.watch<GoalsViewModel>();
+    // The lended slice is owned by LendedViewModel (Phase 6) — watch it so
+    // the badge count stays in sync.
+    context.watch<LendedViewModel>();
 
     final tabTeal = isDark ? const Color(0xFF4DB6AC) : kCertificateColor;
 

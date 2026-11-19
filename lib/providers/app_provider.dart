@@ -52,6 +52,7 @@ import '../utils/service_localizations.dart';
 import '../presentation/viewmodels/assets_view_model.dart';
 import '../presentation/viewmodels/presets_view_model.dart';
 import '../presentation/viewmodels/goals_view_model.dart';
+import '../presentation/viewmodels/lended_view_model.dart';
 
 class AppSettings {
   String currency;
@@ -335,8 +336,8 @@ class AppProvider extends ChangeNotifier {
   List<RecurringPayment>      recurring    = [];
   // wishlist / savingsGoals / savingsContributions are delegated to
   // GoalsViewModel (Phase 6) — see the delegation block below.
-  List<LendedPerson>          lendedPeople = [];
-  List<LendedMoney>           lended       = [];
+  // lendedPeople / lended are delegated to LendedViewModel (Phase 6) — see
+  // the delegation block below.
   List<Budget>                budgets      = [];
   List<NetWorthSnapshot>      netWorthSnapshots = [];
   List<TransactionSplit>      splits       = [];
@@ -456,6 +457,60 @@ class AppProvider extends ChangeNotifier {
     _savingsContributionsFallback = vm.savingsContributions;
   }
 
+  // ── Lended (delegated to LendedViewModel, Phase 6) ────────────────────
+  /// Back-reference to the lended view model, wired by the composition root
+  /// before [load] runs. Null in standalone/test construction, in which case
+  /// the local fallback fields are used so the lended shims and the screens
+  /// keep working without a view model.
+  LendedViewModel? _lendedVm;
+  List<LendedPerson> _lendedPeopleFallback = [];
+  List<LendedMoney> _lendedFallback = [];
+
+  /// All lended people. Delegates to the view model when wired.
+  List<LendedPerson> get lendedPeople =>
+      _lendedVm?.lendedPeople ?? _lendedPeopleFallback;
+
+  /// Replaces the lended-people list. Delegates to the view model when
+  /// wired; the view model's setter notifies its own listeners.
+  set lendedPeople(List<LendedPerson> next) {
+    if (_lendedVm != null) {
+      _lendedVm!.lendedPeople = next;
+    } else {
+      _lendedPeopleFallback = next;
+    }
+  }
+
+  /// All lended-money entries. Delegates to the view model when wired.
+  List<LendedMoney> get lended => _lendedVm?.lended ?? _lendedFallback;
+
+  /// Replaces the lended-money list. Delegates to the view model when
+  /// wired; the view model's setter notifies its own listeners.
+  set lended(List<LendedMoney> next) {
+    if (_lendedVm != null) {
+      _lendedVm!.lended = next;
+    } else {
+      _lendedFallback = next;
+    }
+  }
+
+  /// Wires the lended view model (composition root, before [load]).
+  void wireLendedVm(LendedViewModel vm) {
+    _lendedVm = vm;
+    _lendedPeopleFallback = vm.lendedPeople;
+    _lendedFallback = vm.lended;
+  }
+
+  /// Reloads accounts from the database and notifies listeners.
+  ///
+  /// Exposed so the lended view model (wired via the composition root) can
+  /// refresh account balances after a lended mutation without the
+  /// composition root having to call the protected [notifyListeners]
+  /// directly.
+  Future<void> refreshAccountsFromDb() async {
+    accounts = await AppDatabase.instance.getAccounts();
+    notifyListeners();
+  }
+
   /// Total row count in `recurring_history` — kept for display purposes
   /// (e.g. the Backup screen's "what's included" list) without needing to
   /// load every history row for every recurring payment into memory.
@@ -493,7 +548,7 @@ class AppProvider extends ChangeNotifier {
   Future<void> _mutationQueue = Future.value();
   static const _mutexZoneKey = #expMutex;
 
-  Future<T> _serializeMutation<T>(Future<T> Function() action) async {
+  Future<T> serializeMutation<T>(Future<T> Function() action) async {
     if (Zone.current[_mutexZoneKey] == true) {
       return await action();
     }
@@ -694,7 +749,7 @@ class AppProvider extends ChangeNotifier {
   Timer? _netWorthDebounceTimer;
 
   Future<void> _executeRecordNetWorthSnapshot() async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       try {
         final today = DateFormat('yyyy-MM-dd', 'en_US').format(DateTime.now());
         final existing = await AppDatabase.instance.getNetWorthSnapshotForDate(today);
@@ -1200,7 +1255,7 @@ class AppProvider extends ChangeNotifier {
   /// Seeds curated default subcategories under matching default parent categories.
   /// Returns the number of newly created subcategories.
   Future<int> seedDefaultSubcategories() async {
-    return await _serializeMutation(() async {
+    return await serializeMutation(() async {
       const defaults = <String, List<String>>{
         'food_exp': ['Groceries', 'Restaurants', 'Delivery', 'Coffee & Tea'],
         'transport': ['Fuel', 'Public Transit', 'Taxi & Ride', 'Maintenance', 'Parking & Tolls'],
@@ -1260,7 +1315,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> addAccount(Account a) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       await _addAccount(a);
       accounts = await AppDatabase.instance.getAccounts();
       if (a.type == 'credit' && a.creditReminderEnabled) {
@@ -1273,7 +1328,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> updateAccount(Account a) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       final old = accountById(a.id);
       await _updateAccount(a, old);
       accounts = await AppDatabase.instance.getAccounts();
@@ -1370,7 +1425,7 @@ class AppProvider extends ChangeNotifier {
     await deleteAccount(id);
 
     return () async {
-      await _serializeMutation(() async {
+      await serializeMutation(() async {
         await _restoreAccountSnapshot(a, txs, attachedSplits);
         accounts = [...accounts, a];
         final nextTxs = [...transactions, ...txs]
@@ -1386,7 +1441,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> deleteAccount(String id) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       await CreditReminderService().cancelReminder(id);
       await _deleteAccount(id);
       accounts = accounts.where((a) => a.id != id).toList();
@@ -1680,7 +1735,7 @@ class AppProvider extends ChangeNotifier {
     AppTransaction t, {
     List<TransactionSplit>? splits,
   }) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       final result = await _addTransaction(t, _ledgerContext, splits: splits);
       if (splits != null) {
         this.splits = await AppDatabase.instance.getAllSplits();
@@ -1702,7 +1757,7 @@ class AppProvider extends ChangeNotifier {
     AppTransaction original, {
     List<TransactionSplit>? splits,
   }) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       final result = await _updateTransaction(
         updated,
         original,
@@ -1777,7 +1832,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> deleteTransaction(String id) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       final result = await _deleteTransaction(id, transactions, _ledgerContext);
 
       for (final r in result.reversals) {
@@ -1814,7 +1869,7 @@ class AppProvider extends ChangeNotifier {
     DateTime? date,
   }) async {
     if (fromId == toId || fromAmount <= 0) return null;
-    return await _serializeMutation<AppTransaction?>(() async {
+    return await serializeMutation<AppTransaction?>(() async {
       final result = await _addTransfer(
         fromId: fromId,
         toId: toId,
@@ -1935,7 +1990,7 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> saveTransactionSplits(
       String transactionId, List<TransactionSplit> newSplits) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       await _saveTransactionSplits(transactionId, newSplits);
       splits = await AppDatabase.instance.getAllSplits();
       _rebuildSplitsCache();
@@ -1980,7 +2035,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> markRecurringPaid(RecurringPayment r, {DateTime? occurrenceDate}) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       final effectiveDate = occurrenceDate ?? r.nextDate;
       // Idempotency guard (B10): skip if this cycle date was already paid (e.g. by auto-pay)
       final processor = RecurringPaymentProcessor(AppDatabase.instance);
@@ -2032,7 +2087,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> skipNextRecurring(RecurringPayment r) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       final processor = RecurringPaymentProcessor(AppDatabase.instance);
       if (await processor.hasHistoryForDate(r.id, r.nextDate)) {
         return;
@@ -2059,7 +2114,7 @@ class AppProvider extends ChangeNotifier {
   /// Automatically marks any recurring items paid if they are due today or overdue
   /// and have auto-pay enabled using the shared RecurringPaymentProcessor.
   Future<void> checkAndProcessAutoPay() async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       final processor = RecurringPaymentProcessor(AppDatabase.instance);
       final processed = await processor.processDuePayments();
       if (processed.isNotEmpty) {
@@ -2237,13 +2292,27 @@ class AppProvider extends ChangeNotifier {
   }
 
   // ── Lended People (per-person ledger "accounts") ────────────────────────
+  // Thin delegating shims. When the LendedViewModel is wired (production),
+  // the mutation runs through the view model so its listeners update. In
+  // standalone/test construction (no VM) the shims hit the DB directly and
+  // update the local fallback lists, preserving the pre-Phase-6 behavior.
   Future<void> addLendedPerson(LendedPerson p) async {
+    final vm = _lendedVm;
+    if (vm != null) {
+      await vm.addLendedPerson(p);
+      return;
+    }
     await AppDatabase.instance.insertLendedPerson(p);
     lendedPeople = await AppDatabase.instance.getLendedPeople();
     notifyListeners();
   }
 
   Future<void> updateLendedPerson(LendedPerson p) async {
+    final vm = _lendedVm;
+    if (vm != null) {
+      await vm.updateLendedPerson(p);
+      return;
+    }
     await AppDatabase.instance.updateLendedPerson(p);
     lendedPeople = await AppDatabase.instance.getLendedPeople();
     notifyListeners();
@@ -2252,7 +2321,12 @@ class AppProvider extends ChangeNotifier {
   /// Deletes a person along with every lended-money entry that belongs to
   /// them, cancelling any pending reminders first, and reversing unsettled balances.
   Future<void> deleteLendedPerson(String id) async {
-    await _serializeMutation(() async {
+    final vm = _lendedVm;
+    if (vm != null) {
+      await vm.deleteLendedPerson(id);
+      return;
+    }
+    await serializeMutation(() async {
       for (final l in lended.where((l) => l.personId == id)) {
         await _lendedNotif.cancelLendedReminder(l.id);
         if (l.accountId != null && !l.isSettled) {
@@ -2302,7 +2376,12 @@ class AppProvider extends ChangeNotifier {
 
   // ── Lended Money (ledger entries) ───────────────────────────────────────
   Future<void> addLended(LendedMoney l) async {
-    await _serializeMutation(() async {
+    final vm = _lendedVm;
+    if (vm != null) {
+      await vm.addLended(l);
+      return;
+    }
+    await serializeMutation(() async {
       await AppDatabase.instance.insertLended(l);
       if (l.accountId != null) {
         final delta = _lendedBalanceEffect(l);
@@ -2323,7 +2402,12 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> updateLended(LendedMoney updated, LendedMoney original) async {
-    await _serializeMutation(() async {
+    final vm = _lendedVm;
+    if (vm != null) {
+      await vm.updateLended(updated, original);
+      return;
+    }
+    await serializeMutation(() async {
       final oldEffect = _lendedBalanceEffect(original);
       final newEffect = _lendedBalanceEffect(updated);
       final oldAcc = original.accountId != null ? balanceAccountIdFor(original.accountId!) : null;
@@ -2358,7 +2442,12 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> settleLended(LendedMoney l) async {
-    await _serializeMutation(() async {
+    final vm = _lendedVm;
+    if (vm != null) {
+      await vm.settleLended(l);
+      return;
+    }
+    await serializeMutation(() async {
       if (l.accountId != null && !l.isSettled) {
         final delta = -_lendedBalanceEffect(l);
         if (delta != 0) {
@@ -2377,7 +2466,12 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> deleteLended(String id) async {
-    await _serializeMutation(() async {
+    final vm = _lendedVm;
+    if (vm != null) {
+      await vm.deleteLended(id);
+      return;
+    }
+    await serializeMutation(() async {
       final idx = lended.indexWhere((l) => l.id == id);
       if (idx != -1) {
         final record = lended[idx];
@@ -2399,10 +2493,14 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<VoidCallback> deleteLendedWithUndo(String id) async {
+    final vm = _lendedVm;
+    if (vm != null) {
+      return vm.deleteLendedWithUndo(id);
+    }
     final record = lended.firstWhere((l) => l.id == id);
     await deleteLended(id);
     return () async {
-      await _serializeMutation(() async {
+      await serializeMutation(() async {
         await AppDatabase.instance.insertLended(record);
         if (record.accountId != null && !record.isSettled) {
           final delta = _lendedBalanceEffect(record);
@@ -2814,7 +2912,7 @@ class AppProvider extends ChangeNotifier {
     required double amount,
     String note = '',
   }) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       final goal = savingsGoals.firstWhere((g) => g.id == goalId);
       final fromAcc = accountById(fromAccountId);
       if (fromAcc == null) return;
@@ -2858,7 +2956,7 @@ class AppProvider extends ChangeNotifier {
     required double amount, // amount in goal currency
     String note = '',
   }) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       final goal = savingsGoals.firstWhere((g) => g.id == goalId);
       final toAcc = accountById(toAccountId);
       if (toAcc == null) return;
@@ -2896,7 +2994,7 @@ class AppProvider extends ChangeNotifier {
 
   // ── Loans ────────────────────────────────────────────────────────────
   Future<void> addLoan(Loan l) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       await AppDatabase.instance.insertLoan(l);
       if (l.transferAccountId != null) {
         await _updateAccountBalance(l.transferAccountId!, l.principal);
@@ -2909,7 +3007,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> updateLoan(Loan l) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       await _loanNotif.cancelReminder(l.id);
       final oldL = loans.firstWhere((x) => x.id == l.id);
       
@@ -2931,7 +3029,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> deleteLoan(String id) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       await _loanNotif.cancelReminder(id);
       final l = loans.firstWhere((x) => x.id == id);
       
@@ -2958,7 +3056,7 @@ class AppProvider extends ChangeNotifier {
     final payments = loanPaymentsFor(id);
     await deleteLoan(id);
     return () async {
-      await _serializeMutation(() async {
+      await serializeMutation(() async {
         await AppDatabase.instance.insertLoan(l);
         if (l.transferAccountId != null) {
           await _updateAccountBalance(l.transferAccountId!, l.principal);
@@ -2979,7 +3077,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> payLoanInstallment(Loan l, {double? amount, String? accountId, String notes = ''}) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       final payAmount = amount ?? l.monthlyPayment;
       final useAccount = accountId ?? l.accountId;
 
@@ -3012,7 +3110,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> skipLoanInstallment(Loan l, {String notes = 'Skipped'}) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       final payment = LoanPayment(
         id: newId(),
         loanId: l.id,
@@ -3029,7 +3127,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> deleteLoanPayment(String id) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       final p = loanPayments.firstWhere((x) => x.id == id);
       if (p.accountId != null) {
         await _updateAccountBalance(p.accountId!, p.amount); // reverse the debit
@@ -3059,7 +3157,7 @@ class AppProvider extends ChangeNotifier {
     final p = loanPayments.firstWhere((x) => x.id == id);
     await deleteLoanPayment(id);
     return () async {
-      await _serializeMutation(() async {
+      await serializeMutation(() async {
         await AppDatabase.instance.insertLoanPayment(p);
         if (p.accountId != null) {
           await _updateAccountBalance(p.accountId!, -p.amount);
@@ -3302,7 +3400,7 @@ class AppProvider extends ChangeNotifier {
 
   // ── Certificates ──────────────────────────────────────────────────────────
   Future<void> addCertificate(Certificate c) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       final now = DateTime.now();
       final tx = AppTransaction(
         id: newId(),
@@ -3327,7 +3425,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> updateCertificate(Certificate c) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       final oldCert = certificates.firstWhereOrNull((item) => item.id == c.id);
       if (oldCert != null &&
           (oldCert.amount != c.amount || oldCert.accountId != c.accountId)) {
@@ -3358,7 +3456,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> deleteCertificate(String id) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       await CertificateReminderService().cancelReminder(id);
       final cert = certificates.firstWhereOrNull((c) => c.id == id);
       if (cert != null) {
@@ -3399,7 +3497,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> redeemCertificate(String id, {bool returnPrincipal = true}) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       await CertificateReminderService().cancelReminder(id);
       final cert = certificates.firstWhereOrNull((c) => c.id == id);
       if (cert == null || cert.isSettled) return;
@@ -3433,7 +3531,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> checkAndProcessCertificates() async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final endOfToday =
@@ -3578,7 +3676,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<bool> undoLastRestore() async {
-    return _serializeMutation(() async {
+    return serializeMutation(() async {
       final path = lastPreRestoreSnapshotPath;
       if (path == null) return false;
       if (!File(path).existsSync()) return false;
@@ -3591,7 +3689,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<int> restoreBackupData(Map<String, dynamic> data) async {
-    return _serializeMutation(() async {
+    return serializeMutation(() async {
       // Parse & validate settings before wiping the database (B9)
       AppSettings? parsedSettings;
       if (data['settings'] is Map) {
@@ -3663,7 +3761,7 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> restoreSelective(
       Map<String, dynamic> data, Set<String> selectedGroups) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       // Validate, write the pre-restore safety snapshot, and import the
       // selected tables through the application-layer use case.
       await _restoreSelective(data, selectedGroups);
@@ -3737,7 +3835,7 @@ class AppProvider extends ChangeNotifier {
   /// paired/single-leg transfers from a TrackWallet CSV export.
   /// Returns the number of imported transactions.
   Future<int> restoreTrackWallet(String csvContent) async {
-    return await _serializeMutation(() async {
+    return await serializeMutation(() async {
       // Strip optional UTF-8 BOM.
       final cleaned = csvContent.startsWith('\uFEFF')
           ? csvContent.substring(1)
@@ -4036,7 +4134,7 @@ class AppProvider extends ChangeNotifier {
 
 
   Future<void> _restoreGreenStash(String jsonStr) async {
-    await _serializeMutation(() async {
+    await serializeMutation(() async {
       final decoded = jsonDecode(jsonStr);
       if (decoded is! Map || decoded['data'] is! List) {
         throw const FormatException('Invalid GreenStash format.');
@@ -4189,7 +4287,7 @@ class AppProvider extends ChangeNotifier {
     categories = next;
     notifyListeners();
     final ids = next.map((c) => c.id).toList();
-    _serializeMutation(() async {
+    serializeMutation(() async {
       await AppDatabase.instance.updateCategoryOrder(ids);
     });
   }
@@ -4218,7 +4316,7 @@ class AppProvider extends ChangeNotifier {
       }
       categories = next;
       notifyListeners();
-      _serializeMutation(() async {
+      serializeMutation(() async {
         await AppDatabase.instance.insertCategory(cat);
         for (final child in childSnapshots) {
           await AppDatabase.instance.updateCategory(child);
@@ -4235,7 +4333,7 @@ class AppProvider extends ChangeNotifier {
     accounts = next;
     notifyListeners();
     final ids = next.map((a) => a.id).toList();
-    _serializeMutation(() async {
+    serializeMutation(() async {
       await AppDatabase.instance.updateAccountOrder(ids);
     });
   }
@@ -4258,7 +4356,7 @@ class AppProvider extends ChangeNotifier {
       };
       await deleteTransaction(id);
       return () async {
-        await _serializeMutation(() async {
+        await serializeMutation(() async {
           for (final member in groupMembers) {
             final delta = _txDelta(member);
             final balAccId = balanceAccountIdFor(member.accountId);

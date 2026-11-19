@@ -1,13 +1,13 @@
 // test/financial_calendar_test.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 import 'package:drift/native.dart';
 import 'package:finwick/database/app_database.dart';
 import 'package:finwick/models/models.dart';
 import 'package:finwick/providers/app_provider.dart';
 import 'package:finwick/screens/financial_calendar_screen.dart';
 import 'package:finwick/l10n/app_localizations.dart';
+import 'helpers/lended_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -215,16 +215,18 @@ void main() {
       app.accounts = [acc];
       app.transactions = [tx];
 
-      await tester.pumpWidget(
-        ChangeNotifierProvider<AppProvider>.value(
-          value: app,
-          child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            home: FinancialCalendarScreen(initialDate: testDate),
-          ),
+      // Wire the LendedViewModel into the provider first (wrapWithLended does
+      // this), then assign data so it lands in the VM, then pump.
+      final widget = wrapWithLended(
+        app,
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: FinancialCalendarScreen(initialDate: testDate),
         ),
       );
+
+      await tester.pumpWidget(widget);
 
       await tester.pumpAndSettle();
 

@@ -7,6 +7,7 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'composition/root.dart';
 import 'presentation/viewmodels/assets_view_model.dart';
 import 'presentation/viewmodels/goals_view_model.dart';
+import 'presentation/viewmodels/lended_view_model.dart';
 import 'presentation/viewmodels/presets_view_model.dart';
 import 'presentation/viewmodels/sms_inbox_view_model.dart';
 import 'providers/app_provider.dart';
@@ -63,6 +64,11 @@ void main() async {
   // delegating setters, which need the VM in place.
   CompositionRoot.initGoals(provider);
   final goalsVm = CompositionRoot.getIt<GoalsViewModel>();
+  // Wire the lended view model before load(): load() assigns the
+  // lended-people / lended-money lists through the provider's delegating
+  // setters, which need the VM in place.
+  CompositionRoot.initLended(provider);
+  final lendedVm = CompositionRoot.getIt<LendedViewModel>();
   try {
     await provider.load(); // DB reads finish before Flutter draws anything
   } catch (e, stack) {
@@ -82,6 +88,7 @@ void main() async {
         ChangeNotifierProvider<AssetsViewModel>.value(value: assetsVm),
         ChangeNotifierProvider<PresetsViewModel>.value(value: presetsVm),
         ChangeNotifierProvider<GoalsViewModel>.value(value: goalsVm),
+        ChangeNotifierProvider<LendedViewModel>.value(value: lendedVm),
         ChangeNotifierProvider<SmsInboxViewModel>.value(value: smsVm),
       ],
       child: const ExpensyApp(),

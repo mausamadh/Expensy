@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/lended_view_model.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import '../widgets/shared_widgets.dart';
@@ -162,6 +163,9 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
     final app = context.watch<AppProvider>();
+    // The lended slice is owned by LendedViewModel (Phase 6) — watch it so
+    // the memoized yearly data rebuilds when lended entries mutate.
+    context.watch<LendedViewModel>();
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
