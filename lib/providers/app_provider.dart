@@ -19,7 +19,11 @@ import '../domain/ledger/balance_delta.dart';
 import '../domain/ledger/rates_unavailable_exception.dart';
 import '../adapters/ledger/drift_ledger_repositories.dart';
 import '../adapters/ledger/drift_ledger_write_repositories.dart';
+import '../adapters/budgeting/drift_budget_write_repository.dart';
 import '../application/ledger/ledger_write_use_cases.dart';
+import '../application/budgeting/budget_write_use_cases.dart';
+import '../domain/budgeting/budget_service.dart';
+import '../domain/budgeting/ports/budget_write_port.dart';
 import '../services/exchange_rate_service.dart';
 import '../services/notification_service.dart';
 import '../services/lended_notification_service.dart';
@@ -187,12 +191,23 @@ class AppProvider extends ChangeNotifier {
   final DeleteAccount _deleteAccount;
   final RestoreAccountSnapshot _restoreAccountSnapshot;
 
+  // ── Budgeting (Phase 3) ───────────────────────────────────────────────
+  // The provider delegates budget persistence to the application-layer write
+  // use cases and budget period / pacing math to the pure domain
+  // [BudgetService]. The provider keeps the in-memory `budgets` sync and side
+  // effects (notifications, widgets) under its own mutex.
+  final AddBudget _addBudget;
+  final UpdateBudget _updateBudget;
+  final DeleteBudget _deleteBudget;
+  final BudgetService _budgetService = const BudgetService();
+
   AppProvider({
     AccountRepository? accountRepo,
     CategoryRepository? categoryRepo,
     TransactionRepository? transactionRepo,
     TransactionWriteRepository? transactionWriteRepo,
     AccountWriteRepository? accountWriteRepo,
+    BudgetWriteRepository? budgetWriteRepo,
   })  : _accountRepo = accountRepo ?? const DriftAccountRepository(),
         _categoryRepo = categoryRepo ?? const DriftCategoryRepository(),
         _transactionRepo =
@@ -234,6 +249,15 @@ class AppProvider extends ChangeNotifier {
         ),
         _restoreAccountSnapshot = RestoreAccountSnapshot(
           accounts: accountWriteRepo ?? const DriftAccountWriteRepository(),
+        ),
+        _addBudget = AddBudget(
+          budgets: budgetWriteRepo ?? const DriftBudgetWriteRepository(),
+        ),
+        _updateBudget = UpdateBudget(
+          budgets: budgetWriteRepo ?? const DriftBudgetWriteRepository(),
+        ),
+        _deleteBudget = DeleteBudget(
+          budgets: budgetWriteRepo ?? const DriftBudgetWriteRepository(),
         );
 
   AppSettings settings = AppSettings();
@@ -2226,21 +2250,21 @@ class AppProvider extends ChangeNotifier {
 
   // ── Budgets ───────────────────────────────────────────────────────────
   Future<void> addBudget(Budget b) async {
-    await DBHelper.insertBudget(b);
+    await _addBudget(b);
     budgets = await DBHelper.getBudgets();
     notifyListeners();
     updateHomeWidgets();
   }
 
   Future<void> updateBudget(Budget b) async {
-    await DBHelper.updateBudget(b);
+    await _updateBudget(b);
     budgets = await DBHelper.getBudgets();
     notifyListeners();
     updateHomeWidgets();
   }
 
   Future<void> deleteBudget(String id) async {
-    await DBHelper.deleteBudget(id);
+    await _deleteBudget(id);
     budgets = await DBHelper.getBudgets();
     notifyListeners();
     updateHomeWidgets();
@@ -2254,251 +2278,76 @@ class AppProvider extends ChangeNotifier {
     };
   }
 
+  /// The in-memory budgeting state handed to the pure [BudgetService].
+  BudgetContext get _budgetContext => BudgetContext(
+        transactions: transactions,
+        categories: categories,
+        budgets: budgets,
+        accountById: accountById,
+        settingsCurrency: settings.currency,
+        exchangeRates: exchangeRates,
+        weekStart: settings.weekStart,
+        getSplits: getSplits,
+      );
+
   Budget? budgetForCategory(String categoryId) =>
-      budgets.where((b) => b.categoryId == categoryId).firstOrNull;
+      _budgetService.budgetForCategory(_budgetContext, categoryId);
 
   /// Returns budgets excluding child subcategory budgets whose parent category
   /// also has an active budget of the same period, preventing double-counting
   /// in aggregate budget totals and pacing.
-  List<Budget> get nonOverlappingBudgets {
-    final activeKeys = {
-      for (final b in budgets) '${b.categoryId}:${b.period}',
-    };
-    return budgets.where((b) {
-      final cat = categoryById(b.categoryId);
-      if (cat == null || !cat.isSubcategory) return true;
-      return !activeKeys.contains('${cat.parentId}:${b.period}');
-    }).toList();
-  }
+  List<Budget> get nonOverlappingBudgets =>
+      _budgetService.nonOverlappingBudgets(_budgetContext);
 
-  DateTime getCurrentPeriodStart(Budget budget, [DateTime? referenceDate]) {
-    final now = referenceDate ?? DateTime.now();
-    if (budget.period == 'weekly') {
-      final dow = now.weekday; // 1=Mon, 7=Sun
-      final offset = settings.weekStart == 'monday' ? (dow - 1) : (dow % 7);
-      return DateTime(now.year, now.month, now.day - offset);
-    } else {
-      return DateTime(now.year, now.month, 1);
-    }
-  }
+  DateTime getCurrentPeriodStart(Budget budget, [DateTime? referenceDate]) =>
+      _budgetService.getCurrentPeriodStart(_budgetContext, budget, referenceDate);
 
-  DateTime getPreviousPeriodStart(Budget budget, [DateTime? referenceDate]) {
-    final now = referenceDate ?? DateTime.now();
-    if (budget.period == 'weekly') {
-      final currentStart = getCurrentPeriodStart(budget, now);
-      return currentStart.subtract(const Duration(days: 7));
-    } else {
-      return DateTime(now.year, now.month - 1, 1);
-    }
-  }
+  DateTime getPreviousPeriodStart(Budget budget, [DateTime? referenceDate]) =>
+      _budgetService.getPreviousPeriodStart(_budgetContext, budget, referenceDate);
 
   /// Calculates spending for a budget's category (including any child
   /// subcategories) within the half-open date interval [start, end).
-  double budgetSpentInPeriod(Budget budget, DateTime start, DateTime end) {
-    final familyIds = categoryFamilyIds(budget.categoryId);
-    return transactions
-        .where((t) =>
-            t.type == 'expense' &&
-            !FinancialAggregations.isExcludedFromTotals(t) &&
-            !t.date.isBefore(start) &&
-            t.date.isBefore(end))
-        .fold(0.0, (sum, t) {
-      final acct = accountById(t.accountId);
-      final txCur = t.currency.isNotEmpty
-          ? t.currency
-          : (acct?.currency ?? settings.currency);
-      if (isTransactionSplit(t.id)) {
-        final txSplits =
-            getSplits(t.id).where((s) => familyIds.contains(s.categoryId));
-        if (txSplits.isEmpty) return sum;
-        final splitSum = txSplits.fold(0.0, (s, item) => s + item.amount);
-        return sum + convertToMain(splitSum, txCur);
-      } else {
-        if (!familyIds.contains(t.categoryId)) return sum;
-        return sum + convertToMain(t.amount, txCur);
-      }
-    });
-  }
+  double budgetSpentInPeriod(Budget budget, DateTime start, DateTime end) =>
+      _budgetService.budgetSpentInPeriod(_budgetContext, budget, start, end);
 
   /// Sum of all expenses for [budget]'s category in the current period,
   /// converted to the main currency.
-  double budgetSpent(Budget budget, [DateTime? referenceDate]) {
-    final now = referenceDate ?? DateTime.now();
-    final periodStart = getCurrentPeriodStart(budget, now);
-    final periodEnd = budget.period == 'weekly'
-        ? periodStart.add(const Duration(days: 7))
-        : DateTime(now.year, now.month + 1, 1);
-    return budgetSpentInPeriod(budget, periodStart, periodEnd);
-  }
+  double budgetSpent(Budget budget, [DateTime? referenceDate]) =>
+      _budgetService.budgetSpent(_budgetContext, budget, referenceDate);
 
   /// Computes the rollover surplus (positive) or overspending deficit (negative)
   /// from the previous period if [budget.allowRollover] is true.
   /// If rollover is disabled, returns 0.0.
-  double budgetRollover(Budget budget, [DateTime? referenceDate]) {
-    if (!budget.allowRollover) return 0.0;
-    final now = referenceDate ?? DateTime.now();
-    final prevStart = getPreviousPeriodStart(budget, now);
-    final currentStart = getCurrentPeriodStart(budget, now);
-
-    final prevSpent = budgetSpentInPeriod(budget, prevStart, currentStart);
-
-    // Brand-new budgets created in the current period must not inherit a
-    // synthetic surplus or deficit from pre-budget transactions (C6).
-    if (!budget.createdAt.isBefore(currentStart)) {
-      return 0.0;
-    }
-
-    return budget.amount - prevSpent;
-  }
+  double budgetRollover(Budget budget, [DateTime? referenceDate]) =>
+      _budgetService.budgetRollover(_budgetContext, budget, referenceDate);
 
   /// Effective budget allowance for the current period:
   /// Base Budget + Rollover (if enabled). Clamped to at least 0.
-  double budgetEffectiveAllowance(Budget budget, [DateTime? referenceDate]) {
-    if (!budget.allowRollover) return budget.amount;
-    final rollover = budgetRollover(budget, referenceDate);
-    final effective = budget.amount + rollover;
-    return effective < 0 ? 0.0 : effective;
-  }
+  double budgetEffectiveAllowance(Budget budget, [DateTime? referenceDate]) =>
+      _budgetService.budgetEffectiveAllowance(_budgetContext, budget, referenceDate);
 
   /// Progress against the effective budget allowance (0.0 to 1.0).
-  double budgetProgress(Budget b) {
-    final allowance = budgetEffectiveAllowance(b);
-    if (allowance <= 0) {
-      return budgetSpent(b) > 0 ? 1.0 : 0.0;
-    }
-    return (budgetSpent(b) / allowance).clamp(0.0, 1.0);
-  }
+  double budgetProgress(Budget b) =>
+      _budgetService.budgetProgress(_budgetContext, b);
 
   /// True if current spending exceeds the effective budget allowance.
   bool budgetExceeded(Budget b) =>
-      budgetSpent(b) > budgetEffectiveAllowance(b);
+      _budgetService.budgetExceeded(_budgetContext, b);
 
   /// Label of the previous period (e.g. "Aug", "Last Week") for rollover subheaders.
   String previousPeriodName(Budget budget,
-      [String? lastWeekLabel, DateTime? referenceDate]) {
-    final now = referenceDate ?? DateTime.now();
-    if (budget.period == 'weekly') {
-      return lastWeekLabel ?? 'Last Week';
-    } else {
-      final prevMonthDate = DateTime(now.year, now.month - 1, 1);
-      return DateFormat.MMM().format(prevMonthDate);
-    }
-  }
+          [String? lastWeekLabel, DateTime? referenceDate]) =>
+      _budgetService.previousPeriodName(
+          _budgetContext, budget, lastWeekLabel, referenceDate);
 
   /// Computes the daily Safe-to-Spend pacing analysis for [budget].
-  BudgetPacingInfo budgetPacing(Budget budget, [DateTime? referenceDate]) {
-    final now = referenceDate ?? DateTime.now();
-    final periodStart = getCurrentPeriodStart(budget, now);
-    final int totalDays;
-    final int elapsedDays;
-
-    if (budget.period == 'weekly') {
-      totalDays = 7;
-      final diff = now.difference(periodStart).inDays + 1;
-      elapsedDays = diff.clamp(1, 7);
-    } else {
-      totalDays = DateTime(now.year, now.month + 1, 0).day;
-      elapsedDays = now.day.clamp(1, totalDays);
-    }
-
-    final daysRemaining = (totalDays - elapsedDays + 1).clamp(1, totalDays);
-    final allowance = budgetEffectiveAllowance(budget, now);
-    final spent = budgetSpent(budget, now);
-    final remaining = allowance - spent;
-    final safeDaily = (allowance > 0 && remaining > 0)
-        ? remaining / daysRemaining
-        : 0.0;
-
-    final double pacingRatio;
-    if (allowance <= 0) {
-      pacingRatio = spent > 0 ? 999.0 : 1.0;
-    } else {
-      final spentFrac = spent / allowance;
-      final timeFrac = elapsedDays / totalDays;
-      pacingRatio = timeFrac > 0 ? (spentFrac / timeFrac) : 1.0;
-    }
-
-    final BudgetPacingStatus status;
-    if (spent > allowance) {
-      status = BudgetPacingStatus.exceeded;
-    } else if (pacingRatio > 1.25) {
-      status = BudgetPacingStatus.overPaced;
-    } else if (pacingRatio > 1.0) {
-      status = BudgetPacingStatus.caution;
-    } else {
-      status = BudgetPacingStatus.onTrack;
-    }
-
-    return BudgetPacingInfo(
-      safeDailyAllowance: safeDaily,
-      pacingRatio: pacingRatio,
-      daysRemaining: daysRemaining,
-      totalDaysInPeriod: totalDays,
-      elapsedDays: elapsedDays,
-      spent: spent,
-      allowance: allowance,
-      remainingAmount: remaining < 0 ? 0.0 : remaining,
-      status: status,
-    );
-  }
+  BudgetPacingInfo budgetPacing(Budget budget, [DateTime? referenceDate]) =>
+      _budgetService.budgetPacing(_budgetContext, budget, referenceDate);
 
   /// Aggregated Safe-to-Spend daily pacing analysis across all monthly category budgets.
   /// Returns null if no monthly budgets are configured.
-  BudgetPacingInfo? overallMonthlyBudgetPacing([DateTime? referenceDate]) {
-    final monthlyBudgets =
-        nonOverlappingBudgets.where((b) => b.period == 'monthly').toList();
-    if (monthlyBudgets.isEmpty) return null;
-
-    final now = referenceDate ?? DateTime.now();
-    final totalDays = DateTime(now.year, now.month + 1, 0).day;
-    final elapsedDays = now.day.clamp(1, totalDays);
-    final daysRemaining = (totalDays - elapsedDays + 1).clamp(1, totalDays);
-
-    double totalAllowance = 0.0;
-    double totalSpent = 0.0;
-
-    for (final b in monthlyBudgets) {
-      totalAllowance += budgetEffectiveAllowance(b, now);
-      totalSpent += budgetSpent(b, now);
-    }
-
-    final remaining = totalAllowance - totalSpent;
-    final safeDaily = (totalAllowance > 0 && remaining > 0)
-        ? remaining / daysRemaining
-        : 0.0;
-
-    final double pacingRatio;
-    if (totalAllowance <= 0) {
-      pacingRatio = totalSpent > 0 ? 999.0 : 1.0;
-    } else {
-      final spentFrac = totalSpent / totalAllowance;
-      final timeFrac = elapsedDays / totalDays;
-      pacingRatio = timeFrac > 0 ? (spentFrac / timeFrac) : 1.0;
-    }
-
-    final BudgetPacingStatus status;
-    if (totalSpent > totalAllowance) {
-      status = BudgetPacingStatus.exceeded;
-    } else if (pacingRatio > 1.25) {
-      status = BudgetPacingStatus.overPaced;
-    } else if (pacingRatio > 1.0) {
-      status = BudgetPacingStatus.caution;
-    } else {
-      status = BudgetPacingStatus.onTrack;
-    }
-
-    return BudgetPacingInfo(
-      safeDailyAllowance: safeDaily,
-      pacingRatio: pacingRatio,
-      daysRemaining: daysRemaining,
-      totalDaysInPeriod: totalDays,
-      elapsedDays: elapsedDays,
-      spent: totalSpent,
-      allowance: totalAllowance,
-      remainingAmount: remaining < 0 ? 0.0 : remaining,
-      status: status,
-    );
-  }
+  BudgetPacingInfo? overallMonthlyBudgetPacing([DateTime? referenceDate]) =>
+      _budgetService.overallMonthlyBudgetPacing(_budgetContext, referenceDate);
 
   // ── Financial Calendar & Spending Heatmap ──────────────────────────────────
 

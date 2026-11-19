@@ -1,5 +1,6 @@
 import 'package:get_it/get_it.dart';
 
+import '../adapters/budgeting/drift_budget_write_repository.dart';
 import '../adapters/ledger/drift_ledger_repositories.dart';
 import '../adapters/ledger/drift_ledger_write_repositories.dart';
 import '../adapters/sms/app_provider_ledger_context.dart';
@@ -10,6 +11,7 @@ import '../adapters/sms/shared_prefs_sms_settings.dart';
 import '../adapters/sms/template_registry_loader.dart';
 import '../adapters/time/system_clock.dart';
 import '../application/mutation_gate.dart';
+import '../domain/budgeting/ports/budget_write_port.dart';
 import '../domain/ledger/ports/ports.dart';
 import '../domain/ledger/ports/write_ports.dart';
 import '../domain/shared/clock.dart';
@@ -51,6 +53,10 @@ class CompositionRoot {
         const DriftAccountWriteRepository());
     getIt.registerSingleton<CategoryWriteRepository>(
         const DriftCategoryWriteRepository());
+
+    // Budgeting write port (Phase 3) — budget persistence.
+    getIt.registerSingleton<BudgetWriteRepository>(
+        const DriftBudgetWriteRepository());
   }
 
   /// Registers the SMS import context (adapters + view model).
