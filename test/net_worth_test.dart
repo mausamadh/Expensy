@@ -10,6 +10,7 @@ import 'package:finwick/l10n/app_localizations.dart';
 import 'helpers/certificate_test_harness.dart';
 import 'helpers/lended_test_harness.dart';
 import 'helpers/loans_test_harness.dart';
+import 'helpers/networth_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -174,17 +175,20 @@ void main() {
       // Wire the LendedViewModel and LoansViewModel into the provider first
       // (wrapWithLended / wrapWithLoans do this), then assign data so it
       // lands in the VMs, then pump.
-      final widget = wrapWithCertificates(
+      final widget = wrapWithNetWorth(
         app,
-        wrapWithLended(
+        wrapWithCertificates(
           app,
-          wrapWithLoans(
+          wrapWithLended(
             app,
-            const MaterialApp(
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
-              supportedLocales: AppLocalizations.supportedLocales,
-              locale: Locale('en'),
-              home: NetWorthScreen(),
+            wrapWithLoans(
+              app,
+              const MaterialApp(
+                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                supportedLocales: AppLocalizations.supportedLocales,
+                locale: Locale('en'),
+                home: NetWorthScreen(),
+              ),
             ),
           ),
         ),

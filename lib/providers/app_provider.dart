@@ -58,6 +58,7 @@ import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/budgets_view_model.dart';
 import '../presentation/viewmodels/recurring_view_model.dart';
 import '../presentation/viewmodels/certificate_view_model.dart';
+import '../presentation/viewmodels/networth_view_model.dart';
 
 class AppSettings {
   String currency;
@@ -438,7 +439,8 @@ class AppProvider extends ChangeNotifier {
   // the delegation block below.
   // budgets is delegated to BudgetsViewModel (Phase 6) — see the delegation
   // block below.
-  List<NetWorthSnapshot>      netWorthSnapshots = [];
+  // netWorthSnapshots is delegated to NetWorthViewModel (Phase 6) — see the
+  // delegation block below.
   List<TransactionSplit>      splits       = [];
   Map<String, List<TransactionSplit>> _splitsByTxId = {};
 
@@ -705,6 +707,35 @@ class AppProvider extends ChangeNotifier {
     _certificatesFallback = vm.certificates;
   }
 
+// ── Net Worth (delegated to NetWorthViewModel, Phase 6) ─────────────
+  /// Back-reference to the net-worth view model, wired by the composition
+  /// root before [load] runs. Null in standalone/test construction, in which
+  /// case the local fallback field is used so the net-worth shims and the
+  /// screens keep working without a view model.
+  NetWorthViewModel? _netWorthVm;
+  List<NetWorthSnapshot> _netWorthSnapshotsFallback = [];
+
+  /// All net-worth snapshots (date ascending). Delegates to the view model
+  /// when wired.
+  List<NetWorthSnapshot> get netWorthSnapshots =>
+      _netWorthVm?.netWorthSnapshots ?? _netWorthSnapshotsFallback;
+
+  /// Replaces the snapshot list. Delegates to the view model when wired;
+  /// the view model's setter notifies its own listeners.
+  set netWorthSnapshots(List<NetWorthSnapshot> next) {
+    if (_netWorthVm != null) {
+      _netWorthVm!.netWorthSnapshots = next;
+    } else {
+      _netWorthSnapshotsFallback = next;
+    }
+  }
+
+  /// Wires the net-worth view model (composition root, before [load]).
+  void wireNetWorthVm(NetWorthViewModel vm) {
+    _netWorthVm = vm;
+    _netWorthSnapshotsFallback = vm.netWorthSnapshots;
+  }
+
   final _erService = ExchangeRateService();
   final _notif       = NotificationService();
   final _lendedNotif = LendedNotificationService();
@@ -934,6 +965,11 @@ class AppProvider extends ChangeNotifier {
   Timer? _netWorthDebounceTimer;
 
   Future<void> _executeRecordNetWorthSnapshot() async {
+    final vm = _netWorthVm;
+    if (vm != null) {
+      await vm.recordSnapshot();
+      return;
+    }
     await serializeMutation(() async {
       try {
         final today = DateFormat('yyyy-MM-dd', 'en_US').format(DateTime.now());

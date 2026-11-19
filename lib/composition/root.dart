@@ -14,6 +14,7 @@ import '../adapters/ledger/drift_ledger_repositories.dart';
 import '../adapters/ledger/drift_ledger_write_repositories.dart';
 import '../adapters/ledger/drift_preset_repository.dart';
 import '../adapters/loans/drift_loan_repository.dart';
+import '../adapters/networth/drift_net_worth_store.dart';
 import '../adapters/recurring/drift_recurring_store.dart';
 import '../adapters/sms/app_provider_ledger_context.dart';
 import '../adapters/sms/app_provider_ledger_gateway.dart';
@@ -38,6 +39,7 @@ import '../domain/ledger/ports/ports.dart';
 import '../domain/ledger/ports/preset_repository.dart';
 import '../domain/ledger/ports/write_ports.dart';
 import '../domain/loans/ports/loan_repository.dart';
+import '../domain/networth/ports/net_worth_store.dart';
 import '../domain/recurring/ports/recurring_store.dart';
 import '../domain/shared/clock.dart';
 import '../domain/sms_import/ports/ports.dart';
@@ -51,6 +53,7 @@ import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/goals_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
 import '../presentation/viewmodels/loans_view_model.dart';
+import '../presentation/viewmodels/networth_view_model.dart';
 import '../presentation/viewmodels/presets_view_model.dart';
 import '../presentation/viewmodels/recurring_view_model.dart';
 import '../presentation/viewmodels/sms_inbox_view_model.dart';
@@ -123,6 +126,9 @@ class CompositionRoot {
 
     // Certificates persistence port (Phase 6) — fixed-income certificates.
     getIt.registerSingleton<CertificateStore>(const DriftCertificateStore());
+
+    // Net Worth persistence port (Phase 6) — daily net-worth snapshots.
+    getIt.registerSingleton<NetWorthStore>(const DriftNetWorthStore());
 
     // Categories persistence port (Phase 6) — user categories +
     // subcategories. Distinct from the ledger's read-only
@@ -419,6 +425,30 @@ class CompositionRoot {
       ),
     );
     provider.wireCertificateVm(getIt<CertificateViewModel>());
+  }
+
+  /// Wires the Net Worth bounded context (Phase 6). Registers the
+  /// [NetWorthViewModel] as a lazy singleton with the net-worth store and
+  /// the provider's cross-cutting hooks (the derived totals read from the
+  /// other bounded contexts), then wires it into the provider so the
+  /// net-worth shims delegate to it.
+  static void initNetWorth(AppProvider provider) {
+    getIt.registerLazySingleton<NetWorthViewModel>(
+      () => NetWorthViewModel(
+        store: getIt<NetWorthStore>(),
+        newId: provider.newId,
+        totalAccountsValue: () =>
+            provider.totalLiquidAccountsValue + provider.totalGoldValue,
+        totalAssetsValue: () =>
+            provider.totalAssetsValue +
+            provider.totalLentMoneyValue +
+            provider.totalCertificatesValue,
+        liveNetWorth: () => provider.liveNetWorth,
+        currency: () => provider.settings.currency,
+        serializeMutation: provider.serializeMutation,
+      ),
+    );
+    provider.wireNetWorthVm(getIt<NetWorthViewModel>());
   }
 
   /// Test hook: clears all registrations so a test can build its own

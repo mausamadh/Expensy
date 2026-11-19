@@ -12,6 +12,7 @@ import 'presentation/viewmodels/categories_view_model.dart';
 import 'presentation/viewmodels/goals_view_model.dart';
 import 'presentation/viewmodels/lended_view_model.dart';
 import 'presentation/viewmodels/loans_view_model.dart';
+import 'presentation/viewmodels/networth_view_model.dart';
 import 'presentation/viewmodels/presets_view_model.dart';
 import 'presentation/viewmodels/recurring_view_model.dart';
 import 'presentation/viewmodels/sms_inbox_view_model.dart';
@@ -99,6 +100,11 @@ void main() async {
   // the VM in place.
   CompositionRoot.initCertificate(provider);
   final certificateVm = CompositionRoot.getIt<CertificateViewModel>();
+  // Wire the net-worth view model before load(): load() assigns the
+  // snapshot list through the provider's delegating setter, which needs
+  // the VM in place.
+  CompositionRoot.initNetWorth(provider);
+  final netWorthVm = CompositionRoot.getIt<NetWorthViewModel>();
   try {
     await provider.load(); // DB reads finish before Flutter draws anything
   } catch (e, stack) {
@@ -125,6 +131,7 @@ void main() async {
         ChangeNotifierProvider<RecurringViewModel>.value(value: recurringVm),
         ChangeNotifierProvider<CertificateViewModel>.value(
             value: certificateVm),
+        ChangeNotifierProvider<NetWorthViewModel>.value(value: netWorthVm),
         ChangeNotifierProvider<SmsInboxViewModel>.value(value: smsVm),
       ],
       child: const ExpensyApp(),

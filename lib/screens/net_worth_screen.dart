@@ -12,6 +12,7 @@ import '../providers/app_provider.dart';
 import '../presentation/viewmodels/certificate_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
 import '../presentation/viewmodels/loans_view_model.dart';
+import '../presentation/viewmodels/networth_view_model.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import '../utils/snackbar.dart';
@@ -51,6 +52,9 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
     // The certificates slice is owned by CertificateViewModel (Phase 6) —
     // watch it so the certificate value rebuilds when certificates mutate.
     context.watch<CertificateViewModel>();
+    // The net-worth slice is owned by NetWorthViewModel (Phase 6) — watch
+    // it so the snapshot trend rebuilds when a snapshot is recorded.
+    context.watch<NetWorthViewModel>();
 
     final currency = app.settings.currency;
     // Helper method `fmt`: handles user action or computes derived UI state.
