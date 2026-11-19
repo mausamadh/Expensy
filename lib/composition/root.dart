@@ -13,6 +13,7 @@ import '../adapters/ledger/drift_ledger_repositories.dart';
 import '../adapters/ledger/drift_ledger_write_repositories.dart';
 import '../adapters/ledger/drift_preset_repository.dart';
 import '../adapters/loans/drift_loan_repository.dart';
+import '../adapters/recurring/drift_recurring_store.dart';
 import '../adapters/sms/app_provider_ledger_context.dart';
 import '../adapters/sms/app_provider_ledger_gateway.dart';
 import '../adapters/sms/drift_sms_repositories.dart';
@@ -35,6 +36,7 @@ import '../domain/ledger/ports/ports.dart';
 import '../domain/ledger/ports/preset_repository.dart';
 import '../domain/ledger/ports/write_ports.dart';
 import '../domain/loans/ports/loan_repository.dart';
+import '../domain/recurring/ports/recurring_store.dart';
 import '../domain/shared/clock.dart';
 import '../domain/sms_import/ports/ports.dart';
 import '../domain/wealth/ports/asset_repository.dart';
@@ -47,7 +49,10 @@ import '../presentation/viewmodels/goals_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
 import '../presentation/viewmodels/loans_view_model.dart';
 import '../presentation/viewmodels/presets_view_model.dart';
+import '../presentation/viewmodels/recurring_view_model.dart';
 import '../presentation/viewmodels/sms_inbox_view_model.dart';
+import '../services/notification_service.dart';
+import '../services/recurring_payment_processor.dart';
 
 /// Composition root: the ONLY place concrete adapters are constructed.
 ///
@@ -110,6 +115,7 @@ class CompositionRoot {
     // Loans persistence port (Phase 6) — loans + loan-payment ledger
     // storage.
     getIt.registerSingleton<LoanRepository>(const DriftLoanRepository());
+    getIt.registerSingleton<RecurringStore>(const DriftRecurringStore());
 
     // Categories persistence port (Phase 6) — user categories +
     // subcategories. Distinct from the ledger's read-only
@@ -334,6 +340,50 @@ class CompositionRoot {
       ),
     );
     provider.wireBudgetsVm(getIt<BudgetsViewModel>());
+  }
+
+  /// Wires the Recurring bounded context: registers the [RecurringStore]
+  /// adapter (done in [init]) and the [RecurringViewModel], then hands the
+  /// view model to the provider so its recurring shims delegate to it.
+  static void initRecurring(AppProvider provider) {
+    getIt.registerLazySingleton<RecurringViewModel>(
+      () => RecurringViewModel(
+        store: getIt<RecurringStore>(),
+        processor: RecurringPaymentProcessor(AppDatabase.instance),
+        refreshLedger: () async {
+          provider.transactions = await AppDatabase.instance.getTransactions();
+          provider.accounts = await AppDatabase.instance.getAccounts();
+        },
+        addTransaction: (t) => provider.addTransaction(t),
+        addTransfer: ({
+          required String fromId,
+          required String toId,
+          required double fromAmount,
+          double? toAmount,
+          String note = '',
+          String? title,
+          DateTime? date,
+        }) =>
+            provider.addTransfer(
+              fromId: fromId,
+              toId: toId,
+              fromAmount: fromAmount,
+              toAmount: toAmount,
+              note: note,
+              title: title,
+              date: date,
+            ),
+        newId: provider.newId,
+        accountById: provider.accountById,
+        settingsCurrency: () => provider.settings.currency,
+        recordNetWorthSnapshot: provider.recordNetWorthSnapshot,
+        scheduleReminder: (r, currency) =>
+            NotificationService().scheduleReminder(r, currency),
+        cancelReminder: (id) => NotificationService().cancelReminder(id),
+        serializeMutation: provider.serializeMutation,
+      ),
+    );
+    provider.wireRecurringVm(getIt<RecurringViewModel>());
   }
 
   /// Test hook: clears all registrations so a test can build its own

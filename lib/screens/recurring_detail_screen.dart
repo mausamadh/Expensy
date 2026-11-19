@@ -9,6 +9,7 @@ import '../models/models.dart';
 import '../presentation/recurring_localizations.dart';
 import '../providers/app_provider.dart';
 import '../presentation/viewmodels/categories_view_model.dart';
+import '../presentation/viewmodels/recurring_view_model.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/shared_widgets.dart';
 import '../utils/snackbar.dart';
@@ -50,6 +51,7 @@ class _RecurringDetailScreenState extends State<RecurringDetailScreen> {
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     context.watch<CategoriesViewModel>();
+    context.watch<RecurringViewModel>();
     final cs = Theme.of(context).colorScheme;
     
     // Attempt to find the up-to-date recurring payment in case it was edited

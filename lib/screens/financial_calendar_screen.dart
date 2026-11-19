@@ -7,6 +7,7 @@ import '../providers/app_provider.dart';
 import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
 import '../presentation/viewmodels/loans_view_model.dart';
+import '../presentation/viewmodels/recurring_view_model.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import '../widgets/shared_widgets.dart';
@@ -69,6 +70,7 @@ class _FinancialCalendarScreenState extends State<FinancialCalendarScreen> {
     context.watch<CategoriesViewModel>();
     context.watch<LendedViewModel>();
     context.watch<LoansViewModel>();
+    context.watch<RecurringViewModel>();
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cur = app.settings.currency;

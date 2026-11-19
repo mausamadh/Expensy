@@ -12,6 +12,7 @@ import 'presentation/viewmodels/goals_view_model.dart';
 import 'presentation/viewmodels/lended_view_model.dart';
 import 'presentation/viewmodels/loans_view_model.dart';
 import 'presentation/viewmodels/presets_view_model.dart';
+import 'presentation/viewmodels/recurring_view_model.dart';
 import 'presentation/viewmodels/sms_inbox_view_model.dart';
 import 'providers/app_provider.dart';
 import 'l10n/app_localizations.dart';
@@ -87,6 +88,11 @@ void main() async {
   // place.
   CompositionRoot.initBudgets(provider);
   final budgetsVm = CompositionRoot.getIt<BudgetsViewModel>();
+  // Wire the recurring view model before load(): load() assigns the
+  // recurring list through the provider's delegating setter, which needs
+  // the VM in place.
+  CompositionRoot.initRecurring(provider);
+  final recurringVm = CompositionRoot.getIt<RecurringViewModel>();
   try {
     await provider.load(); // DB reads finish before Flutter draws anything
   } catch (e, stack) {
@@ -110,6 +116,7 @@ void main() async {
         ChangeNotifierProvider<LoansViewModel>.value(value: loansVm),
         ChangeNotifierProvider<CategoriesViewModel>.value(value: categoriesVm),
         ChangeNotifierProvider<BudgetsViewModel>.value(value: budgetsVm),
+        ChangeNotifierProvider<RecurringViewModel>.value(value: recurringVm),
         ChangeNotifierProvider<SmsInboxViewModel>.value(value: smsVm),
       ],
       child: const ExpensyApp(),

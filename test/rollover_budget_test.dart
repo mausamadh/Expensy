@@ -10,6 +10,7 @@ import 'package:finwick/l10n/app_localizations.dart';
 import 'helpers/budgets_test_harness.dart';
 import 'helpers/categories_test_harness.dart';
 import 'helpers/goals_test_harness.dart';
+import 'helpers/recurring_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -371,7 +372,7 @@ void main() {
 
       // Wire the view models first (the wraps do this), then assign data so
       // it lands in the VMs, then pump.
-      final widget = wrapWithBudgets(
+      final widget = wrapWithRecurring(app, wrapWithBudgets(
         app,
         wrapWithGoals(
           app,
@@ -384,7 +385,7 @@ void main() {
             ),
           ),
         ),
-      );
+      ));
 
       app.categories = [cat];
       app.budgets = [budget];
@@ -444,7 +445,7 @@ void main() {
 
       // Wire the view models first (the wraps do this), then assign data so
       // it lands in the VMs, then pump.
-      final widget = wrapWithBudgets(
+      final widget = wrapWithRecurring(app, wrapWithBudgets(
         app,
         wrapWithGoals(
           app,
@@ -457,7 +458,7 @@ void main() {
             ),
           ),
         ),
-      );
+      ));
 
       app.categories = [cat];
       app.budgets = [budget];

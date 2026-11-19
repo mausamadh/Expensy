@@ -7,6 +7,7 @@ import 'package:finwick/screens/recurring_screen.dart';
 import 'package:finwick/utils/nav_metrics.dart';
 import 'package:finwick/l10n/app_localizations.dart';
 import 'helpers/categories_test_harness.dart';
+import 'helpers/recurring_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -78,12 +79,15 @@ void main() {
       final app = AppProvider();
 
       await tester.pumpWidget(
-        wrapWithCategories(
+        wrapWithRecurring(
           app,
-          const MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            home: RecurringScreen(),
+          wrapWithCategories(
+            app,
+            const MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: RecurringScreen(),
+            ),
           ),
         ),
       );

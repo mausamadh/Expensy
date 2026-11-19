@@ -56,6 +56,7 @@ import '../presentation/viewmodels/lended_view_model.dart';
 import '../presentation/viewmodels/loans_view_model.dart';
 import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/budgets_view_model.dart';
+import '../presentation/viewmodels/recurring_view_model.dart';
 
 class AppSettings {
   String currency;
@@ -382,8 +383,54 @@ class AppProvider extends ChangeNotifier {
     _budgetsFallback = vm.budgets;
   }
 
+// ── Recurring (delegated to RecurringViewModel, Phase 6) ──────────────
+  /// Back-reference to the recurring view model, wired by the composition
+  /// root before [load] runs. Null in standalone/test construction, in
+  /// which case the local fallback fields are used so the recurring shims
+  /// and the screens keep working without a view model.
+  RecurringViewModel? _recurringVm;
+  List<RecurringPayment> _recurringFallback = [];
+  int _recurringHistoryCountFallback = 0;
+  Timer? _fallbackAutoPayTimer;
+  final Map<String, List<RecurringHistoryEntry>> _fallbackHistoryCache = {};
+
+  /// All recurring payments. Delegates to the view model when wired.
+  List<RecurringPayment> get recurring =>
+      _recurringVm?.recurring ?? _recurringFallback;
+
+  /// Replaces the recurring list. Delegates to the view model when wired;
+  /// the view model's setter notifies its own listeners.
+  set recurring(List<RecurringPayment> value) {
+    if (_recurringVm != null) {
+      _recurringVm!.recurring = value;
+    } else {
+      _recurringFallback = value;
+    }
+  }
+
+  /// Total recurring-history row count. Delegates to the view model when
+  /// wired.
+  int get recurringHistoryCount =>
+      _recurringVm?.recurringHistoryCount ?? _recurringHistoryCountFallback;
+
+  set recurringHistoryCount(int value) {
+    if (_recurringVm != null) {
+      _recurringVm!.recurringHistoryCount = value;
+    } else {
+      _recurringHistoryCountFallback = value;
+    }
+  }
+
+  /// Wires the recurring view model (composition root, before [load]).
+  void wireRecurringVm(RecurringViewModel vm) {
+    _recurringVm = vm;
+    _recurringFallback = vm.recurring;
+    _recurringHistoryCountFallback = vm.recurringHistoryCount;
+  }
+
   List<AppTransaction>        transactions = [];
-  List<RecurringPayment>      recurring    = [];
+  // recurring is delegated to RecurringViewModel (Phase 6) — see the
+  // delegation block above.
   // wishlist / savingsGoals / savingsContributions are delegated to
   // GoalsViewModel (Phase 6) — see the delegation block below.
   // lendedPeople / lended are delegated to LendedViewModel (Phase 6) — see
@@ -616,10 +663,8 @@ class AppProvider extends ChangeNotifier {
   Future<void> applyAccountBalanceDelta(String accountId, double delta) =>
       _updateAccountBalance(accountId, delta);
 
-  /// Total row count in `recurring_history` — kept for display purposes
-  /// (e.g. the Backup screen's "what's included" list) without needing to
-  /// load every history row for every recurring payment into memory.
-  int recurringHistoryCount = 0;
+  /// Total row count in `recurring_history` — delegated to
+  /// RecurringViewModel (Phase 6); see the delegation block above.
   int get schemaVersion => AppDatabase.currentSchemaVersion;
 
   // ── Exchange rates ────────────────────────────────────────────────────
@@ -627,9 +672,6 @@ class AppProvider extends ChangeNotifier {
   bool ratesLoaded    = false;
   bool ratesFetching  = false;
   DateTime? ratesLastFetched;
-
-  // ── Recurring history (lazy cache) ────────────────────────────────────
-  final Map<String, List<RecurringHistoryEntry>> _historyCache = {};
 
   // loans / loanPayments are delegated to LoansViewModel (Phase 6) — see
   // the delegation block below.
@@ -644,8 +686,6 @@ class AppProvider extends ChangeNotifier {
 
   bool _loaded = false;
   bool get loaded => _loaded;
-
-  Timer? _autoPayTimer;
 
   final _uuid = const Uuid();
   String newId() => _uuid.v4();
@@ -751,11 +791,17 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
-  /// Schedules a one-shot evaluation timer for the next upcoming auto-pay payment
-  /// rather than running a battery-draining continuous 1-minute periodic timer.
+  /// Schedules a one-shot evaluation timer for the next upcoming auto-pay
+  /// payment rather than running a battery-draining continuous 1-minute
+  /// periodic timer. Delegates to the view model when wired.
   void scheduleNextAutoPayTimer() {
-    _autoPayTimer?.cancel();
-    _autoPayTimer = null;
+    final vm = _recurringVm;
+    if (vm != null) {
+      vm.scheduleNextAutoPayTimer();
+      return;
+    }
+    _fallbackAutoPayTimer?.cancel();
+    _fallbackAutoPayTimer = null;
 
     final autoPayItems = recurring.where((r) => r.autoPayEnabled).toList();
     if (autoPayItems.isEmpty) return;
@@ -783,7 +829,7 @@ class AppProvider extends ChangeNotifier {
       final delay = earliestDue.isBefore(now)
           ? Duration.zero
           : earliestDue.difference(now);
-      _autoPayTimer = Timer(delay, () async {
+      _fallbackAutoPayTimer = Timer(delay, () async {
         await checkAndProcessAutoPay();
         scheduleNextAutoPayTimer();
       });
@@ -793,10 +839,16 @@ class AppProvider extends ChangeNotifier {
   /// Starts evaluation for auto-pay via next-due timer.
   void startAutoPayTimer() => scheduleNextAutoPayTimer();
 
-  /// Pauses the auto-pay timer while the application is in the background or paused to save battery.
+  /// Pauses the auto-pay timer while the application is in the background or
+  /// paused to save battery.
   void pauseAutoPayTimer() {
-    _autoPayTimer?.cancel();
-    _autoPayTimer = null;
+    final vm = _recurringVm;
+    if (vm != null) {
+      vm.pauseAutoPayTimer();
+      return;
+    }
+    _fallbackAutoPayTimer?.cancel();
+    _fallbackAutoPayTimer = null;
   }
 
   @override
@@ -2126,7 +2178,17 @@ class AppProvider extends ChangeNotifier {
   }
 
   // ── Recurring ─────────────────────────────────────────────────────────
+  // Thin delegating shims. When the RecurringViewModel is wired
+  // (production), the mutation runs through the view model so its listeners
+  // update. In standalone/test construction (no VM) the shims hit the DB
+  // directly and update the local fallback lists, preserving the
+  // pre-Phase-6 behavior.
   Future<void> addRecurring(RecurringPayment r) async {
+    final vm = _recurringVm;
+    if (vm != null) {
+      await vm.addRecurring(r);
+      return;
+    }
     await AppDatabase.instance.insertRecurring(r);
     recurring = await AppDatabase.instance.getRecurring();
     notifyListeners();
@@ -2139,6 +2201,11 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> updateRecurring(RecurringPayment r) async {
+    final vm = _recurringVm;
+    if (vm != null) {
+      await vm.updateRecurring(r);
+      return;
+    }
     await _notif.cancelReminder(r.id);
     await AppDatabase.instance.updateRecurring(r);
     recurring = await AppDatabase.instance.getRecurring();
@@ -2152,16 +2219,26 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> deleteRecurring(String id) async {
+    final vm = _recurringVm;
+    if (vm != null) {
+      await vm.deleteRecurring(id);
+      return;
+    }
     await _notif.cancelReminder(id);
     await AppDatabase.instance.deleteRecurring(id);
     await AppDatabase.instance.deleteRecurringHistoryFor(id);
-    _historyCache.remove(id);
+    _fallbackHistoryCache.remove(id);
     recurring = await AppDatabase.instance.getRecurring();
     recurringHistoryCount = await AppDatabase.instance.getRecurringHistoryCount();
     notifyListeners();
   }
 
   Future<void> markRecurringPaid(RecurringPayment r, {DateTime? occurrenceDate}) async {
+    final vm = _recurringVm;
+    if (vm != null) {
+      await vm.markRecurringPaid(r, occurrenceDate: occurrenceDate);
+      return;
+    }
     await serializeMutation(() async {
       final effectiveDate = occurrenceDate ?? r.nextDate;
       // Idempotency guard (B10): skip if this cycle date was already paid (e.g. by auto-pay)
@@ -2214,6 +2291,11 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> skipNextRecurring(RecurringPayment r) async {
+    final vm = _recurringVm;
+    if (vm != null) {
+      await vm.skipNextRecurring(r);
+      return;
+    }
     await serializeMutation(() async {
       final processor = RecurringPaymentProcessor(AppDatabase.instance);
       if (await processor.hasHistoryForDate(r.id, r.nextDate)) {
@@ -2241,6 +2323,11 @@ class AppProvider extends ChangeNotifier {
   /// Automatically marks any recurring items paid if they are due today or overdue
   /// and have auto-pay enabled using the shared RecurringPaymentProcessor.
   Future<void> checkAndProcessAutoPay() async {
+    final vm = _recurringVm;
+    if (vm != null) {
+      await vm.checkAndProcessAutoPay();
+      return;
+    }
     await serializeMutation(() async {
       final processor = RecurringPaymentProcessor(AppDatabase.instance);
       final processed = await processor.processDuePayments();
@@ -2248,7 +2335,7 @@ class AppProvider extends ChangeNotifier {
         transactions = await AppDatabase.instance.getTransactions();
         accounts = await AppDatabase.instance.getAccounts();
         recurring = await AppDatabase.instance.getRecurring();
-        _historyCache.clear();
+        _fallbackHistoryCache.clear();
         recurringHistoryCount = await AppDatabase.instance.getRecurringHistoryCount();
         notifyListeners();
         recordNetWorthSnapshot();
@@ -2270,18 +2357,22 @@ class AppProvider extends ChangeNotifier {
       currency: acct?.currency ?? settings.currency,
     );
     await AppDatabase.instance.insertRecurringHistory(entry);
-    _historyCache.remove(r.id); // invalidate cache for this payment
+    _fallbackHistoryCache.remove(r.id); // invalidate cache for this payment
     recurringHistoryCount = await AppDatabase.instance.getRecurringHistoryCount();
   }
 
   /// Loads history for [recurringId] from DB, caching in memory.
   /// Returns immediately if already cached.
   Future<List<RecurringHistoryEntry>> getHistoryFor(String recurringId) async {
-    if (_historyCache.containsKey(recurringId)) {
-      return _historyCache[recurringId]!;
+    final vm = _recurringVm;
+    if (vm != null) {
+      return vm.getHistoryFor(recurringId);
+    }
+    if (_fallbackHistoryCache.containsKey(recurringId)) {
+      return _fallbackHistoryCache[recurringId]!;
     }
     final entries = await AppDatabase.instance.getRecurringHistory(recurringId);
-    _historyCache[recurringId] = entries;
+    _fallbackHistoryCache[recurringId] = entries;
     return entries;
   }
 
@@ -2872,6 +2963,10 @@ class AppProvider extends ChangeNotifier {
 
   /// Recurring payments due on [day].
   List<RecurringPayment> recurringDueOnDay(DateTime day) {
+    final vm = _recurringVm;
+    if (vm != null) {
+      return vm.recurringDueOnDay(day);
+    }
     return recurring.where((r) =>
         r.nextDate.year == day.year &&
         r.nextDate.month == day.month &&
@@ -3941,7 +4036,8 @@ class AppProvider extends ChangeNotifier {
         await _saveSettings();
       }
 
-      _historyCache.clear();
+      _recurringVm?.clearHistoryCache();
+      _fallbackHistoryCache.clear();
       await load(skipCatchUp: true);
       if (netWorthSnapshots.isEmpty) {
         await _executeRecordNetWorthSnapshot();
@@ -3999,7 +4095,8 @@ class AppProvider extends ChangeNotifier {
       // Validate, write the pre-restore safety snapshot, and import the
       // selected tables through the application-layer use case.
       await _restoreSelective(data, selectedGroups);
-      _historyCache.clear();
+      _recurringVm?.clearHistoryCache();
+      _fallbackHistoryCache.clear();
       await load(skipCatchUp: true);
 
       try {
@@ -4639,6 +4736,10 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<VoidCallback> deleteRecurringWithUndo(String id) async {
+    final vm = _recurringVm;
+    if (vm != null) {
+      return vm.deleteRecurringWithUndo(id);
+    }
     final rec = recurring.firstWhere((r) => r.id == id);
     final history = await AppDatabase.instance.getRecurringHistory(id);
     await deleteRecurring(id);
@@ -4647,7 +4748,7 @@ class AppProvider extends ChangeNotifier {
       for (final h in history) {
         await AppDatabase.instance.insertRecurringHistory(h);
       }
-      _historyCache.remove(id);
+      _fallbackHistoryCache.remove(id);
       recurringHistoryCount = await AppDatabase.instance.getRecurringHistoryCount();
       notifyListeners();
     };

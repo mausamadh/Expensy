@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
 import '../presentation/viewmodels/categories_view_model.dart';
+import '../presentation/viewmodels/recurring_view_model.dart';
 import '../models/models.dart';
 import '../domain/ledger/rates_unavailable_exception.dart';
 import '../presentation/recurring_localizations.dart';
@@ -96,6 +97,7 @@ class _RecurringScreenState extends State<RecurringScreen> {
   // Builds the widget subtree using theme-adaptive colors and localization.
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    context.watch<RecurringViewModel>();
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final tabPurple = isDark ? const Color(0xFFBA68C8) : const Color(0xFF8E24AA);

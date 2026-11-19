@@ -10,6 +10,7 @@ import '../providers/app_provider.dart';
 import '../presentation/viewmodels/budgets_view_model.dart';
 import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/goals_view_model.dart';
+import '../presentation/viewmodels/recurring_view_model.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
@@ -53,6 +54,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
     // so the goals section rebuilds when the view model mutates.
     context.watch<GoalsViewModel>();
     context.watch<BudgetsViewModel>();
+    context.watch<RecurringViewModel>();
     final cs  = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final tabRose = isDark ? const Color(0xFFF06292) : const Color(0xFFD81B60);

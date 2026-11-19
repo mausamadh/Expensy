@@ -7,6 +7,7 @@ import '../models/models.dart';
 import '../providers/app_provider.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
 import '../presentation/viewmodels/loans_view_model.dart';
+import '../presentation/viewmodels/recurring_view_model.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import '../widgets/shared_widgets.dart';
@@ -170,6 +171,7 @@ class _YearlyAnalysisScreenState extends State<YearlyAnalysisScreen> {
     // The loans slice is owned by LoansViewModel (Phase 6) — watch it so
     // the memoized yearly data rebuilds when loans mutate.
     context.watch<LoansViewModel>();
+    context.watch<RecurringViewModel>();
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
