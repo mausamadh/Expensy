@@ -7,8 +7,8 @@ import 'package:finwick/screens/home_screen.dart';
 import 'package:finwick/screens/transactions_screen.dart';
 import 'package:finwick/l10n/app_localizations.dart';
 import 'package:drift/native.dart';
-import 'package:provider/provider.dart';
 import 'helpers/presets_test_harness.dart';
+import 'helpers/goals_test_harness.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -144,13 +144,16 @@ void main() {
 
   group('Cross-Screen Two-Way Deletion & Sync Widget Tests', () {
     Widget buildTestApp(Widget child) {
-      return wrapWithPresets(
+      return wrapWithGoals(
         provider,
-        MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          locale: const Locale('en'),
-          home: Scaffold(body: child),
+        wrapWithPresets(
+          provider,
+          MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('en'),
+            home: Scaffold(body: child),
+          ),
         ),
       );
     }

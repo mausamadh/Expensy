@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/goals_view_model.dart';
 import '../presentation/viewmodels/presets_view_model.dart';
 import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
@@ -275,6 +276,9 @@ class _BackupScreenState extends State<BackupScreen> {
     // Keep the preset count in sync (the view model owns that state slice,
     // Phase 6).
     context.watch<PresetsViewModel>();
+    // Keep the wishlist/goal counts in sync (the view model owns that state
+    // slice, Phase 6).
+    context.watch<GoalsViewModel>();
     final cs = Theme.of(context).colorScheme;
 
     // Live counts for the "what's included" breakdown. This list is kept in
@@ -1077,6 +1081,9 @@ class _SelectiveBackupSheetState extends State<_SelectiveBackupSheet> {
     // Keep the preset count in sync (the view model owns that state slice,
     // Phase 6).
     context.watch<PresetsViewModel>();
+    // Keep the wishlist/goal counts in sync (the view model owns that state
+    // slice, Phase 6).
+    context.watch<GoalsViewModel>();
     final cs = Theme.of(context).colorScheme;
 
     final entities = [

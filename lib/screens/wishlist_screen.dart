@@ -7,6 +7,7 @@ import '../utils/snackbar.dart';
 import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/goals_view_model.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
@@ -25,6 +26,9 @@ class WishlistScreen extends StatelessWidget {
   // Builds the widget subtree using theme-adaptive colors and localization.
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    // The wishlist slice is owned by GoalsViewModel (Phase 6) — watch it so
+    // the list rebuilds when the view model mutates.
+    context.watch<GoalsViewModel>();
     final l10n = AppLocalizations.of(context)!;
     // Helper method `fmt`: handles user action or computes derived UI state.
     String fmt(double v) => formatAmount(v, app.settings.currency);
@@ -82,6 +86,8 @@ class _WishCard extends StatelessWidget {
   // Builds the widget subtree using theme-adaptive colors and localization.
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    // Reads the delegated savingsGoals slice via goalForWishlist (Phase 6).
+    context.watch<GoalsViewModel>();
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final l10n = AppLocalizations.of(context)!;

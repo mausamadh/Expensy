@@ -7,6 +7,7 @@ import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/goals_view_model.dart';
 import '../providers/aggregations.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
@@ -206,6 +207,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final app = context.watch<AppProvider>();
+    // The savings-contribution slice is owned by GoalsViewModel (Phase 6) —
+    // watch it so the memoized filter list rebuilds when it mutates.
+    context.watch<GoalsViewModel>();
     final cs  = Theme.of(context).colorScheme;
 
     // ── Memoized filtered item list ─────────────────────────────────────

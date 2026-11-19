@@ -1,13 +1,13 @@
 // test/rollover_budget_test.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 import 'package:drift/native.dart';
 import 'package:finwick/database/app_database.dart';
 import 'package:finwick/models/models.dart';
 import 'package:finwick/providers/app_provider.dart';
 import 'package:finwick/screens/budget_screen.dart';
 import 'package:finwick/l10n/app_localizations.dart';
+import 'helpers/goals_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -372,9 +372,9 @@ void main() {
       app.transactions = [txPrev];
 
       await tester.pumpWidget(
-        ChangeNotifierProvider<AppProvider>.value(
-          value: app,
-          child: const MaterialApp(
+        wrapWithGoals(
+          app,
+          const MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: BudgetScreen(),
@@ -437,9 +437,9 @@ void main() {
       app.transactions = [txPrev];
 
       await tester.pumpWidget(
-        ChangeNotifierProvider<AppProvider>.value(
-          value: app,
-          child: const MaterialApp(
+        wrapWithGoals(
+          app,
+          const MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: BudgetScreen(),

@@ -51,6 +51,7 @@ import '../theme/app_theme.dart';
 import '../utils/service_localizations.dart';
 import '../presentation/viewmodels/assets_view_model.dart';
 import '../presentation/viewmodels/presets_view_model.dart';
+import '../presentation/viewmodels/goals_view_model.dart';
 
 class AppSettings {
   String currency;
@@ -332,12 +333,11 @@ class AppProvider extends ChangeNotifier {
 
   List<AppTransaction>        transactions = [];
   List<RecurringPayment>      recurring    = [];
-  List<WishlistItem>          wishlist     = [];
+  // wishlist / savingsGoals / savingsContributions are delegated to
+  // GoalsViewModel (Phase 6) — see the delegation block below.
   List<LendedPerson>          lendedPeople = [];
   List<LendedMoney>           lended       = [];
   List<Budget>                budgets      = [];
-  List<SavingsGoal>           savingsGoals = [];
-  List<SavingsContribution>   savingsContributions = [];
   List<NetWorthSnapshot>      netWorthSnapshots = [];
   List<TransactionSplit>      splits       = [];
   Map<String, List<TransactionSplit>> _splitsByTxId = {};
@@ -395,6 +395,65 @@ class AppProvider extends ChangeNotifier {
   void wirePresetsVm(PresetsViewModel vm) {
     _presetsVm = vm;
     _presetsFallback = vm.presets;
+  }
+
+  // ── Goals (delegated to GoalsViewModel, Phase 6) ──────────────────────
+  /// Back-reference to the goals view model, wired by the composition root
+  /// before [load] runs. Null in standalone/test construction, in which case
+  /// the local fallback fields are used so the wishlist/savings-goal shims
+  /// and the screens keep working without a view model.
+  GoalsViewModel? _goalsVm;
+  List<WishlistItem> _wishlistFallback = [];
+  List<SavingsGoal> _savingsGoalsFallback = [];
+  List<SavingsContribution> _savingsContributionsFallback = [];
+
+  /// All wishlist items. Delegates to the view model when wired.
+  List<WishlistItem> get wishlist =>
+      _goalsVm?.wishlist ?? _wishlistFallback;
+
+  /// Replaces the wishlist. Delegates to the view model when wired; the
+  /// view model's setter notifies its own listeners.
+  set wishlist(List<WishlistItem> next) {
+    if (_goalsVm != null) {
+      _goalsVm!.wishlist = next;
+    } else {
+      _wishlistFallback = next;
+    }
+  }
+
+  /// All savings goals. Delegates to the view model when wired.
+  List<SavingsGoal> get savingsGoals =>
+      _goalsVm?.savingsGoals ?? _savingsGoalsFallback;
+
+  /// Replaces the savings goals. Delegates to the view model when wired.
+  set savingsGoals(List<SavingsGoal> next) {
+    if (_goalsVm != null) {
+      _goalsVm!.savingsGoals = next;
+    } else {
+      _savingsGoalsFallback = next;
+    }
+  }
+
+  /// All savings contributions. Delegates to the view model when wired.
+  List<SavingsContribution> get savingsContributions =>
+      _goalsVm?.savingsContributions ?? _savingsContributionsFallback;
+
+  /// Replaces the savings contributions. Delegates to the view model when
+  /// wired.
+  set savingsContributions(List<SavingsContribution> next) {
+    if (_goalsVm != null) {
+      _goalsVm!.savingsContributions = next;
+    } else {
+      _savingsContributionsFallback = next;
+    }
+  }
+
+  /// Wires the goals view model (composition root, before [load]).
+  void wireGoalsVm(GoalsViewModel vm) {
+    _goalsVm = vm;
+    _wishlistFallback = vm.wishlist;
+    _savingsGoalsFallback = vm.savingsGoals;
+    _savingsContributionsFallback = vm.savingsContributions;
   }
 
   /// Total row count in `recurring_history` — kept for display purposes
@@ -2045,25 +2104,44 @@ class AppProvider extends ChangeNotifier {
   }
 
   // ── Wishlist ──────────────────────────────────────────────────────────
+  // Thin delegating shims. When the GoalsViewModel is wired (production),
+  // the mutation runs through the view model so its listeners update. In
+  // standalone/test construction (no VM) the shims hit the DB directly and
+  // update the local fallback lists, preserving the pre-Phase-6 behavior.
   Future<void> addWishlist(WishlistItem w) async {
+    final vm = _goalsVm;
+    if (vm != null) {
+      await vm.addWishlist(w);
+      return;
+    }
     await AppDatabase.instance.insertWishlist(w);
-    wishlist = await AppDatabase.instance.getWishlist();
+    _wishlistFallback = await AppDatabase.instance.getWishlist();
     notifyListeners();
   }
 
   Future<void> updateWishlist(WishlistItem w) async {
+    final vm = _goalsVm;
+    if (vm != null) {
+      await vm.updateWishlist(w);
+      return;
+    }
     await AppDatabase.instance.updateWishlist(w);
-    wishlist = await AppDatabase.instance.getWishlist();
+    _wishlistFallback = await AppDatabase.instance.getWishlist();
     notifyListeners();
   }
 
   Future<void> deleteWishlist(String id) async {
+    final vm = _goalsVm;
+    if (vm != null) {
+      await vm.deleteWishlist(id);
+      return;
+    }
     for (final g in savingsGoals.where((g) => g.wishlistItemId == id)) {
       await AppDatabase.instance.updateSavingsGoal(g.copyWith(clearWishlistItemId: true));
     }
     savingsGoals = await AppDatabase.instance.getSavingsGoals();
     await AppDatabase.instance.deleteWishlist(id);
-    wishlist = await AppDatabase.instance.getWishlist();
+    _wishlistFallback = await AppDatabase.instance.getWishlist();
     notifyListeners();
   }
 
@@ -2078,12 +2156,17 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> createGoalForWishlist(WishlistItem item, SavingsGoal goal) async {
+    final vm = _goalsVm;
+    if (vm != null) {
+      await vm.createGoalForWishlist(item, goal);
+      return;
+    }
     final updatedGoal = goal.copyWith(wishlistItemId: item.id);
     final updatedItem = item.copyWith(goalId: goal.id);
     await AppDatabase.instance.insertSavingsGoal(updatedGoal);
     await AppDatabase.instance.updateWishlist(updatedItem);
     savingsGoals = await AppDatabase.instance.getSavingsGoals();
-    wishlist = await AppDatabase.instance.getWishlist();
+    _wishlistFallback = await AppDatabase.instance.getWishlist();
     notifyListeners();
   }
 
@@ -2091,6 +2174,14 @@ class AppProvider extends ChangeNotifier {
     required String wishlistItemId,
     required String goalId,
   }) async {
+    final vm = _goalsVm;
+    if (vm != null) {
+      await vm.unlinkWishlistAndGoal(
+        wishlistItemId: wishlistItemId,
+        goalId: goalId,
+      );
+      return;
+    }
     final w = wishlist.where((x) => x.id == wishlistItemId).firstOrNull;
     if (w != null) {
       await AppDatabase.instance.updateWishlist(w.copyWith(clearGoalId: true));
@@ -2099,7 +2190,7 @@ class AppProvider extends ChangeNotifier {
     if (g != null) {
       await AppDatabase.instance.updateSavingsGoal(g.copyWith(clearWishlistItemId: true));
     }
-    wishlist = await AppDatabase.instance.getWishlist();
+    _wishlistFallback = await AppDatabase.instance.getWishlist();
     savingsGoals = await AppDatabase.instance.getSavingsGoals();
     notifyListeners();
   }
@@ -2663,29 +2754,49 @@ class AppProvider extends ChangeNotifier {
     return (g.currentAmount / g.targetAmount).clamp(0.0, 1.0);
   }
 
+  // Thin delegating shims (see the Wishlist section above for the pattern).
   Future<void> addSavingsGoal(SavingsGoal g) async {
+    final vm = _goalsVm;
+    if (vm != null) {
+      await vm.addSavingsGoal(g);
+      return;
+    }
     await AppDatabase.instance.insertSavingsGoal(g);
-    savingsGoals = await AppDatabase.instance.getSavingsGoals();
+    _savingsGoalsFallback = await AppDatabase.instance.getSavingsGoals();
     notifyListeners();
   }
 
   Future<void> updateSavingsGoal(SavingsGoal g) async {
+    final vm = _goalsVm;
+    if (vm != null) {
+      await vm.updateSavingsGoal(g);
+      return;
+    }
     await AppDatabase.instance.updateSavingsGoal(g);
-    savingsGoals = await AppDatabase.instance.getSavingsGoals();
+    _savingsGoalsFallback = await AppDatabase.instance.getSavingsGoals();
     notifyListeners();
   }
 
   Future<void> deleteSavingsGoal(String id) async {
+    final vm = _goalsVm;
+    if (vm != null) {
+      await vm.deleteSavingsGoal(id);
+      return;
+    }
     for (final w in wishlist.where((w) => w.goalId == id)) {
       await AppDatabase.instance.updateWishlist(w.copyWith(clearGoalId: true));
     }
-    wishlist = await AppDatabase.instance.getWishlist();
+    _wishlistFallback = await AppDatabase.instance.getWishlist();
     await AppDatabase.instance.deleteSavingsGoal(id);
-    savingsGoals = await AppDatabase.instance.getSavingsGoals();
+    _savingsGoalsFallback = await AppDatabase.instance.getSavingsGoals();
     notifyListeners();
   }
 
   Future<VoidCallback> deleteSavingsGoalWithUndo(String id) async {
+    final vm = _goalsVm;
+    if (vm != null) {
+      return vm.deleteSavingsGoalWithUndo(id);
+    }
     final s = savingsGoals.firstWhere((s) => s.id == id);
     await deleteSavingsGoal(id);
     return () async {
@@ -4204,6 +4315,10 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<VoidCallback> deleteWishlistWithUndo(String id) async {
+    final vm = _goalsVm;
+    if (vm != null) {
+      return vm.deleteWishlistWithUndo(id);
+    }
     final item = wishlist.firstWhere((w) => w.id == id);
     await deleteWishlist(id);
     return () async {

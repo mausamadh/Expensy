@@ -5,6 +5,7 @@ import '../adapters/backup/expensy_saf_keychain.dart';
 import '../adapters/backup/safety_snapshot_store.dart';
 import '../adapters/budgeting/drift_budget_write_repository.dart';
 import '../adapters/fx/http_exchange_rate_provider.dart';
+import '../adapters/goals/drift_goals_repository.dart';
 import '../adapters/ledger/drift_ledger_repositories.dart';
 import '../adapters/ledger/drift_ledger_write_repositories.dart';
 import '../adapters/ledger/drift_preset_repository.dart';
@@ -22,6 +23,7 @@ import '../domain/backup/backup_validator.dart';
 import '../domain/backup/ports/ports.dart';
 import '../domain/budgeting/ports/budget_write_port.dart';
 import '../domain/fx/ports/exchange_rate_provider.dart';
+import '../domain/goals/ports/goals_repository.dart';
 import '../domain/ledger/ports/ports.dart';
 import '../domain/ledger/ports/preset_repository.dart';
 import '../domain/ledger/ports/write_ports.dart';
@@ -31,6 +33,7 @@ import '../domain/wealth/ports/asset_repository.dart';
 import '../database/app_database.dart';
 import '../providers/app_provider.dart';
 import '../presentation/viewmodels/assets_view_model.dart';
+import '../presentation/viewmodels/goals_view_model.dart';
 import '../presentation/viewmodels/presets_view_model.dart';
 import '../presentation/viewmodels/sms_inbox_view_model.dart';
 
@@ -81,6 +84,9 @@ class CompositionRoot {
 
     // Ledger persistence port (Phase 6) — transaction preset storage.
     getIt.registerSingleton<PresetRepository>(const DriftPresetRepository());
+
+    // Goals persistence port (Phase 6) — wishlist + savings-goal storage.
+    getIt.registerSingleton<GoalsRepository>(const DriftGoalsRepository());
 
     // Backup ports (Phase 5) — data export/import, keychain, safety
     // snapshots. Resolved by the backup use cases below.
@@ -204,6 +210,19 @@ class CompositionRoot {
       () => PresetsViewModel(repository: getIt<PresetRepository>()),
     );
     provider.wirePresetsVm(getIt<PresetsViewModel>());
+  }
+
+  /// Registers the Goals view model (Phase 6).
+  ///
+  /// Called from `main()` right after the [AppProvider] is constructed and
+  /// BEFORE `provider.load()` runs, because `load()` assigns the
+  /// wishlist/savings-goal/contribution lists through the provider's
+  /// delegating setters, which require the view model to already be wired.
+  static void initGoals(AppProvider provider) {
+    getIt.registerLazySingleton<GoalsViewModel>(
+      () => GoalsViewModel(repository: getIt<GoalsRepository>()),
+    );
+    provider.wireGoalsVm(getIt<GoalsViewModel>());
   }
 
   /// Test hook: clears all registrations so a test can build its own

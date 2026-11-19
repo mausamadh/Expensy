@@ -1,13 +1,13 @@
 // test/wishlist_goal_bridge_test.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 import 'package:drift/native.dart';
 import 'package:finwick/database/app_database.dart';
 import 'package:finwick/models/models.dart';
 import 'package:finwick/providers/app_provider.dart';
 import 'package:finwick/screens/wishlist_screen.dart';
 import 'package:finwick/l10n/app_localizations.dart';
+import 'helpers/goals_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -291,10 +291,13 @@ void main() {
   });
 
   group('WishlistScreen Widget & UI Tests', () {
+    // Wires a GoalsViewModel into [app] (so the delegating setters reach the
+    // VM) and returns the widget tree. Data must be assigned to [app] AFTER
+    // this call so it lands in the view model, not the pre-wire fallback.
     Widget createTestApp(AppProvider app) {
-      return ChangeNotifierProvider<AppProvider>.value(
-        value: app,
-        child: const MaterialApp(
+      return wrapWithGoals(
+        app,
+        const MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: WishlistScreen(),
@@ -311,9 +314,10 @@ void main() {
         targetPrice: 600.0,
         priority: 'high',
       );
+      final widget = createTestApp(app);
       app.wishlist = [item];
 
-      await tester.pumpWidget(createTestApp(app));
+      await tester.pumpWidget(widget);
       await tester.pumpAndSettle();
 
       expect(find.text('Espresso Machine'), findsOneWidget);
@@ -340,10 +344,11 @@ void main() {
         colorValue: 0xFF2E7D32,
         wishlistItemId: 'w_linked',
       );
+      final widget = createTestApp(app);
       app.wishlist = [item];
       app.savingsGoals = [goal];
 
-      await tester.pumpWidget(createTestApp(app));
+      await tester.pumpWidget(widget);
       await tester.pumpAndSettle();
 
       expect(find.text('Electric Bike'), findsOneWidget);
@@ -372,10 +377,11 @@ void main() {
         wishlistItemId: 'w_achieved',
         isCompleted: true,
       );
+      final widget = createTestApp(app);
       app.wishlist = [item];
       app.savingsGoals = [goal];
 
-      await tester.pumpWidget(createTestApp(app));
+      await tester.pumpWidget(widget);
       await tester.pumpAndSettle();
 
       expect(find.text('Leather Jacket'), findsOneWidget);
@@ -416,12 +422,13 @@ void main() {
         colorValue: 0xFF2E7D32,
         isCompleted: true,
       );
+      final widget = createTestApp(app);
       app.accounts = [acc];
       app.categories = [cat];
       app.wishlist = [item];
       app.savingsGoals = [goal];
 
-      await tester.pumpWidget(createTestApp(app));
+      await tester.pumpWidget(widget);
       await tester.pumpAndSettle();
 
       // Tap Buy Now

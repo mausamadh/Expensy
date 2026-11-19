@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/goals_view_model.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
@@ -25,6 +26,9 @@ class SavingsGoalDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final app = context.watch<AppProvider>();
+    // The goals slice is owned by GoalsViewModel (Phase 6) — watch it so the
+    // screen rebuilds when goals/wishlist/contributions mutate.
+    context.watch<GoalsViewModel>();
     final cs = Theme.of(context).colorScheme;
 
     // The goal instance might have updated

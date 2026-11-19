@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/goals_view_model.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
@@ -46,6 +47,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final app = context.watch<AppProvider>();
+    // The savings-goal slice is owned by GoalsViewModel (Phase 6) — watch it
+    // so the goals section rebuilds when the view model mutates.
+    context.watch<GoalsViewModel>();
     final cs  = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final tabRose = isDark ? const Color(0xFFF06292) : const Color(0xFFD81B60);
