@@ -1,5 +1,8 @@
 import 'package:get_it/get_it.dart';
 
+import '../adapters/backup/drift_backup_data_repository.dart';
+import '../adapters/backup/expensy_saf_keychain.dart';
+import '../adapters/backup/safety_snapshot_store.dart';
 import '../adapters/budgeting/drift_budget_write_repository.dart';
 import '../adapters/fx/http_exchange_rate_provider.dart';
 import '../adapters/ledger/drift_ledger_repositories.dart';
@@ -11,13 +14,17 @@ import '../adapters/sms/expensy_sms_source.dart';
 import '../adapters/sms/shared_prefs_sms_settings.dart';
 import '../adapters/sms/template_registry_loader.dart';
 import '../adapters/time/system_clock.dart';
+import '../application/backup/backup_use_cases.dart';
 import '../application/mutation_gate.dart';
+import '../domain/backup/backup_validator.dart';
+import '../domain/backup/ports/ports.dart';
 import '../domain/budgeting/ports/budget_write_port.dart';
 import '../domain/fx/ports/exchange_rate_provider.dart';
 import '../domain/ledger/ports/ports.dart';
 import '../domain/ledger/ports/write_ports.dart';
 import '../domain/shared/clock.dart';
 import '../domain/sms_import/ports/ports.dart';
+import '../database/app_database.dart';
 import '../providers/app_provider.dart';
 import '../presentation/viewmodels/sms_inbox_view_model.dart';
 
@@ -62,6 +69,60 @@ class CompositionRoot {
     // Budgeting write port (Phase 3) — budget persistence.
     getIt.registerSingleton<BudgetWriteRepository>(
         const DriftBudgetWriteRepository());
+
+    // Backup ports (Phase 5) — data export/import, keychain, safety
+    // snapshots. Resolved by the backup use cases below.
+    getIt.registerSingleton<BackupDataRepository>(
+        const DriftBackupDataRepository());
+    getIt.registerSingleton<Keychain>(const ExpensySafKeychain());
+    getIt.registerSingleton<SafetySnapshotStore>(
+        const FileSafetySnapshotStore());
+    getIt.registerSingleton<BackupValidator>(
+        BackupValidator(
+            currentSchemaVersion: AppDatabase.currentSchemaVersion));
+
+    // Backup use cases (Phase 5).
+    getIt.registerLazySingleton<CreateBackup>(
+      () => CreateBackup(
+        data: getIt<BackupDataRepository>(),
+        clock: getIt<Clock>(),
+      ),
+    );
+    getIt.registerLazySingleton<CreateSelectiveBackup>(
+      () => CreateSelectiveBackup(
+        data: getIt<BackupDataRepository>(),
+        clock: getIt<Clock>(),
+      ),
+    );
+    getIt.registerLazySingleton<RestoreBackup>(
+      () => RestoreBackup(
+        data: getIt<BackupDataRepository>(),
+        validator: getIt<BackupValidator>(),
+        snapshots: getIt<SafetySnapshotStore>(),
+        clock: getIt<Clock>(),
+      ),
+    );
+    getIt.registerLazySingleton<RestoreSelective>(
+      () => RestoreSelective(
+        data: getIt<BackupDataRepository>(),
+        validator: getIt<BackupValidator>(),
+        snapshots: getIt<SafetySnapshotStore>(),
+        clock: getIt<Clock>(),
+      ),
+    );
+    getIt.registerLazySingleton<CreateSafetySnapshot>(
+      () => CreateSafetySnapshot(
+        data: getIt<BackupDataRepository>(),
+        snapshots: getIt<SafetySnapshotStore>(),
+        clock: getIt<Clock>(),
+      ),
+    );
+    getIt.registerLazySingleton<UndoLastRestore>(
+      () => UndoLastRestore(
+        data: getIt<BackupDataRepository>(),
+        snapshots: getIt<SafetySnapshotStore>(),
+      ),
+    );
   }
 
   /// Registers the SMS import context (adapters + view model).

@@ -35,13 +35,18 @@ import 'package:home_widget/home_widget.dart';
 import '../services/credit_reminder_service.dart';
 import '../services/loan_reminder_service.dart';
 import '../services/certificate_reminder_service.dart';
-import '../services/backup_builder.dart';
 import '../services/backup_encryption_service.dart';
 import '../services/auto_backup_service.dart';
 import '../services/recurring_payment_processor.dart';
-import '../services/backup_validator.dart';
-import 'package:sqflite/sqflite.dart' as sqflite show getDatabasesPath;
-import 'package:path/path.dart' as p;
+import '../adapters/backup/drift_backup_data_repository.dart';
+import '../adapters/backup/safety_snapshot_store.dart';
+import '../adapters/time/system_clock.dart';
+import '../application/backup/backup_use_cases.dart';
+import '../domain/backup/backup_payload_parser.dart';
+import '../domain/backup/backup_validator.dart';
+import '../domain/backup/entity_group_tables.dart' as domainGroups;
+import '../domain/backup/ports/ports.dart';
+import '../domain/shared/clock.dart';
 import 'package:expensy_saf/expensy_saf.dart';
 import '../theme/app_theme.dart';
 import '../utils/service_localizations.dart';
@@ -201,6 +206,19 @@ class AppProvider extends ChangeNotifier {
   final DeleteBudget _deleteBudget;
   final BudgetService _budgetService = const BudgetService();
 
+  // ── Backup (Phase 5) ─────────────────────────────────────────────────
+  // The provider delegates backup/restore persistence to the application-layer
+  // use cases (which program against the BackupDataRepository /
+  // SafetySnapshotStore ports). The provider keeps the in-memory sync and side
+  // effects (notifications, widgets, net-worth snapshot) under its own mutex.
+  final CreateBackup _createBackup;
+  final CreateSelectiveBackup _createSelectiveBackup;
+  final RestoreBackup _restoreBackup;
+  final RestoreSelective _restoreSelective;
+  final UndoLastRestore _undoLastRestore;
+  final CreateSafetySnapshot _createSafetySnapshot;
+  final BackupPayloadParser _backupParser = const BackupPayloadParser();
+
   AppProvider({
     AccountRepository? accountRepo,
     CategoryRepository? categoryRepo,
@@ -208,6 +226,9 @@ class AppProvider extends ChangeNotifier {
     TransactionWriteRepository? transactionWriteRepo,
     AccountWriteRepository? accountWriteRepo,
     BudgetWriteRepository? budgetWriteRepo,
+    BackupDataRepository? backupDataRepo,
+    SafetySnapshotStore? safetySnapshots,
+    Clock? clock,
   })  : _accountRepo = accountRepo ?? const DriftAccountRepository(),
         _categoryRepo = categoryRepo ?? const DriftCategoryRepository(),
         _transactionRepo =
@@ -258,6 +279,37 @@ class AppProvider extends ChangeNotifier {
         ),
         _deleteBudget = DeleteBudget(
           budgets: budgetWriteRepo ?? const DriftBudgetWriteRepository(),
+        ),
+        _createBackup = CreateBackup(
+          data: backupDataRepo ?? const DriftBackupDataRepository(),
+          clock: clock ?? const SystemClock(),
+        ),
+        _createSelectiveBackup = CreateSelectiveBackup(
+          data: backupDataRepo ?? const DriftBackupDataRepository(),
+          clock: clock ?? const SystemClock(),
+        ),
+        _restoreBackup = RestoreBackup(
+          data: backupDataRepo ?? const DriftBackupDataRepository(),
+          validator: BackupValidator(
+              currentSchemaVersion: AppDatabase.currentSchemaVersion),
+          snapshots: safetySnapshots ?? const FileSafetySnapshotStore(),
+          clock: clock ?? const SystemClock(),
+        ),
+        _restoreSelective = RestoreSelective(
+          data: backupDataRepo ?? const DriftBackupDataRepository(),
+          validator: BackupValidator(
+              currentSchemaVersion: AppDatabase.currentSchemaVersion),
+          snapshots: safetySnapshots ?? const FileSafetySnapshotStore(),
+          clock: clock ?? const SystemClock(),
+        ),
+        _undoLastRestore = UndoLastRestore(
+          data: backupDataRepo ?? const DriftBackupDataRepository(),
+          snapshots: safetySnapshots ?? const FileSafetySnapshotStore(),
+        ),
+        _createSafetySnapshot = CreateSafetySnapshot(
+          data: backupDataRepo ?? const DriftBackupDataRepository(),
+          snapshots: safetySnapshots ?? const FileSafetySnapshotStore(),
+          clock: clock ?? const SystemClock(),
         );
 
   AppSettings settings = AppSettings();
@@ -3301,7 +3353,7 @@ class AppProvider extends ChangeNotifier {
 
   // ── Backup ────────────────────────────────────────────────────────────
   Future<String?> createBackup({String? dialogTitle, String? password}) async {
-    final artifact = await BackupBuilder.build(
+    final artifact = await _createBackup(
       settingsJson: settings.toJson(),
       password: password,
       namePrefix: 'expensy_backup',
@@ -3323,65 +3375,8 @@ class AppProvider extends ChangeNotifier {
     List<int> bytes, {
     String? password,
     String? extension,
-  }) async {
-    final ext = extension?.toLowerCase();
-    String jsonStr;
-    if (BackupEncryptionService.isEncrypted(bytes) || ext == 'enc') {
-      if (password == null || password.isEmpty) {
-        throw const FormatException('NEEDS_PASSWORD');
-      }
-      jsonStr = await BackupEncryptionService.decrypt(
-        bytes: bytes,
-        password: password,
-      );
-    } else {
-      try {
-        jsonStr = utf8.decode(bytes);
-      } catch (_) {
-        throw const FormatException(
-          'Please select a valid .json or .enc Finwick backup file.',
-        );
-      }
-    }
-
-    final dynamic decoded = jsonDecode(jsonStr);
-    if (decoded is! Map) {
-      throw const FormatException(
-        'Invalid backup file: top-level value is not a JSON object.',
-      );
-    }
-    final data = Map<String, dynamic>.from(decoded);
-
-    const knownKeys = {
-      'accounts',
-      'categories',
-      'transactions',
-      'recurring_payments',
-      'wishlist',
-      'lended_people',
-      'lended_money',
-      'assets',
-      'budgets',
-      'recurring_history',
-      'certificates',
-      'net_worth_snapshots',
-      'version',
-      'settings',
-      'savings_goals',
-      'savings_contributions',
-      'loans',
-      'loan_payments',
-      'transaction_presets',
-      'transaction_splits',
-      'selective',
-    };
-    if (!data.keys.any(knownKeys.contains)) {
-      throw const FormatException(
-        'Invalid backup file: no recognisable Finwick data found.',
-      );
-    }
-    return data;
-  }
+  }) =>
+      _backupParser.parse(bytes, password: password, extension: extension);
 
   /// Picks a backup file from the device and parses it.
   /// If [onPasswordRequired] is supplied and the file is encrypted, invokes it
@@ -3426,86 +3421,25 @@ class AppProvider extends ChangeNotifier {
 
   String? lastPreRestoreSnapshotPath;
 
-  Future<void> _createSafetySnapshot() async {
-    final snapshot = await DBHelper.exportAll();
-    final jsonStr = jsonEncode(snapshot);
-    final ts = DateTime.now()
-        .toIso8601String()
-        .replaceAll(':', '-')
-        .replaceAll('.', '-');
-    final fileName = 'expensy_prerestore_$ts.json';
-
-    Directory? targetDir;
-    try {
-      final dbFolder = await sqflite.getDatabasesPath();
-      final primaryDir = Directory(p.join(dbFolder, 'safety_snapshots'));
-      if (!primaryDir.existsSync()) {
-        primaryDir.createSync(recursive: true);
-      }
-      final file = File(p.join(primaryDir.path, fileName));
-      await file.writeAsString(jsonStr);
-      lastPreRestoreSnapshotPath = file.path;
-      targetDir = primaryDir;
-    } catch (primaryErr) {
-      try {
-        final fallbackDir =
-            Directory(p.join(Directory.systemTemp.path, 'expensy_safety_snapshots'));
-        if (!fallbackDir.existsSync()) {
-          fallbackDir.createSync(recursive: true);
-        }
-        final file = File(p.join(fallbackDir.path, fileName));
-        await file.writeAsString(jsonStr);
-        lastPreRestoreSnapshotPath = file.path;
-        targetDir = fallbackDir;
-      } catch (fallbackErr) {
-        throw StateError(
-          'Pre-restore safety snapshot failed ($primaryErr / $fallbackErr). Restore aborted to protect existing data.',
-        );
-      }
-    }
-
-    // Retain only last 3 snapshots in targetDir
-    try {
-      final files = targetDir.listSync().whereType<File>().toList()
-        ..sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
-      if (files.length > 3) {
-        for (int i = 3; i < files.length; i++) {
-          try {
-            files[i].deleteSync();
-          } catch (_) {}
-        }
-      }
-    } catch (_) {}
+  Future<void> _writeSafetySnapshot() async {
+    lastPreRestoreSnapshotPath = await _createSafetySnapshot();
   }
 
   Future<bool> undoLastRestore() async {
     return _serializeMutation(() async {
       final path = lastPreRestoreSnapshotPath;
       if (path == null) return false;
-      final file = File(path);
-      if (!file.existsSync()) return false;
-      final jsonStr = await file.readAsString();
-      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
-      await DBHelper.importAll(data);
-      await load(skipCatchUp: true);
-      return true;
+      if (!File(path).existsSync()) return false;
+      final ok = await _undoLastRestore(path);
+      if (ok) {
+        await load(skipCatchUp: true);
+      }
+      return ok;
     });
   }
 
   Future<int> restoreBackupData(Map<String, dynamic> data) async {
     return _serializeMutation(() async {
-      if (data['selective'] == true) {
-        throw const FormatException(
-          'Cannot perform Full Restore on a selective backup. Please use Selective Restore instead.',
-        );
-      }
-      final preview = BackupValidator.validate(data);
-      if (!preview.isValid) {
-        throw FormatException(
-          preview.errorMessage ?? 'Invalid backup file: schema incompatible.',
-        );
-      }
-
       // Parse & validate settings before wiping the database (B9)
       AppSettings? parsedSettings;
       if (data['settings'] is Map) {
@@ -3514,8 +3448,9 @@ class AppProvider extends ChangeNotifier {
         );
       }
 
-      await _createSafetySnapshot();
-      await DBHelper.importAll(data);
+      // Validate, write the pre-restore safety snapshot, and import the
+      // dataset through the application-layer use case.
+      final result = await _restoreBackup(data);
 
       if (parsedSettings != null) {
         settings = parsedSettings;
@@ -3540,9 +3475,7 @@ class AppProvider extends ChangeNotifier {
             .rescheduleAllCertificates(certificates);
       } catch (_) {}
 
-      return (data['_originalVersion'] as int?) ??
-          (data['version'] as int?) ??
-          1;
+      return result.version;
     });
   }
 
@@ -3558,43 +3491,20 @@ class AppProvider extends ChangeNotifier {
     return restoreBackupData(data);
   }
 
-  static const Map<String, List<String>> entityGroupTables = {
-    'accounts': ['accounts'],
-    'transactions': [
-      'transactions',
-      'transaction_splits',
-      'transaction_presets'
-    ],
-    'categories': ['categories'],
-    'recurring': ['recurring_payments', 'recurring_history'],
-    'loans': ['loans', 'loan_payments'],
-    'lent_money': ['lended_people', 'lended_money'],
-    'certificates': ['certificates'],
-    'budgets': ['budgets'],
-    'assets': ['assets'],
-    'wishlist_goals': ['wishlist', 'savings_goals', 'savings_contributions'],
-  };
+  /// Group → table mapping for selective backup/restore. Delegates to the
+  /// domain constant so the mapping has a single source of truth.
+  static const Map<String, List<String>> entityGroupTables =
+      domainGroups.entityGroupTables;
 
   Future<String?> createSelectiveBackup(Set<String> selectedGroups,
       {String? dialogTitle}) async {
-    final tables = <String>{};
-    for (final group in selectedGroups) {
-      final tList = entityGroupTables[group];
-      if (tList != null) tables.addAll(tList);
-    }
-    final dt = DateTime.now();
-    final timestamp = DateFormat('yyyyMMdd_HHmmss', 'en_US').format(dt);
-    final data = await DBHelper.exportSelective(tables);
-    data['exported_at'] = dt.toIso8601String();
-
-    final jsonStr = const JsonEncoder.withIndent('  ').convert(data);
-    final bytes = Uint8List.fromList(utf8.encode(jsonStr));
+    final artifact = await _createSelectiveBackup(selectedGroups);
 
     final saveUri = await FilePickerPlatform.instance.saveFile(
       dialogTitle: dialogTitle,
-      fileName: 'expensy_selective_backup_$timestamp.json',
-      bytes: bytes,
-      mimeType: 'application/json',
+      fileName: artifact.fileName,
+      bytes: artifact.bytes,
+      mimeType: artifact.mimeType,
     );
     return saveUri?.toString();
   }
@@ -3602,21 +3512,9 @@ class AppProvider extends ChangeNotifier {
   Future<void> restoreSelective(
       Map<String, dynamic> data, Set<String> selectedGroups) async {
     await _serializeMutation(() async {
-      final preview = BackupValidator.validate(data);
-      if (!preview.isValid) {
-        throw FormatException(
-          preview.errorMessage ?? 'Invalid backup file: schema incompatible.',
-        );
-      }
-
-      await _createSafetySnapshot();
-      final tables = <String>{};
-      for (final group in selectedGroups) {
-        final tList = entityGroupTables[group];
-        if (tList != null) tables.addAll(tList);
-      }
-
-      await DBHelper.importSelective(data, tables);
+      // Validate, write the pre-restore safety snapshot, and import the
+      // selected tables through the application-layer use case.
+      await _restoreSelective(data, selectedGroups);
       _historyCache.clear();
       await load(skipCatchUp: true);
 
@@ -3709,7 +3607,7 @@ class AppProvider extends ChangeNotifier {
       }
 
       if (transactions.isNotEmpty || accounts.isNotEmpty) {
-        await _createSafetySnapshot();
+        await _writeSafetySnapshot();
       }
 
       const palette = <int>[

@@ -1,21 +1,16 @@
 // lib/services/backup_builder.dart
-import 'dart:convert';
-import 'dart:typed_data';
-import 'package:intl/intl.dart';
-import '../database/db_helper.dart';
-import 'backup_encryption_service.dart';
+//
+// Backward-compatibility shim. The implementation now lives in the
+// application layer (hexagonal architecture, HEXAGONAL_MIGRATION_PLAN.md §5
+// Phase 5). Existing importers (tests, auto_backup_service) keep working
+// unchanged via the static `BackupBuilder.build` API.
 
-class BackupArtifact {
-  final Uint8List bytes;
-  final String fileName;
-  final String mimeType;
+import 'package:finwick/adapters/backup/drift_backup_data_repository.dart';
+import 'package:finwick/adapters/time/system_clock.dart';
+import 'package:finwick/application/backup/backup_use_cases.dart';
+import 'package:finwick/domain/backup/backup_artifact.dart';
 
-  const BackupArtifact({
-    required this.bytes,
-    required this.fileName,
-    required this.mimeType,
-  });
-}
+export 'package:finwick/domain/backup/backup_artifact.dart' show BackupArtifact;
 
 class BackupBuilder {
   static Future<BackupArtifact> build({
@@ -23,32 +18,16 @@ class BackupBuilder {
     String? password,
     String namePrefix = 'expensy_backup',
     DateTime? now,
-  }) async {
-    final dt = now ?? DateTime.now();
-    final timestamp = DateFormat('yyyyMMdd_HHmmss', 'en_US').format(dt);
-    final data = await DBHelper.exportAll();
-    data['settings'] = settingsJson;
-    data['exported_at'] = dt.toIso8601String();
-
-    final jsonStr = const JsonEncoder.withIndent('  ').convert(data);
-
-    if (password != null && password.isNotEmpty) {
-      final encryptedBytes = await BackupEncryptionService.encrypt(
-        jsonStr: jsonStr,
-        password: password,
-      );
-      return BackupArtifact(
-        bytes: encryptedBytes,
-        fileName: '${namePrefix}_$timestamp.enc',
-        mimeType: 'application/octet-stream',
-      );
-    } else {
-      final bytes = Uint8List.fromList(utf8.encode(jsonStr));
-      return BackupArtifact(
-        bytes: bytes,
-        fileName: '${namePrefix}_$timestamp.json',
-        mimeType: 'application/json',
-      );
-    }
+  }) {
+    final useCase = CreateBackup(
+      data: const DriftBackupDataRepository(),
+      clock: const SystemClock(),
+    );
+    return useCase(
+      settingsJson: settingsJson,
+      password: password,
+      namePrefix: namePrefix,
+      now: now,
+    );
   }
 }
