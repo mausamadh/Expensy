@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:finwick/database/app_database.dart';
-import 'package:finwick/database/db_helper.dart';
 import 'package:finwick/models/models.dart';
 import 'package:drift/native.dart';
 
@@ -58,8 +57,8 @@ void main() {
     AppDatabase.setInstanceForTesting(null);
   });
 
-  test('DBHelper.exportSelective only exports the requested tables', () async {
-    final exportData = await DBHelper.exportSelective({'accounts', 'certificates'});
+  test('AppDatabase.instance.exportSelective only exports the requested tables', () async {
+    final exportData = await AppDatabase.instance.exportSelective({'accounts', 'certificates'});
 
     expect(exportData.containsKey('accounts'), isTrue);
     expect(exportData.containsKey('certificates'), isTrue);
@@ -75,7 +74,7 @@ void main() {
     expect(certsList.first['name'], 'High Yield CD');
   });
 
-  test('DBHelper.importSelective only updates specified tables without touching others', () async {
+  test('AppDatabase.instance.importSelective only updates specified tables without touching others', () async {
     // Current state: 1 account, 1 category, 1 transaction, 1 certificate
     final payload = {
       'categories': [
@@ -102,7 +101,7 @@ void main() {
     };
 
     // Restore ONLY categories
-    await DBHelper.importSelective(payload, {'categories'});
+    await AppDatabase.instance.importSelective(payload, {'categories'});
 
     // 1. User categories should now only have the imported category (plus system categories re-seeded per B7)
     final cats = await db.getCategories();

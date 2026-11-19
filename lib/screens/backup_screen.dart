@@ -274,7 +274,7 @@ class _BackupScreenState extends State<BackupScreen> {
     final cs = Theme.of(context).colorScheme;
 
     // Live counts for the "what's included" breakdown. This list is kept in
-    // sync with everything DBHelper.exportAll() actually writes to the
+    // sync with everything AppDatabase.instance.exportAll() actually writes to the
     // backup JSON — previously it only covered 8 of the (now) 10 backed-up
     // tables and never mentioned Budgets, Recurring History, or the
     // per-person lending structure, even though all of that data was always

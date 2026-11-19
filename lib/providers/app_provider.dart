@@ -12,7 +12,6 @@ import 'package:excel/excel.dart' hide Border;
 import '../models/models.dart';
 import 'aggregations.dart';
 import '../database/app_database.dart';
-import '../database/db_helper.dart';
 import '../domain/ledger/ports/ports.dart';
 import '../domain/ledger/ports/write_ports.dart';
 import '../domain/ledger/balance_delta.dart';
@@ -173,7 +172,7 @@ class AppSettings {
 class AppProvider extends ChangeNotifier {
   /// Ledger read ports. The provider is a facade (HEXAGONAL_MIGRATION_PLAN.md
   /// §5 Phase 2): its `load()` read path routes through these repositories
-  /// instead of [DBHelper] directly. Defaults to the Drift adapters so the
+  /// instead of AppDatabase directly. Defaults to the Drift adapters so the
   /// no-arg constructor (used by `main()` and tests) keeps working; the
   /// composition root may inject fakes for tests.
   final AccountRepository _accountRepo;
@@ -411,21 +410,21 @@ class AppProvider extends ChangeNotifier {
       _accountRepo.getAll(),
       _categoryRepo.getAll(),
       _transactionRepo.getAll(),
-      DBHelper.getRecurring(),
-      DBHelper.getWishlist(),
-      DBHelper.getLendedPeople(),
-      DBHelper.getLended(),
-      DBHelper.getAssets(),
-      DBHelper.getBudgets(),
-      DBHelper.getSavingsGoals(),
-      DBHelper.getAllSavingsContributions(),
-      DBHelper.getLoans(),
-      DBHelper.getAllLoanPayments(),
-      DBHelper.getNetWorthSnapshots(),
-      DBHelper.getRecurringHistoryCount(),
-      DBHelper.getPresets(),
+      AppDatabase.instance.getRecurring(),
+      AppDatabase.instance.getWishlist(),
+      AppDatabase.instance.getLendedPeople(),
+      AppDatabase.instance.getLended(),
+      AppDatabase.instance.getAssets(),
+      AppDatabase.instance.getBudgets(),
+      AppDatabase.instance.getSavingsGoals(),
+      AppDatabase.instance.getAllSavingsContributions(),
+      AppDatabase.instance.getLoans(),
+      AppDatabase.instance.getAllLoanPayments(),
+      AppDatabase.instance.getNetWorthSnapshots(),
+      AppDatabase.instance.getRecurringHistoryCount(),
+      AppDatabase.instance.getPresets(),
       _transactionRepo.getAllSplits(),
-      DBHelper.getCertificates(),
+      AppDatabase.instance.getCertificates(),
     ]);
     accounts             = results[0] as List<Account>;
     categories           = results[1] as List<AppCategory>;
@@ -584,7 +583,7 @@ class AppProvider extends ChangeNotifier {
     await _serializeMutation(() async {
       try {
         final today = DateFormat('yyyy-MM-dd', 'en_US').format(DateTime.now());
-        final existing = await DBHelper.getNetWorthSnapshotForDate(today);
+        final existing = await AppDatabase.instance.getNetWorthSnapshotForDate(today);
         final snap = NetWorthSnapshot(
           id: existing?.id ?? const Uuid().v4(),
           date: today,
@@ -594,7 +593,7 @@ class AppProvider extends ChangeNotifier {
           netWorth: liveNetWorth,
           currency: settings.currency,
         );
-        await DBHelper.insertNetWorthSnapshot(snap);
+        await AppDatabase.instance.insertNetWorthSnapshot(snap);
         final idx = netWorthSnapshots.indexWhere((s) => s.date == today);
         final nextSnaps = List<NetWorthSnapshot>.from(netWorthSnapshots);
         if (idx != -1) {
@@ -714,7 +713,7 @@ class AppProvider extends ChangeNotifier {
       if ((newBalance - acc.balance).abs() < 0.001) continue;
 
       final updated = acc.copyWith(balance: newBalance);
-      await DBHelper.updateAccount(updated);
+      await AppDatabase.instance.updateAccount(updated);
       nextAccounts[i] = updated;
       changed = true;
     }
@@ -1115,12 +1114,12 @@ class AppProvider extends ChangeNotifier {
             orderIndex: nextOrder++,
             parentId: parent.id,
           );
-          await DBHelper.insertCategory(sub);
+          await AppDatabase.instance.insertCategory(sub);
           added++;
         }
       }
       if (added > 0) {
-        categories = await DBHelper.getCategories();
+        categories = await AppDatabase.instance.getCategories();
         notifyListeners();
       }
       return added;
@@ -1146,7 +1145,7 @@ class AppProvider extends ChangeNotifier {
   Future<void> addAccount(Account a) async {
     await _serializeMutation(() async {
       await _addAccount(a);
-      accounts = await DBHelper.getAccounts();
+      accounts = await AppDatabase.instance.getAccounts();
       if (a.type == 'credit' && a.creditReminderEnabled) {
         await CreditReminderService().scheduleReminder(a);
       }
@@ -1160,7 +1159,7 @@ class AppProvider extends ChangeNotifier {
     await _serializeMutation(() async {
       final old = accountById(a.id);
       await _updateAccount(a, old);
-      accounts = await DBHelper.getAccounts();
+      accounts = await AppDatabase.instance.getAccounts();
       if (a.dontLinkToCard) {
         final linkedCards =
             accounts.where((acc) => acc.linkedAccountId == a.id).toList();
@@ -1171,7 +1170,7 @@ class AppProvider extends ChangeNotifier {
           );
         }
         if (linkedCards.isNotEmpty) {
-          accounts = await DBHelper.getAccounts();
+          accounts = await AppDatabase.instance.getAccounts();
         }
       }
       if (a.type == 'credit') {
@@ -1297,7 +1296,7 @@ class AppProvider extends ChangeNotifier {
     final targetId = balanceAccountIdFor(id);
     final acc = accountById(targetId);
     if (acc == null || acc.isGold || delta == 0) return;
-    await DBHelper.applyBalanceDelta(targetId, delta);
+    await AppDatabase.instance.applyBalanceDelta(targetId, delta);
     _patchAccountBalance(targetId, delta);
   }
 
@@ -1471,20 +1470,20 @@ class AppProvider extends ChangeNotifier {
 
   // ── Categories ────────────────────────────────────────────────────────
   Future<void> addCategory(AppCategory c) async {
-    await DBHelper.insertCategory(c);
-    categories = await DBHelper.getCategories();
+    await AppDatabase.instance.insertCategory(c);
+    categories = await AppDatabase.instance.getCategories();
     notifyListeners();
   }
 
   Future<void> updateCategory(AppCategory c) async {
-    await DBHelper.updateCategory(c);
-    categories = await DBHelper.getCategories();
+    await AppDatabase.instance.updateCategory(c);
+    categories = await AppDatabase.instance.getCategories();
     notifyListeners();
   }
 
   Future<void> deleteCategory(String id) async {
-    await DBHelper.deleteCategory(id);
-    categories = await DBHelper.getCategories();
+    await AppDatabase.instance.deleteCategory(id);
+    categories = await AppDatabase.instance.getCategories();
     notifyListeners();
   }
 
@@ -1567,7 +1566,7 @@ class AppProvider extends ChangeNotifier {
     await _serializeMutation(() async {
       final result = await _addTransaction(t, _ledgerContext, splits: splits);
       if (splits != null) {
-        this.splits = await DBHelper.getAllSplits();
+        this.splits = await AppDatabase.instance.getAllSplits();
         _rebuildSplitsCache();
       }
 
@@ -1594,7 +1593,7 @@ class AppProvider extends ChangeNotifier {
         splits: splits,
       );
       if (splits != null) {
-        this.splits = await DBHelper.getAllSplits();
+        this.splits = await AppDatabase.instance.getAllSplits();
         _rebuildSplitsCache();
       }
 
@@ -1725,19 +1724,19 @@ class AppProvider extends ChangeNotifier {
 
   // ── Presets ───────────────────────────────────────────────────────────
   Future<void> addPreset(TransactionPreset p) async {
-    await DBHelper.insertPreset(p);
-    presets = await DBHelper.getPresets();
+    await AppDatabase.instance.insertPreset(p);
+    presets = await AppDatabase.instance.getPresets();
     notifyListeners();
   }
 
   Future<void> updatePreset(TransactionPreset p) async {
-    await DBHelper.updatePreset(p);
-    presets = await DBHelper.getPresets();
+    await AppDatabase.instance.updatePreset(p);
+    presets = await AppDatabase.instance.getPresets();
     notifyListeners();
   }
 
   Future<void> deletePreset(String id) async {
-    await DBHelper.deletePreset(id);
+    await AppDatabase.instance.deletePreset(id);
     presets = presets.where((p) => p.id != id).toList();
     notifyListeners();
   }
@@ -1796,13 +1795,13 @@ class AppProvider extends ChangeNotifier {
       _splitsByTxId[txId] ?? const [];
 
   Future<List<TransactionSplit>> getSplitsForTransaction(String transactionId) =>
-      DBHelper.getSplitsForTransaction(transactionId);
+      AppDatabase.instance.getSplitsForTransaction(transactionId);
 
   Future<void> saveTransactionSplits(
       String transactionId, List<TransactionSplit> newSplits) async {
     await _serializeMutation(() async {
       await _saveTransactionSplits(transactionId, newSplits);
-      splits = await DBHelper.getAllSplits();
+      splits = await AppDatabase.instance.getAllSplits();
       _rebuildSplitsCache();
       notifyListeners();
     });
@@ -1810,8 +1809,8 @@ class AppProvider extends ChangeNotifier {
 
   // ── Recurring ─────────────────────────────────────────────────────────
   Future<void> addRecurring(RecurringPayment r) async {
-    await DBHelper.insertRecurring(r);
-    recurring = await DBHelper.getRecurring();
+    await AppDatabase.instance.insertRecurring(r);
+    recurring = await AppDatabase.instance.getRecurring();
     notifyListeners();
     if (r.reminderEnabled) {
       await _notif.scheduleReminder(r, settings.currency);
@@ -1823,8 +1822,8 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> updateRecurring(RecurringPayment r) async {
     await _notif.cancelReminder(r.id);
-    await DBHelper.updateRecurring(r);
-    recurring = await DBHelper.getRecurring();
+    await AppDatabase.instance.updateRecurring(r);
+    recurring = await AppDatabase.instance.getRecurring();
     notifyListeners();
     if (r.reminderEnabled) {
       await _notif.scheduleReminder(r, settings.currency);
@@ -1836,11 +1835,11 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> deleteRecurring(String id) async {
     await _notif.cancelReminder(id);
-    await DBHelper.deleteRecurring(id);
-    await DBHelper.deleteRecurringHistoryFor(id);
+    await AppDatabase.instance.deleteRecurring(id);
+    await AppDatabase.instance.deleteRecurringHistoryFor(id);
     _historyCache.remove(id);
-    recurring = await DBHelper.getRecurring();
-    recurringHistoryCount = await DBHelper.getRecurringHistoryCount();
+    recurring = await AppDatabase.instance.getRecurring();
+    recurringHistoryCount = await AppDatabase.instance.getRecurringHistoryCount();
     notifyListeners();
   }
 
@@ -1883,7 +1882,7 @@ class AppProvider extends ChangeNotifier {
         nextDate: r.calcNextDate(),
         paidPayments: r.paidPayments + 1,
       );
-      await DBHelper.updateRecurring(updated);
+      await AppDatabase.instance.updateRecurring(updated);
       final idx = recurring.indexWhere((item) => item.id == r.id);
       if (idx != -1) {
         final nextRec = List<RecurringPayment>.from(recurring);
@@ -1908,7 +1907,7 @@ class AppProvider extends ChangeNotifier {
         nextDate: r.calcNextDate(),
         paidPayments: r.paidPayments + 1,
       );
-      await DBHelper.updateRecurring(updated);
+      await AppDatabase.instance.updateRecurring(updated);
       final idx = recurring.indexWhere((item) => item.id == r.id);
       if (idx != -1) {
         final nextRec = List<RecurringPayment>.from(recurring);
@@ -1928,11 +1927,11 @@ class AppProvider extends ChangeNotifier {
       final processor = RecurringPaymentProcessor(AppDatabase.instance);
       final processed = await processor.processDuePayments();
       if (processed.isNotEmpty) {
-        transactions = await DBHelper.getTransactions();
-        accounts = await DBHelper.getAccounts();
-        recurring = await DBHelper.getRecurring();
+        transactions = await AppDatabase.instance.getTransactions();
+        accounts = await AppDatabase.instance.getAccounts();
+        recurring = await AppDatabase.instance.getRecurring();
         _historyCache.clear();
-        recurringHistoryCount = await DBHelper.getRecurringHistoryCount();
+        recurringHistoryCount = await AppDatabase.instance.getRecurringHistoryCount();
         notifyListeners();
         recordNetWorthSnapshot();
       }
@@ -1952,9 +1951,9 @@ class AppProvider extends ChangeNotifier {
       amount: r.amount,
       currency: acct?.currency ?? settings.currency,
     );
-    await DBHelper.insertRecurringHistory(entry);
+    await AppDatabase.instance.insertRecurringHistory(entry);
     _historyCache.remove(r.id); // invalidate cache for this payment
-    recurringHistoryCount = await DBHelper.getRecurringHistoryCount();
+    recurringHistoryCount = await AppDatabase.instance.getRecurringHistoryCount();
   }
 
   /// Loads history for [recurringId] from DB, caching in memory.
@@ -1963,31 +1962,31 @@ class AppProvider extends ChangeNotifier {
     if (_historyCache.containsKey(recurringId)) {
       return _historyCache[recurringId]!;
     }
-    final entries = await DBHelper.getRecurringHistory(recurringId);
+    final entries = await AppDatabase.instance.getRecurringHistory(recurringId);
     _historyCache[recurringId] = entries;
     return entries;
   }
 
   // ── Wishlist ──────────────────────────────────────────────────────────
   Future<void> addWishlist(WishlistItem w) async {
-    await DBHelper.insertWishlist(w);
-    wishlist = await DBHelper.getWishlist();
+    await AppDatabase.instance.insertWishlist(w);
+    wishlist = await AppDatabase.instance.getWishlist();
     notifyListeners();
   }
 
   Future<void> updateWishlist(WishlistItem w) async {
-    await DBHelper.updateWishlist(w);
-    wishlist = await DBHelper.getWishlist();
+    await AppDatabase.instance.updateWishlist(w);
+    wishlist = await AppDatabase.instance.getWishlist();
     notifyListeners();
   }
 
   Future<void> deleteWishlist(String id) async {
     for (final g in savingsGoals.where((g) => g.wishlistItemId == id)) {
-      await DBHelper.updateSavingsGoal(g.copyWith(clearWishlistItemId: true));
+      await AppDatabase.instance.updateSavingsGoal(g.copyWith(clearWishlistItemId: true));
     }
-    savingsGoals = await DBHelper.getSavingsGoals();
-    await DBHelper.deleteWishlist(id);
-    wishlist = await DBHelper.getWishlist();
+    savingsGoals = await AppDatabase.instance.getSavingsGoals();
+    await AppDatabase.instance.deleteWishlist(id);
+    wishlist = await AppDatabase.instance.getWishlist();
     notifyListeners();
   }
 
@@ -2004,10 +2003,10 @@ class AppProvider extends ChangeNotifier {
   Future<void> createGoalForWishlist(WishlistItem item, SavingsGoal goal) async {
     final updatedGoal = goal.copyWith(wishlistItemId: item.id);
     final updatedItem = item.copyWith(goalId: goal.id);
-    await DBHelper.insertSavingsGoal(updatedGoal);
-    await DBHelper.updateWishlist(updatedItem);
-    savingsGoals = await DBHelper.getSavingsGoals();
-    wishlist = await DBHelper.getWishlist();
+    await AppDatabase.instance.insertSavingsGoal(updatedGoal);
+    await AppDatabase.instance.updateWishlist(updatedItem);
+    savingsGoals = await AppDatabase.instance.getSavingsGoals();
+    wishlist = await AppDatabase.instance.getWishlist();
     notifyListeners();
   }
 
@@ -2017,14 +2016,14 @@ class AppProvider extends ChangeNotifier {
   }) async {
     final w = wishlist.where((x) => x.id == wishlistItemId).firstOrNull;
     if (w != null) {
-      await DBHelper.updateWishlist(w.copyWith(clearGoalId: true));
+      await AppDatabase.instance.updateWishlist(w.copyWith(clearGoalId: true));
     }
     final g = savingsGoals.where((x) => x.id == goalId).firstOrNull;
     if (g != null) {
-      await DBHelper.updateSavingsGoal(g.copyWith(clearWishlistItemId: true));
+      await AppDatabase.instance.updateSavingsGoal(g.copyWith(clearWishlistItemId: true));
     }
-    wishlist = await DBHelper.getWishlist();
-    savingsGoals = await DBHelper.getSavingsGoals();
+    wishlist = await AppDatabase.instance.getWishlist();
+    savingsGoals = await AppDatabase.instance.getSavingsGoals();
     notifyListeners();
   }
 
@@ -2071,14 +2070,14 @@ class AppProvider extends ChangeNotifier {
 
   // ── Lended People (per-person ledger "accounts") ────────────────────────
   Future<void> addLendedPerson(LendedPerson p) async {
-    await DBHelper.insertLendedPerson(p);
-    lendedPeople = await DBHelper.getLendedPeople();
+    await AppDatabase.instance.insertLendedPerson(p);
+    lendedPeople = await AppDatabase.instance.getLendedPeople();
     notifyListeners();
   }
 
   Future<void> updateLendedPerson(LendedPerson p) async {
-    await DBHelper.updateLendedPerson(p);
-    lendedPeople = await DBHelper.getLendedPeople();
+    await AppDatabase.instance.updateLendedPerson(p);
+    lendedPeople = await AppDatabase.instance.getLendedPeople();
     notifyListeners();
   }
 
@@ -2092,15 +2091,15 @@ class AppProvider extends ChangeNotifier {
           final delta = -_lendedBalanceEffect(l);
           if (delta != 0) {
             final target = balanceAccountIdFor(l.accountId!);
-            await DBHelper.applyBalanceDelta(target, delta);
+            await AppDatabase.instance.applyBalanceDelta(target, delta);
           }
         }
       }
-      await DBHelper.deleteLendedForPerson(id);
-      await DBHelper.deleteLendedPerson(id);
-      lended       = await DBHelper.getLended();
-      lendedPeople = await DBHelper.getLendedPeople();
-      accounts     = await DBHelper.getAccounts();
+      await AppDatabase.instance.deleteLendedForPerson(id);
+      await AppDatabase.instance.deleteLendedPerson(id);
+      lended       = await AppDatabase.instance.getLended();
+      lendedPeople = await AppDatabase.instance.getLendedPeople();
+      accounts     = await AppDatabase.instance.getAccounts();
       notifyListeners();
       recordNetWorthSnapshot();
     });
@@ -2136,16 +2135,16 @@ class AppProvider extends ChangeNotifier {
   // ── Lended Money (ledger entries) ───────────────────────────────────────
   Future<void> addLended(LendedMoney l) async {
     await _serializeMutation(() async {
-      await DBHelper.insertLended(l);
+      await AppDatabase.instance.insertLended(l);
       if (l.accountId != null) {
         final delta = _lendedBalanceEffect(l);
         if (delta != 0) {
           final target = balanceAccountIdFor(l.accountId!);
-          await DBHelper.applyBalanceDelta(target, delta);
+          await AppDatabase.instance.applyBalanceDelta(target, delta);
         }
       }
-      lended   = await DBHelper.getLended();
-      accounts = await DBHelper.getAccounts();
+      lended   = await AppDatabase.instance.getLended();
+      accounts = await AppDatabase.instance.getAccounts();
       notifyListeners();
       recordNetWorthSnapshot();
       if (l.reminderEnabled && l.dueDate != null) {
@@ -2165,20 +2164,20 @@ class AppProvider extends ChangeNotifier {
       if (oldAcc != null && oldAcc == newAcc) {
         final netDelta = newEffect - oldEffect;
         if (netDelta != 0) {
-          await DBHelper.applyBalanceDelta(oldAcc, netDelta);
+          await AppDatabase.instance.applyBalanceDelta(oldAcc, netDelta);
         }
       } else {
         if (oldAcc != null && oldEffect != 0) {
-          await DBHelper.applyBalanceDelta(oldAcc, -oldEffect);
+          await AppDatabase.instance.applyBalanceDelta(oldAcc, -oldEffect);
         }
         if (newAcc != null && newEffect != 0) {
-          await DBHelper.applyBalanceDelta(newAcc, newEffect);
+          await AppDatabase.instance.applyBalanceDelta(newAcc, newEffect);
         }
       }
 
-      await DBHelper.updateLended(updated);
-      lended   = await DBHelper.getLended();
-      accounts = await DBHelper.getAccounts();
+      await AppDatabase.instance.updateLended(updated);
+      lended   = await AppDatabase.instance.getLended();
+      accounts = await AppDatabase.instance.getAccounts();
       notifyListeners();
       recordNetWorthSnapshot();
       // Always cancel old reminder, then reschedule if still enabled
@@ -2196,13 +2195,13 @@ class AppProvider extends ChangeNotifier {
         final delta = -_lendedBalanceEffect(l);
         if (delta != 0) {
           final target = balanceAccountIdFor(l.accountId!);
-          await DBHelper.applyBalanceDelta(target, delta);
+          await AppDatabase.instance.applyBalanceDelta(target, delta);
         }
       }
       final settled = l.copyWith(isSettled: true);
-      await DBHelper.updateLended(settled);
-      lended   = await DBHelper.getLended();
-      accounts = await DBHelper.getAccounts();
+      await AppDatabase.instance.updateLended(settled);
+      lended   = await AppDatabase.instance.getLended();
+      accounts = await AppDatabase.instance.getAccounts();
       notifyListeners();
       recordNetWorthSnapshot();
       await _lendedNotif.cancelLendedReminder(l.id); // no reminder needed after settlement
@@ -2218,14 +2217,14 @@ class AppProvider extends ChangeNotifier {
           final delta = -_lendedBalanceEffect(record);
           if (delta != 0) {
             final target = balanceAccountIdFor(record.accountId!);
-            await DBHelper.applyBalanceDelta(target, delta);
+            await AppDatabase.instance.applyBalanceDelta(target, delta);
           }
         }
       }
       await _lendedNotif.cancelLendedReminder(id);
-      await DBHelper.deleteLended(id);
-      lended   = await DBHelper.getLended();
-      accounts = await DBHelper.getAccounts();
+      await AppDatabase.instance.deleteLended(id);
+      lended   = await AppDatabase.instance.getLended();
+      accounts = await AppDatabase.instance.getAccounts();
       notifyListeners();
       recordNetWorthSnapshot();
     });
@@ -2236,16 +2235,16 @@ class AppProvider extends ChangeNotifier {
     await deleteLended(id);
     return () async {
       await _serializeMutation(() async {
-        await DBHelper.insertLended(record);
+        await AppDatabase.instance.insertLended(record);
         if (record.accountId != null && !record.isSettled) {
           final delta = _lendedBalanceEffect(record);
           if (delta != 0) {
             final target = balanceAccountIdFor(record.accountId!);
-            await DBHelper.applyBalanceDelta(target, delta);
+            await AppDatabase.instance.applyBalanceDelta(target, delta);
           }
         }
-        lended   = await DBHelper.getLended();
-        accounts = await DBHelper.getAccounts();
+        lended   = await AppDatabase.instance.getLended();
+        accounts = await AppDatabase.instance.getAccounts();
         if (!record.isSettled) {
           final p = lendedPeople.firstWhereOrNull((p) => p.id == record.personId);
           if (p != null) {
@@ -2260,22 +2259,22 @@ class AppProvider extends ChangeNotifier {
 
   // ── Assets ────────────────────────────────────────────────────────────
   Future<void> addAsset(AssetItem a) async {
-    await DBHelper.insertAsset(a);
-    assets = await DBHelper.getAssets();
+    await AppDatabase.instance.insertAsset(a);
+    assets = await AppDatabase.instance.getAssets();
     notifyListeners();
     recordNetWorthSnapshot();
   }
 
   Future<void> updateAsset(AssetItem a) async {
-    await DBHelper.updateAsset(a);
-    assets = await DBHelper.getAssets();
+    await AppDatabase.instance.updateAsset(a);
+    assets = await AppDatabase.instance.getAssets();
     notifyListeners();
     recordNetWorthSnapshot();
   }
 
   Future<void> deleteAsset(String id) async {
-    await DBHelper.deleteAsset(id);
-    assets = await DBHelper.getAssets();
+    await AppDatabase.instance.deleteAsset(id);
+    assets = await AppDatabase.instance.getAssets();
     notifyListeners();
     recordNetWorthSnapshot();
   }
@@ -2284,8 +2283,8 @@ class AppProvider extends ChangeNotifier {
     final asset = assets.firstWhere((a) => a.id == id);
     await deleteAsset(id);
     return () async {
-      await DBHelper.insertAsset(asset);
-      assets = await DBHelper.getAssets();
+      await AppDatabase.instance.insertAsset(asset);
+      assets = await AppDatabase.instance.getAssets();
       notifyListeners();
       recordNetWorthSnapshot();
     };
@@ -2303,21 +2302,21 @@ class AppProvider extends ChangeNotifier {
   // ── Budgets ───────────────────────────────────────────────────────────
   Future<void> addBudget(Budget b) async {
     await _addBudget(b);
-    budgets = await DBHelper.getBudgets();
+    budgets = await AppDatabase.instance.getBudgets();
     notifyListeners();
     updateHomeWidgets();
   }
 
   Future<void> updateBudget(Budget b) async {
     await _updateBudget(b);
-    budgets = await DBHelper.getBudgets();
+    budgets = await AppDatabase.instance.getBudgets();
     notifyListeners();
     updateHomeWidgets();
   }
 
   Future<void> deleteBudget(String id) async {
     await _deleteBudget(id);
-    budgets = await DBHelper.getBudgets();
+    budgets = await AppDatabase.instance.getBudgets();
     notifyListeners();
     updateHomeWidgets();
   }
@@ -2623,24 +2622,24 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> addSavingsGoal(SavingsGoal g) async {
-    await DBHelper.insertSavingsGoal(g);
-    savingsGoals = await DBHelper.getSavingsGoals();
+    await AppDatabase.instance.insertSavingsGoal(g);
+    savingsGoals = await AppDatabase.instance.getSavingsGoals();
     notifyListeners();
   }
 
   Future<void> updateSavingsGoal(SavingsGoal g) async {
-    await DBHelper.updateSavingsGoal(g);
-    savingsGoals = await DBHelper.getSavingsGoals();
+    await AppDatabase.instance.updateSavingsGoal(g);
+    savingsGoals = await AppDatabase.instance.getSavingsGoals();
     notifyListeners();
   }
 
   Future<void> deleteSavingsGoal(String id) async {
     for (final w in wishlist.where((w) => w.goalId == id)) {
-      await DBHelper.updateWishlist(w.copyWith(clearGoalId: true));
+      await AppDatabase.instance.updateWishlist(w.copyWith(clearGoalId: true));
     }
-    wishlist = await DBHelper.getWishlist();
-    await DBHelper.deleteSavingsGoal(id);
-    savingsGoals = await DBHelper.getSavingsGoals();
+    wishlist = await AppDatabase.instance.getWishlist();
+    await AppDatabase.instance.deleteSavingsGoal(id);
+    savingsGoals = await AppDatabase.instance.getSavingsGoals();
     notifyListeners();
   }
 
@@ -2680,7 +2679,7 @@ class AppProvider extends ChangeNotifier {
         note: note,
       );
 
-      await DBHelper.insertSavingsContribution(contrib);
+      await AppDatabase.instance.insertSavingsContribution(contrib);
       await _updateAccountBalance(fromAccountId, -amount);
       
       final wasCompleted = goal.isCompleted;
@@ -2693,9 +2692,9 @@ class AppProvider extends ChangeNotifier {
         }
       }
       
-      await DBHelper.updateSavingsGoal(updatedGoal);
-      savingsGoals = await DBHelper.getSavingsGoals();
-      savingsContributions = await DBHelper.getAllSavingsContributions();
+      await AppDatabase.instance.updateSavingsGoal(updatedGoal);
+      savingsGoals = await AppDatabase.instance.getSavingsGoals();
+      savingsContributions = await AppDatabase.instance.getAllSavingsContributions();
       notifyListeners();
     });
   }
@@ -2726,7 +2725,7 @@ class AppProvider extends ChangeNotifier {
         note: note,
       );
 
-      await DBHelper.insertSavingsContribution(withdrawal);
+      await AppDatabase.instance.insertSavingsContribution(withdrawal);
       await _updateAccountBalance(toAccountId, accountAmount);
       
       var updatedGoal = goal.copyWith(currentAmount: goal.currentAmount - amount);
@@ -2735,9 +2734,9 @@ class AppProvider extends ChangeNotifier {
         updatedGoal = updatedGoal.copyWith(isCompleted: false, clearCompletedAt: true);
       }
       
-      await DBHelper.updateSavingsGoal(updatedGoal);
-      savingsGoals = await DBHelper.getSavingsGoals();
-      savingsContributions = await DBHelper.getAllSavingsContributions();
+      await AppDatabase.instance.updateSavingsGoal(updatedGoal);
+      savingsGoals = await AppDatabase.instance.getSavingsGoals();
+      savingsContributions = await AppDatabase.instance.getAllSavingsContributions();
       notifyListeners();
     });
   }
@@ -2745,11 +2744,11 @@ class AppProvider extends ChangeNotifier {
   // ── Loans ────────────────────────────────────────────────────────────
   Future<void> addLoan(Loan l) async {
     await _serializeMutation(() async {
-      await DBHelper.insertLoan(l);
+      await AppDatabase.instance.insertLoan(l);
       if (l.transferAccountId != null) {
         await _updateAccountBalance(l.transferAccountId!, l.principal);
       }
-      loans = await DBHelper.getLoans();
+      loans = await AppDatabase.instance.getLoans();
       notifyListeners();
       recordNetWorthSnapshot();
       if (l.reminderEnabled) await _loanNotif.scheduleReminder(l);
@@ -2770,8 +2769,8 @@ class AppProvider extends ChangeNotifier {
         await _updateAccountBalance(l.transferAccountId!, l.principal);
       }
 
-      await DBHelper.updateLoan(l);
-      loans = await DBHelper.getLoans();
+      await AppDatabase.instance.updateLoan(l);
+      loans = await AppDatabase.instance.getLoans();
       notifyListeners();
       recordNetWorthSnapshot();
       if (l.reminderEnabled) await _loanNotif.scheduleReminder(l);
@@ -2793,9 +2792,9 @@ class AppProvider extends ChangeNotifier {
           await _updateAccountBalance(p.accountId!, p.amount); // reverse debit
         }
       }
-      await DBHelper.deleteLoan(id);
-      loans = await DBHelper.getLoans();
-      loanPayments = await DBHelper.getAllLoanPayments();
+      await AppDatabase.instance.deleteLoan(id);
+      loans = await AppDatabase.instance.getLoans();
+      loanPayments = await AppDatabase.instance.getAllLoanPayments();
       notifyListeners();
       recordNetWorthSnapshot();
     });
@@ -2807,18 +2806,18 @@ class AppProvider extends ChangeNotifier {
     await deleteLoan(id);
     return () async {
       await _serializeMutation(() async {
-        await DBHelper.insertLoan(l);
+        await AppDatabase.instance.insertLoan(l);
         if (l.transferAccountId != null) {
           await _updateAccountBalance(l.transferAccountId!, l.principal);
         }
         for (final p in payments) {
-          await DBHelper.insertLoanPayment(p);
+          await AppDatabase.instance.insertLoanPayment(p);
           if (p.accountId != null) {
             await _updateAccountBalance(p.accountId!, -p.amount);
           }
         }
-        loans = await DBHelper.getLoans();
-        loanPayments = await DBHelper.getAllLoanPayments();
+        loans = await AppDatabase.instance.getLoans();
+        loanPayments = await AppDatabase.instance.getAllLoanPayments();
         notifyListeners();
         recordNetWorthSnapshot();
         if (l.reminderEnabled) await _loanNotif.scheduleReminder(l);
@@ -2840,18 +2839,18 @@ class AppProvider extends ChangeNotifier {
         accountId: useAccount,
         notes: notes,
       );
-      await DBHelper.insertLoanPayment(payment);
+      await AppDatabase.instance.insertLoanPayment(payment);
       if (useAccount != null) {
         await _updateAccountBalance(useAccount, -payAmount); // expense-like debit
       }
-      loanPayments = await DBHelper.getAllLoanPayments();
+      loanPayments = await AppDatabase.instance.getAllLoanPayments();
 
       // Auto-settle when the loan is fully paid off (loanTotalPaid already includes the inserted payment)
       final totalPaid = loanTotalPaid(l);
       if (totalPaid >= l.totalPayable && !l.isSettled) {
         final settled = l.copyWith(isSettled: true);
-        await DBHelper.updateLoan(settled);
-        loans = await DBHelper.getLoans();
+        await AppDatabase.instance.updateLoan(settled);
+        loans = await AppDatabase.instance.getLoans();
         await _loanNotif.cancelReminder(l.id);
       }
       notifyListeners();
@@ -2870,8 +2869,8 @@ class AppProvider extends ChangeNotifier {
         accountId: null,
         notes: notes,
       );
-      await DBHelper.insertLoanPayment(payment);
-      loanPayments = await DBHelper.getAllLoanPayments();
+      await AppDatabase.instance.insertLoanPayment(payment);
+      loanPayments = await AppDatabase.instance.getAllLoanPayments();
       notifyListeners();
     });
   }
@@ -2882,8 +2881,8 @@ class AppProvider extends ChangeNotifier {
       if (p.accountId != null) {
         await _updateAccountBalance(p.accountId!, p.amount); // reverse the debit
       }
-      await DBHelper.deleteLoanPayment(id);
-      loanPayments = await DBHelper.getAllLoanPayments();
+      await AppDatabase.instance.deleteLoanPayment(id);
+      loanPayments = await AppDatabase.instance.getAllLoanPayments();
 
       // Re-evaluate settlement if total paid fell below totalPayable (A2b)
       final loan = loans.where((l) => l.id == p.loanId).firstOrNull;
@@ -2891,8 +2890,8 @@ class AppProvider extends ChangeNotifier {
           loan.isSettled &&
           loanTotalPaid(loan) < loan.totalPayable) {
         final unsettled = loan.copyWith(isSettled: false);
-        await DBHelper.updateLoan(unsettled);
-        loans = await DBHelper.getLoans();
+        await AppDatabase.instance.updateLoan(unsettled);
+        loans = await AppDatabase.instance.getLoans();
         if (unsettled.reminderEnabled) {
           await _loanNotif.scheduleReminder(unsettled);
         }
@@ -2908,19 +2907,19 @@ class AppProvider extends ChangeNotifier {
     await deleteLoanPayment(id);
     return () async {
       await _serializeMutation(() async {
-        await DBHelper.insertLoanPayment(p);
+        await AppDatabase.instance.insertLoanPayment(p);
         if (p.accountId != null) {
           await _updateAccountBalance(p.accountId!, -p.amount);
         }
-        loanPayments = await DBHelper.getAllLoanPayments();
+        loanPayments = await AppDatabase.instance.getAllLoanPayments();
 
         final loan = loans.where((l) => l.id == p.loanId).firstOrNull;
         if (loan != null &&
             !loan.isSettled &&
             loanTotalPaid(loan) >= loan.totalPayable) {
           final settled = loan.copyWith(isSettled: true);
-          await DBHelper.updateLoan(settled);
-          loans = await DBHelper.getLoans();
+          await AppDatabase.instance.updateLoan(settled);
+          loans = await AppDatabase.instance.getLoans();
           await _loanNotif.cancelReminder(loan.id);
         }
 
@@ -3166,7 +3165,7 @@ class AppProvider extends ChangeNotifier {
       );
       await addTransaction(tx);
 
-      await DBHelper.insertCertificate(c);
+      await AppDatabase.instance.insertCertificate(c);
       certificates = [c, ...certificates];
       notifyListeners();
       recordNetWorthSnapshot();
@@ -3192,7 +3191,7 @@ class AppProvider extends ChangeNotifier {
           await updateTransaction(updatedTx, principalTx);
         }
       }
-      await DBHelper.updateCertificate(c);
+      await AppDatabase.instance.updateCertificate(c);
       final idx = certificates.indexWhere((item) => item.id == c.id);
       if (idx != -1) {
         final next = List<Certificate>.from(certificates);
@@ -3226,7 +3225,7 @@ class AppProvider extends ChangeNotifier {
         for (final tx in relatedTxs) {
           final delta = _txDelta(tx, reverse: true);
           final balAccId = balanceAccountIdFor(tx.accountId);
-          await DBHelper.applyDeleteTransactionWithBalance(
+          await AppDatabase.instance.applyDeleteTransactionWithBalance(
               tx.id, balAccId, delta);
           _patchAccountBalance(balAccId, delta);
           splits.removeWhere((s) => s.transactionId == tx.id);
@@ -3238,7 +3237,7 @@ class AppProvider extends ChangeNotifier {
         }
       }
 
-      await DBHelper.deleteCertificate(id);
+      await AppDatabase.instance.deleteCertificate(id);
       certificates = certificates.where((item) => item.id != id).toList();
       notifyListeners();
       updateHomeWidgets();
@@ -3270,7 +3269,7 @@ class AppProvider extends ChangeNotifier {
       }
 
       final settled = cert.copyWith(isSettled: true);
-      await DBHelper.updateCertificate(settled);
+      await AppDatabase.instance.updateCertificate(settled);
       final idx = certificates.indexWhere((item) => item.id == id);
       if (idx != -1) {
         certificates[idx] = settled;
@@ -3326,7 +3325,7 @@ class AppProvider extends ChangeNotifier {
                 lastCollectedDate: nextDate,
                 totalCollectedAmount: c.totalCollectedAmount + payout,
               );
-              await DBHelper.updateCertificate(c);
+              await AppDatabase.instance.updateCertificate(c);
               final idx = certificates.indexWhere((item) => item.id == c.id);
               if (idx != -1) {
                 final nextCerts = List<Certificate>.from(certificates);
@@ -3871,7 +3870,7 @@ class AppProvider extends ChangeNotifier {
         }
       }
 
-      await DBHelper.batchImportExternal(
+      await AppDatabase.instance.batchImportExternal(
         newAccounts: newAccounts,
         newCategories: newCategories,
         newTransactions: newTransactions,
@@ -3918,7 +3917,7 @@ class AppProvider extends ChangeNotifier {
             }
             double amt = (tx['amount'] ?? 0).toDouble().abs();
 
-            await DBHelper.insertSavingsContribution(SavingsContribution(
+            await AppDatabase.instance.insertSavingsContribution(SavingsContribution(
               id: newId(),
               goalId: sg.id,
               amount: amt,
@@ -3936,7 +3935,7 @@ class AppProvider extends ChangeNotifier {
           }
         }
         sg.currentAmount = currentAmount;
-        await DBHelper.updateSavingsGoal(sg);
+        await AppDatabase.instance.updateSavingsGoal(sg);
       }
       await load(skipCatchUp: true);
     });
@@ -4038,7 +4037,7 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
     final ids = next.map((c) => c.id).toList();
     _serializeMutation(() async {
-      await DBHelper.updateCategoryOrder(ids);
+      await AppDatabase.instance.updateCategoryOrder(ids);
     });
   }
 
@@ -4053,7 +4052,7 @@ class AppProvider extends ChangeNotifier {
         .where((c) => c.id != id)
         .map((c) => c.parentId == id ? c.copyWith(clearParentId: true) : c)
         .toList();
-    await DBHelper.deleteCategory(id);
+    await AppDatabase.instance.deleteCategory(id);
     notifyListeners();
     return () {
       final next = List<AppCategory>.from(categories);
@@ -4067,9 +4066,9 @@ class AppProvider extends ChangeNotifier {
       categories = next;
       notifyListeners();
       _serializeMutation(() async {
-        await DBHelper.insertCategory(cat);
+        await AppDatabase.instance.insertCategory(cat);
         for (final child in childSnapshots) {
-          await DBHelper.updateCategory(child);
+          await AppDatabase.instance.updateCategory(child);
         }
       });
     };
@@ -4084,7 +4083,7 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
     final ids = next.map((a) => a.id).toList();
     _serializeMutation(() async {
-      await DBHelper.updateAccountOrder(ids);
+      await AppDatabase.instance.updateAccountOrder(ids);
     });
   }
 
@@ -4110,15 +4109,15 @@ class AppProvider extends ChangeNotifier {
           for (final member in groupMembers) {
             final delta = _txDelta(member);
             final balAccId = balanceAccountIdFor(member.accountId);
-            await DBHelper.applyTransactionWithBalance(member, delta);
+            await AppDatabase.instance.applyTransactionWithBalance(member, delta);
             _patchAccountBalance(balAccId, delta);
             _insertTransactionInMemory(member);
             final mSplits = groupSplits[member.id] ?? const [];
             if (mSplits.isNotEmpty) {
-              await DBHelper.saveTransactionSplits(member.id, mSplits);
+              await AppDatabase.instance.saveTransactionSplits(member.id, mSplits);
             }
           }
-          splits = await DBHelper.getAllSplits();
+          splits = await AppDatabase.instance.getAllSplits();
           _rebuildSplitsCache();
           notifyListeners();
           updateHomeWidgets();
@@ -4149,15 +4148,15 @@ class AppProvider extends ChangeNotifier {
 
   Future<VoidCallback> deleteRecurringWithUndo(String id) async {
     final rec = recurring.firstWhere((r) => r.id == id);
-    final history = await DBHelper.getRecurringHistory(id);
+    final history = await AppDatabase.instance.getRecurringHistory(id);
     await deleteRecurring(id);
     return () async {
       await addRecurring(rec);
       for (final h in history) {
-        await DBHelper.insertRecurringHistory(h);
+        await AppDatabase.instance.insertRecurringHistory(h);
       }
       _historyCache.remove(id);
-      recurringHistoryCount = await DBHelper.getRecurringHistoryCount();
+      recurringHistoryCount = await AppDatabase.instance.getRecurringHistoryCount();
       notifyListeners();
     };
   }

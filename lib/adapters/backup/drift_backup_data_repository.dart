@@ -2,27 +2,27 @@
 //
 // Drift-backed adapter for the Backup bounded context (Phase 5).
 //
-// Thin wrapper over the existing [DBHelper] export/import statics (which
+// Thin wrapper over the existing AppDatabase export/import methods (which
 // delegate to [AppDatabase.instance]) — no SQL changes.
 
-import 'package:finwick/database/db_helper.dart';
+import 'package:finwick/database/app_database.dart';
 import 'package:finwick/domain/backup/ports/backup_data_repository.dart';
 
 class DriftBackupDataRepository implements BackupDataRepository {
   const DriftBackupDataRepository();
 
   @override
-  Future<Map<String, dynamic>> exportAll() => DBHelper.exportAll();
+  Future<Map<String, dynamic>> exportAll() => AppDatabase.instance.exportAll();
 
   @override
   Future<Map<String, dynamic>> exportSelective(Set<String> tables) =>
-      DBHelper.exportSelective(tables);
+      AppDatabase.instance.exportSelective(tables);
 
   @override
   Future<void> importAll(Map<String, dynamic> data) =>
-      DBHelper.importAll(data);
+      AppDatabase.instance.importAll(data);
 
   @override
   Future<void> importSelective(Map<String, dynamic> data, Set<String> tables) =>
-      DBHelper.importSelective(data, tables);
+      AppDatabase.instance.importSelective(data, tables);
 }

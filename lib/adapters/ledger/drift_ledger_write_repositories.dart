@@ -2,11 +2,11 @@
 //
 // Drift-backed write adapters for the Ledger bounded context (Phase 2b).
 //
-// Thin wrappers over the existing [DBHelper] statics (which delegate to
+// Thin wrappers over the existing AppDatabase methods (which delegate to
 // [AppDatabase.instance]) — no SQL changes. All balance mutations flow
 // through the atomic delta methods (AGENTS.md rule 3).
 
-import 'package:finwick/database/db_helper.dart';
+import 'package:finwick/database/app_database.dart';
 import 'package:finwick/domain/ledger/ports/write_ports.dart';
 import 'package:finwick/models/models.dart';
 
@@ -16,7 +16,7 @@ class DriftTransactionWriteRepository implements TransactionWriteRepository {
   @override
   Future<void> applyTransactionWithBalance(
           AppTransaction t, double balanceDelta) =>
-      DBHelper.applyTransactionWithBalance(t, balanceDelta);
+      AppDatabase.instance.applyTransactionWithBalance(t, balanceDelta);
 
   @override
   Future<void> applyTransactionEdit({
@@ -26,7 +26,7 @@ class DriftTransactionWriteRepository implements TransactionWriteRepository {
     required String newAccountId,
     required double newDelta,
   }) =>
-      DBHelper.applyTransactionEdit(
+      AppDatabase.instance.applyTransactionEdit(
         updated: updated,
         oldAccountId: oldAccountId,
         oldDelta: oldDelta,
@@ -37,7 +37,7 @@ class DriftTransactionWriteRepository implements TransactionWriteRepository {
   @override
   Future<void> applyDeleteTransactionWithBalance(
           String id, String accountId, double balanceDelta) =>
-      DBHelper.applyDeleteTransactionWithBalance(id, accountId, balanceDelta);
+      AppDatabase.instance.applyDeleteTransactionWithBalance(id, accountId, balanceDelta);
 
   @override
   Future<void> applyTransferWithBalances(
@@ -46,35 +46,35 @@ class DriftTransactionWriteRepository implements TransactionWriteRepository {
     double fromAccountDelta,
     double toAccountDelta,
   ) =>
-      DBHelper.applyTransferWithBalances(
+      AppDatabase.instance.applyTransferWithBalances(
           outTx, inTx, fromAccountDelta, toAccountDelta);
 
   @override
   Future<void> saveTransactionSplits(
           String transactionId, List<TransactionSplit> splits) =>
-      DBHelper.saveTransactionSplits(transactionId, splits);
+      AppDatabase.instance.saveTransactionSplits(transactionId, splits);
 
   @override
-  Future<void> deleteTransaction(String id) => DBHelper.deleteTransaction(id);
+  Future<void> deleteTransaction(String id) => AppDatabase.instance.deleteTransaction(id);
 }
 
 class DriftAccountWriteRepository implements AccountWriteRepository {
   const DriftAccountWriteRepository();
 
   @override
-  Future<void> insertAccount(Account a) => DBHelper.insertAccount(a);
+  Future<void> insertAccount(Account a) => AppDatabase.instance.insertAccount(a);
 
   @override
   Future<void> updateAccount(Account a, {double? balanceDelta}) =>
-      DBHelper.updateAccount(a, balanceDelta: balanceDelta);
+      AppDatabase.instance.updateAccount(a, balanceDelta: balanceDelta);
 
   @override
   Future<void> deleteAccountCascade(String accountId) =>
-      DBHelper.deleteAccountCascade(accountId);
+      AppDatabase.instance.deleteAccountCascade(accountId);
 
   @override
   Future<void> applyBalanceDelta(String accountId, double delta) =>
-      DBHelper.applyBalanceDelta(accountId, delta);
+      AppDatabase.instance.applyBalanceDelta(accountId, delta);
 
   @override
   Future<void> restoreAccountSnapshot(
@@ -82,18 +82,18 @@ class DriftAccountWriteRepository implements AccountWriteRepository {
     List<AppTransaction> transactions,
     List<TransactionSplit> splits,
   ) =>
-      DBHelper.restoreAccountSnapshot(account, transactions, splits);
+      AppDatabase.instance.restoreAccountSnapshot(account, transactions, splits);
 }
 
 class DriftCategoryWriteRepository implements CategoryWriteRepository {
   const DriftCategoryWriteRepository();
 
   @override
-  Future<void> insertCategory(AppCategory c) => DBHelper.insertCategory(c);
+  Future<void> insertCategory(AppCategory c) => AppDatabase.instance.insertCategory(c);
 
   @override
-  Future<void> updateCategory(AppCategory c) => DBHelper.updateCategory(c);
+  Future<void> updateCategory(AppCategory c) => AppDatabase.instance.updateCategory(c);
 
   @override
-  Future<void> deleteCategory(String id) => DBHelper.deleteCategory(id);
+  Future<void> deleteCategory(String id) => AppDatabase.instance.deleteCategory(id);
 }
