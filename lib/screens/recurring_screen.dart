@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
 import '../models/models.dart';
+import '../presentation/recurring_localizations.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
 import '../widgets/fintech_components.dart';

@@ -1,5 +1,4 @@
 // lib/models/models.dart
-import '../l10n/app_localizations.dart';
 
 // SMS import entities (SmsInboxItem, SmsSenderPref, SmsRule) live in the
 // domain layer now; re-exported here for existing import sites.
@@ -462,30 +461,6 @@ class RecurringPayment {
       }
     }
     return 'Every $freqVal $freqUnit';
-  }
-
-  /// Localized frequency label for UI rendering.
-  String localizedFrequencyLabel(AppLocalizations l10n) {
-    if (freqVal == 1) {
-      switch (freqUnit) {
-        case 'days':
-          return l10n.freq_daily;
-        case 'weeks':
-          return l10n.recurring_weekly;
-        case 'months':
-          return l10n.recurring_monthly;
-        case 'years':
-          return l10n.freq_yearly;
-      }
-    }
-    final unit = switch (freqUnit) {
-      'days' => l10n.recurring_days,
-      'weeks' => l10n.recurring_weeks,
-      'months' => l10n.recurring_months,
-      'years' => l10n.recurring_years,
-      _ => freqUnit,
-    };
-    return '${l10n.recurring_every}$freqVal $unit';
   }
 
   int _countPayments(DateTime first, DateTime last) {

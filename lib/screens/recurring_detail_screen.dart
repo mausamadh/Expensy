@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../models/models.dart';
+import '../presentation/recurring_localizations.dart';
 import '../providers/app_provider.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/shared_widgets.dart';

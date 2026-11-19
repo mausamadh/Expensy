@@ -13,6 +13,8 @@ import '../models/models.dart';
 import 'aggregations.dart';
 import '../database/app_database.dart';
 import '../database/db_helper.dart';
+import '../domain/ledger/ports/ports.dart';
+import '../adapters/ledger/drift_ledger_repositories.dart';
 import '../services/exchange_rate_service.dart';
 import '../services/notification_service.dart';
 import '../services/lended_notification_service.dart';
@@ -166,6 +168,24 @@ class AppSettings {
 }
 
 class AppProvider extends ChangeNotifier {
+  /// Ledger read ports. The provider is a facade (HEXAGONAL_MIGRATION_PLAN.md
+  /// §5 Phase 2): its `load()` read path routes through these repositories
+  /// instead of [DBHelper] directly. Defaults to the Drift adapters so the
+  /// no-arg constructor (used by `main()` and tests) keeps working; the
+  /// composition root may inject fakes for tests.
+  final AccountRepository _accountRepo;
+  final CategoryRepository _categoryRepo;
+  final TransactionRepository _transactionRepo;
+
+  AppProvider({
+    AccountRepository? accountRepo,
+    CategoryRepository? categoryRepo,
+    TransactionRepository? transactionRepo,
+  })  : _accountRepo = accountRepo ?? const DriftAccountRepository(),
+        _categoryRepo = categoryRepo ?? const DriftCategoryRepository(),
+        _transactionRepo =
+            transactionRepo ?? const DriftTransactionRepository();
+
   AppSettings settings = AppSettings();
   List<Account> _accounts = [];
   Map<String, Account> _accountsById = {};
@@ -262,9 +282,9 @@ class AppProvider extends ChangeNotifier {
     }
     ServiceLocalizations.setLanguageCode(settings.languageCode);
     final results = await Future.wait<dynamic>([
-      DBHelper.getAccounts(),
-      DBHelper.getCategories(),
-      DBHelper.getTransactions(),
+      _accountRepo.getAll(),
+      _categoryRepo.getAll(),
+      _transactionRepo.getAll(),
       DBHelper.getRecurring(),
       DBHelper.getWishlist(),
       DBHelper.getLendedPeople(),
@@ -278,7 +298,7 @@ class AppProvider extends ChangeNotifier {
       DBHelper.getNetWorthSnapshots(),
       DBHelper.getRecurringHistoryCount(),
       DBHelper.getPresets(),
-      DBHelper.getAllSplits(),
+      _transactionRepo.getAllSplits(),
       DBHelper.getCertificates(),
     ]);
     accounts             = results[0] as List<Account>;
