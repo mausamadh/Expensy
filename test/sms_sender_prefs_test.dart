@@ -5,59 +5,23 @@
 // suppress specific message kinds (otp / promotional / personal) per sender
 // while transactional messages still surface. Also covers the SmsKind
 // classifier that drives per-kind suppression.
+//
+// Phase 1 (hexagonal migration): the provider SMS slice was removed; these
+// tests now drive the feature through [SmsInboxViewModel] via the shared
+// harness, with a fake SMS source standing in for the plugin channel.
 import 'package:drift/native.dart';
 import 'package:finwick/database/app_database.dart';
-import 'package:finwick/models/models.dart';
+import 'package:finwick/domain/sms_import/sms_entities.dart';
+import 'package:finwick/domain/sms_import/sms_parser.dart';
 import 'package:finwick/providers/app_provider.dart';
-import 'package:finwick/services/sms_import_service.dart';
-import 'package:finwick/services/sms_parser/sms_parser.dart';
-import 'package:expensy_sms/expensy_sms.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'helpers/fake_clock.dart';
+import 'helpers/sms_vm_test_harness.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-
-  const channel = MethodChannel('com.ma.finwick/sms');
-
-  /// Mocks the native channel so `scanSms` returns the given messages, the
-  /// way the standard codec decodes a Kotlin `List<Map<String, Any?>>`.
-  void mockScan(List<SmsMessage> messages) {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'scanSms') {
-        return messages
-            .map((m) => <Object?, Object?>{
-                  'id': m.id,
-                  'sender': m.sender,
-                  'body': m.body,
-                  'timestamp': m.timestamp,
-                })
-            .toList();
-      }
-      return null;
-    });
-  }
-
-  late AppDatabase db;
-  late AppProvider provider;
-
-  Map<String, SmsSenderPref> _prefMap() =>
-      {for (final p in provider.smsSenderPrefs) p.senderId: p};
-
-  setUp(() async {
-    SharedPreferences.setMockInitialValues({});
-    db = AppDatabase(NativeDatabase.memory());
-    AppDatabase.setInstanceForTesting(db);
-    provider = AppProvider();
-    await provider.load();
-  });
-
-  tearDown(() async {
-    await db.close();
-    AppDatabase.setInstanceForTesting(null);
-  });
 
   group('SmsKindClassifier', () {
     test('classifies OTP as otp even when transaction cues are present', () {
@@ -101,15 +65,34 @@ void main() {
   });
 
   group('Sender preferences', () {
+    late AppProvider provider;
+    late AppDatabase db;
+    late SmsVmHarness harness;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      db = AppDatabase(NativeDatabase.memory());
+      AppDatabase.setInstanceForTesting(db);
+      provider = AppProvider();
+      await provider.load();
+      harness = SmsVmHarness(provider, FakeSmsSource(), FakeClock());
+      await harness.load();
+    });
+
+    tearDown(() async {
+      await db.close();
+      AppDatabase.setInstanceForTesting(null);
+    });
+
     test('setSmsSenderParseAllowed remembers the sender and is idempotent',
         () async {
-      await provider.setSmsSenderParseAllowed('PROMO_999', false);
-      expect(provider.isSmsSenderParseAllowed('PROMO_999'), isFalse);
-      expect(provider.smsSenderPrefs, hasLength(1));
+      await harness.vm.setSmsSenderParseAllowed('PROMO_999', false);
+      expect(harness.vm.isSmsSenderParseAllowed('PROMO_999'), isFalse);
+      expect(harness.vm.smsSenderPrefs, hasLength(1));
 
       // Second call must not duplicate.
-      await provider.setSmsSenderParseAllowed('PROMO_999', false);
-      expect(provider.smsSenderPrefs, hasLength(1));
+      await harness.vm.setSmsSenderParseAllowed('PROMO_999', false);
+      expect(harness.vm.smsSenderPrefs, hasLength(1));
 
       // Persists to the DB.
       final fromDb = await db.getSmsSenderPrefs();
@@ -119,10 +102,10 @@ void main() {
     });
 
     test('resetSmsSenderPrefs removes the sender', () async {
-      await provider.setSmsSenderParseAllowed('PROMO_999', false);
-      await provider.resetSmsSenderPrefs('PROMO_999');
-      expect(provider.isSmsSenderParseAllowed('PROMO_999'), isTrue);
-      expect(provider.smsSenderPrefs, isEmpty);
+      await harness.vm.setSmsSenderParseAllowed('PROMO_999', false);
+      await harness.vm.resetSmsSenderPrefs('PROMO_999');
+      expect(harness.vm.isSmsSenderParseAllowed('PROMO_999'), isTrue);
+      expect(harness.vm.smsSenderPrefs, isEmpty);
       expect(await db.getSmsSenderPrefs(), isEmpty);
     });
 
@@ -137,11 +120,11 @@ void main() {
       await db.insertSmsInbox(a);
       await db.insertSmsInbox(b);
       await db.insertSmsInbox(c);
-      provider.smsInbox = [a, b, c];
+      await harness.load();
 
-      await provider.setSmsSenderParseAllowed('PROMO_999', false);
+      await harness.vm.setSmsSenderParseAllowed('PROMO_999', false);
 
-      final byId = {for (final i in provider.smsInbox) i.id: i};
+      final byId = {for (final i in harness.vm.smsInbox) i.id: i};
       expect(byId['i1']!.status, 'dismissed');
       expect(byId['i2']!.status, 'dismissed');
       expect(byId['i3']!.status, 'pending'); // untouched
@@ -151,157 +134,175 @@ void main() {
     });
 
     test('suppressSmsKind adds the kind and is idempotent', () async {
-      await provider.suppressSmsKind('BANK', 'otp');
-      expect(provider.isSmsKindSuppressed('BANK', 'otp'), isTrue);
-      expect(provider.smsSenderPrefs, hasLength(1));
+      await harness.vm.suppressSmsKind('BANK', 'otp');
+      expect(harness.vm.isSmsKindSuppressed('BANK', 'otp'), isTrue);
+      expect(harness.vm.smsSenderPrefs, hasLength(1));
 
-      await provider.suppressSmsKind('BANK', 'otp');
-      expect(provider.smsSenderPrefs, hasLength(1));
-      expect(provider.smsSenderPrefs.first.suppressedKinds, {'otp'});
+      await harness.vm.suppressSmsKind('BANK', 'otp');
+      expect(harness.vm.smsSenderPrefs, hasLength(1));
+      expect(harness.vm.smsSenderPrefs.first.suppressedKinds, {'otp'});
 
       // A second kind is added, not replaced.
-      await provider.suppressSmsKind('BANK', 'promotional');
-      expect(provider.smsSenderPrefs.first.suppressedKinds,
+      await harness.vm.suppressSmsKind('BANK', 'promotional');
+      expect(harness.vm.smsSenderPrefs.first.suppressedKinds,
           {'otp', 'promotional'});
     });
 
     test('suppressSmsKind never suppresses transactional', () async {
-      await provider.suppressSmsKind('BANK', 'transactional');
-      expect(provider.isSmsKindSuppressed('BANK', 'transactional'), isFalse);
-      expect(provider.smsSenderPrefs, isEmpty);
+      await harness.vm.suppressSmsKind('BANK', 'transactional');
+      expect(harness.vm.isSmsKindSuppressed('BANK', 'transactional'), isFalse);
+      expect(harness.vm.smsSenderPrefs, isEmpty);
     });
 
     test('unsuppressSmsKind removes the kind', () async {
-      await provider.suppressSmsKind('BANK', 'otp');
-      await provider.unsuppressSmsKind('BANK', 'otp');
-      expect(provider.isSmsKindSuppressed('BANK', 'otp'), isFalse);
-      expect(provider.smsSenderPrefs.first.suppressedKinds, isEmpty);
+      await harness.vm.suppressSmsKind('BANK', 'otp');
+      await harness.vm.unsuppressSmsKind('BANK', 'otp');
+      expect(harness.vm.isSmsKindSuppressed('BANK', 'otp'), isFalse);
+      expect(harness.vm.smsSenderPrefs.first.suppressedKinds, isEmpty);
     });
 
     test('scanAndImport skips a sender with parsing denied', () async {
-      mockScan(const [
-        SmsMessage(
-            id: 1,
+      harness.source.messages = [
+        const SmsMessage(
+            id: '1',
             sender: 'BANK',
             body: 'Khalti payment of Rs. 500 successful',
             timestamp: 0),
-        SmsMessage(
-            id: 2,
+        const SmsMessage(
+            id: '2',
             sender: 'OTHER',
             body: 'Khalti payment of Rs. 300 successful',
             timestamp: 0),
-      ]);
-      await provider.setSmsSenderParseAllowed('BANK', false);
+      ];
+      await harness.vm.setSmsSenderParseAllowed('BANK', false);
 
-      final service = SmsImportService(TemplateRegistry(const []));
-      final inserted =
-          await service.scanAndImport(senderPrefs: _prefMap());
+      final inserted = await harness.vm.scanSmsInbox();
 
       // Only the OTHER message is inserted; the denied sender is skipped
       // entirely (even though it is a real transaction).
-      expect(inserted, hasLength(1));
-      expect(inserted.first.senderId, 'OTHER');
+      expect(inserted, 1);
+      expect(harness.vm.smsInbox, hasLength(1));
+      expect(harness.vm.smsInbox.first.senderId, 'OTHER');
     });
 
     test('scanAndImport skips kind-suppressed non-transactional messages but '
         'keeps transactions from the same sender', () async {
-      mockScan(const [
+      harness.source.messages = [
         // OTP from BANK — suppressed.
-        SmsMessage(
-            id: 1,
+        const SmsMessage(
+            id: '1',
             sender: 'BANK',
             body: 'Your OTP is 482913. Do not share this code.',
             timestamp: 0),
         // Promo from BANK — suppressed.
-        SmsMessage(
-            id: 2,
+        const SmsMessage(
+            id: '2',
             sender: 'BANK',
             body: 'Win a free phone! Click now to claim your offer.',
             timestamp: 0),
         // Real transaction from BANK — must still surface.
-        SmsMessage(
-            id: 3,
+        const SmsMessage(
+            id: '3',
             sender: 'BANK',
             body: 'Khalti payment of Rs. 500 successful. Ref: KH123456.',
             timestamp: 0),
-      ]);
-      await provider.suppressSmsKind('BANK', 'otp');
-      await provider.suppressSmsKind('BANK', 'promotional');
+      ];
+      await harness.vm.suppressSmsKind('BANK', 'otp');
+      await harness.vm.suppressSmsKind('BANK', 'promotional');
 
-      final service = SmsImportService(TemplateRegistry(const []));
-      final inserted =
-          await service.scanAndImport(senderPrefs: _prefMap());
+      final inserted = await harness.vm.scanSmsInbox();
 
-      expect(inserted, hasLength(1));
-      expect(inserted.first.senderId, 'BANK');
-      expect(inserted.first.body,
+      expect(inserted, 1);
+      expect(harness.vm.smsInbox, hasLength(1));
+      expect(harness.vm.smsInbox.first.senderId, 'BANK');
+      expect(harness.vm.smsInbox.first.body,
           'Khalti payment of Rs. 500 successful. Ref: KH123456.');
     });
 
     test('scanAndImport inserts everything when there are no prefs', () async {
-      mockScan(const [
-        SmsMessage(
-            id: 1,
+      harness.source.messages = [
+        const SmsMessage(
+            id: '1',
             sender: 'BANK',
             body: 'Your OTP is 482913. Do not share this code.',
             timestamp: 0),
-        SmsMessage(
-            id: 2,
+        const SmsMessage(
+            id: '2',
             sender: 'Khalti',
             body: 'Khalti payment of Rs. 500 successful',
             timestamp: 0),
-      ]);
-      final service = SmsImportService(TemplateRegistry(const []));
+      ];
       // autoHideOtp: false isolates the "no sender prefs" behaviour from the
       // global OTP filter (covered in its own group below).
-      final inserted = await service.scanAndImport(autoHideOtp: false);
-      expect(inserted, hasLength(2));
+      await harness.vm.setSmsAutoHideOtp(false);
+      final inserted = await harness.vm.scanSmsInbox();
+      expect(inserted, 2);
     });
   });
 
   group('Global OTP auto-hide', () {
+    late AppProvider provider;
+    late AppDatabase db;
+    late SmsVmHarness harness;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      db = AppDatabase(NativeDatabase.memory());
+      AppDatabase.setInstanceForTesting(db);
+      provider = AppProvider();
+      await provider.load();
+      harness = SmsVmHarness(provider, FakeSmsSource(), FakeClock());
+      await harness.load();
+    });
+
+    tearDown(() async {
+      await db.close();
+      AppDatabase.setInstanceForTesting(null);
+    });
+
     test('scanAndImport hides OTPs by default without any sender prefs',
         () async {
-      mockScan(const [
-        SmsMessage(
-            id: 1,
+      harness.source.messages = [
+        const SmsMessage(
+            id: '1',
             sender: 'BANK',
             body: 'Your OTP is 482913. Do not share this code.',
             timestamp: 0),
-        SmsMessage(
-            id: 2,
+        const SmsMessage(
+            id: '2',
             sender: 'Khalti',
             body: 'Khalti payment of Rs. 500 successful',
             timestamp: 0),
-      ]);
-      final service = SmsImportService(TemplateRegistry(const []));
+      ];
       // Default (autoHideOtp: true) — the OTP is dropped, the transaction
       // still surfaces.
-      final inserted = await service.scanAndImport();
-      expect(inserted, hasLength(1));
-      expect(inserted.first.senderId, 'Khalti');
+      final inserted = await harness.vm.scanSmsInbox();
+      expect(inserted, 1);
+      expect(harness.vm.smsInbox, hasLength(1));
+      expect(harness.vm.smsInbox.first.senderId, 'Khalti');
     });
 
     test('scanAndImport keeps OTPs when autoHideOtp is disabled', () async {
-      mockScan(const [
-        SmsMessage(
-            id: 1,
+      harness.source.messages = [
+        const SmsMessage(
+            id: '1',
             sender: 'BANK',
             body: 'Your OTP is 482913. Do not share this code.',
             timestamp: 0),
-      ]);
-      final service = SmsImportService(TemplateRegistry(const []));
-      final inserted = await service.scanAndImport(autoHideOtp: false);
-      expect(inserted, hasLength(1));
-      expect(inserted.first.senderId, 'BANK');
+      ];
+      await harness.vm.setSmsAutoHideOtp(false);
+      final inserted = await harness.vm.scanSmsInbox();
+      expect(inserted, 1);
+      expect(harness.vm.smsInbox, hasLength(1));
+      expect(harness.vm.smsInbox.first.senderId, 'BANK');
     });
 
     test('setSmsAutoHideOtp persists and flips the flag', () async {
-      expect(provider.smsAutoHideOtp, isTrue); // default on
-      await provider.setSmsAutoHideOtp(false);
-      expect(provider.smsAutoHideOtp, isFalse);
-      await provider.setSmsAutoHideOtp(true);
-      expect(provider.smsAutoHideOtp, isTrue);
+      expect(harness.vm.smsAutoHideOtp, isTrue); // default on
+      await harness.vm.setSmsAutoHideOtp(false);
+      expect(harness.vm.smsAutoHideOtp, isFalse);
+      await harness.vm.setSmsAutoHideOtp(true);
+      expect(harness.vm.smsAutoHideOtp, isTrue);
     });
   });
 
@@ -385,15 +386,34 @@ void main() {
   });
 
   group('Decline / restore round-trip', () {
+    late AppProvider provider;
+    late AppDatabase db;
+    late SmsVmHarness harness;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      db = AppDatabase(NativeDatabase.memory());
+      AppDatabase.setInstanceForTesting(db);
+      provider = AppProvider();
+      await provider.load();
+      harness = SmsVmHarness(provider, FakeSmsSource(), FakeClock());
+      await harness.load();
+    });
+
+    tearDown(() async {
+      await db.close();
+      AppDatabase.setInstanceForTesting(null);
+    });
+
     test('dismissSmsCandidate marks dismissed in memory and DB', () async {
       final a = SmsInboxItem(
           id: 'd1', senderId: 'BANK', body: 'x', rawHash: 'dh1');
       await db.insertSmsInbox(a);
-      provider.smsInbox = [a];
+      await harness.load();
 
-      await provider.dismissSmsCandidate('d1');
+      await harness.vm.dismissSmsCandidate('d1');
 
-      expect(provider.smsInbox.first.status, 'dismissed');
+      expect(harness.vm.smsInbox.first.status, 'dismissed');
       expect((await db.getSmsInboxByHash('dh1'))!.status, 'dismissed');
     });
 
@@ -402,12 +422,12 @@ void main() {
       final a = SmsInboxItem(
           id: 'd2', senderId: 'BANK', body: 'x', rawHash: 'dh2');
       await db.insertSmsInbox(a);
-      provider.smsInbox = [a];
+      await harness.load();
 
-      await provider.dismissSmsCandidate('d2');
-      await provider.restoreSmsCandidate('d2');
+      await harness.vm.dismissSmsCandidate('d2');
+      await harness.vm.restoreSmsCandidate('d2');
 
-      expect(provider.smsInbox.first.status, 'pending');
+      expect(harness.vm.smsInbox.first.status, 'pending');
       expect((await db.getSmsInboxByHash('dh2'))!.status, 'pending');
     });
 
@@ -415,12 +435,12 @@ void main() {
       final a = SmsInboxItem(
           id: 'd3', senderId: 'BANK', body: 'x', rawHash: 'dh3');
       await db.insertSmsInbox(a);
-      provider.smsInbox = [a];
+      await harness.load();
 
-      await provider.restoreSmsCandidate('does-not-exist');
+      await harness.vm.restoreSmsCandidate('does-not-exist');
 
-      expect(provider.smsInbox, hasLength(1));
-      expect(provider.smsInbox.first.status, 'pending');
+      expect(harness.vm.smsInbox, hasLength(1));
+      expect(harness.vm.smsInbox.first.status, 'pending');
     });
   });
 }

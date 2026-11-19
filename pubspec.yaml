@@ -31,6 +31,7 @@ dependencies:
   package_info_plus: ^10.2.1
   collection: ^1.18.0
   drift: ^2.35.0
+  get_it: ^8.0.3
   sqlite3_flutter_libs: ^0.6.0+eol
   pdf: ^3.12.0
   printing: ^5.14.3

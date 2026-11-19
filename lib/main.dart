@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:dynamic_color/dynamic_color.dart';
+import 'composition/root.dart';
+import 'presentation/viewmodels/sms_inbox_view_model.dart';
 import 'providers/app_provider.dart';
 import 'l10n/app_localizations.dart';
 import 'theme/app_theme.dart';
@@ -35,6 +37,7 @@ final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
+  CompositionRoot.init();
   try {
     await NotificationBootstrap.init();
     await WorkmanagerService.initialize();
@@ -50,9 +53,18 @@ void main() async {
     debugPrint('Startup provider load warning: $e\n$stack');
   }
 
+  // SMS import context: adapters bridge to the provider until the ledger
+  // context is migrated (Phase 2).
+  CompositionRoot.initSms(provider);
+  final smsVm = CompositionRoot.getIt<SmsInboxViewModel>();
+  await smsVm.load();
+
   runApp(
-    ChangeNotifierProvider.value(
-      value: provider,
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AppProvider>.value(value: provider),
+        ChangeNotifierProvider<SmsInboxViewModel>.value(value: smsVm),
+      ],
       child: const ExpensyApp(),
     ),
   );

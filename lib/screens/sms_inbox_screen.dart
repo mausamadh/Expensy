@@ -5,7 +5,7 @@
 import 'dart:math' as math;
 
 import 'package:collection/collection.dart';
-import 'package:expensy_sms/expensy_sms.dart';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -13,7 +13,8 @@ import 'package:provider/provider.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
 import 'accounts_screen.dart';
-import '../services/sms_parser/sms_parser.dart';
+import '../domain/sms_import/sms_parser.dart';
+import '../presentation/viewmodels/sms_inbox_view_model.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import '../utils/snackbar.dart';
@@ -71,14 +72,15 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
   }
 
   Future<void> _bootstrap() async {
-    final app = context.read<AppProvider>();
-    await app.checkSmsPermissions();
+    final vm = context.read<SmsInboxViewModel>();
+    await vm.load();
+    await vm.checkSmsPermissions();
     if (mounted) setState(() {});
   }
 
   Future<void> _scan() async {
-    final app = context.read<AppProvider>();
-    final added = await app.scanSmsInbox();
+    final vm = context.read<SmsInboxViewModel>();
+    final added = await vm.scanSmsInbox();
     if (!mounted) return;
     showAppSnackbar(
       context,
@@ -87,11 +89,11 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
   }
 
   Future<void> _toggleLive() async {
-    final app = context.read<AppProvider>();
+    final vm = context.read<SmsInboxViewModel>();
     if (_live) {
-      await app.stopSmsLiveCapture();
+      await vm.stopSmsLiveCapture();
     } else {
-      await app.startSmsLiveCapture();
+      await vm.startSmsLiveCapture();
     }
     if (mounted) setState(() => _live = !_live);
   }
@@ -99,17 +101,17 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final app = context.watch<AppProvider>();
-    final perms = app.smsPermissions;
+    final vm = context.watch<SmsInboxViewModel>();
+    final perms = vm.smsPermissions;
     final pending =
-        app.smsInbox.where((i) => i.status == 'pending').toList()
+        vm.smsInbox.where((i) => i.status == 'pending').toList()
           ..sort((a, b) => b.smsTimestamp.compareTo(a.smsTimestamp));
     final filtered = _filtered(pending);
     // Derive senders from ALL inbox items (not just pending) so the sender
     // filter dropdown stays valid after the last pending item of a sender is
     // imported/dismissed — otherwise the DropdownButtonFormField assertion
     // fires (value not in items) and the screen goes red.
-    final senders = app.smsInbox
+    final senders = vm.smsInbox
         .map((i) => i.senderId)
         .where((s) => s.isNotEmpty)
         .toSet()
@@ -148,7 +150,7 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
                   tooltip: 'Rules & senders',
                   onTap: () {
                     AppHaptics.tap(context, HapticStrength.light);
-                    _openRulesSheet(context, app);
+                    _openRulesSheet(context);
                   },
                 ),
               ],
@@ -156,7 +158,7 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
             if (perms != null && !perms.canScan)
               _PermissionBanner(
                 onGrant: () async {
-                  await context.read<AppProvider>().requestSmsPermissions();
+                  await context.read<SmsInboxViewModel>().requestSmsPermissions();
                   if (mounted) setState(() {});
                 },
               ),
@@ -190,7 +192,7 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
                     }),
               ),
             Expanded(
-              child: app.smsScanning
+              child: vm.smsScanning
                   ? const Center(child: CircularProgressIndicator())
                   : pending.isEmpty
                       ? _EmptyState(onScan: _scan)
@@ -249,7 +251,7 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
     );
   }
 
-  void _openRulesSheet(BuildContext context, AppProvider app) {
+  void _openRulesSheet(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -674,11 +676,11 @@ class _CandidateCard extends StatelessWidget {
   }
 
   Future<void> _decline(BuildContext context, SmsInboxItem item) async {
-    final app = context.read<AppProvider>();
+    final vm = context.read<SmsInboxViewModel>();
     final sender = item.senderId;
     // Declines ONLY this message — the sender is not blocked, so its future
     // messages will still be parsed and shown as candidates.
-    await app.dismissSmsCandidate(item.id);
+    await vm.dismissSmsCandidate(item.id);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -686,7 +688,7 @@ class _CandidateCard extends StatelessWidget {
             'Declined this message only — ${sender.isEmpty ? 'sender' : sender} will still be parsed'),
         action: SnackBarAction(
           label: 'Undo',
-          onPressed: () => app.restoreSmsCandidate(item.id),
+          onPressed: () => vm.restoreSmsCandidate(item.id),
         ),
       ),
     );
@@ -717,7 +719,7 @@ class _CandidateCard extends StatelessWidget {
       ),
     );
     if (ok == true) {
-      await context.read<AppProvider>().deleteSmsCandidate(item.id);
+      await context.read<SmsInboxViewModel>().deleteSmsCandidate(item.id);
     }
   }
 }
@@ -747,11 +749,12 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
   void initState() {
     super.initState();
     final app = context.read<AppProvider>();
+    final vm = context.read<SmsInboxViewModel>();
     final item = widget.item;
 
     // Pre-fill from a saved sender→account/category mapping, if any, so the
     // user doesn't have to re-select the account for a known sender.
-    final rule = app.smsRuleForItem(item);
+    final rule = vm.smsRuleForItem(item);
     _type = rule?.transactionType ??
         (item.parsedType == 'income' || item.parsedType == 'transfer'
             ? item.parsedType!
@@ -847,7 +850,6 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
   }
 
   Future<void> _import() async {
-    final app = context.read<AppProvider>();
     final amount = double.tryParse(_amountCtrl.text) ?? 0.0;
     if (amount <= 0) {
       showAppSnackbar(context, 'Enter a valid amount');
@@ -866,7 +868,7 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
       return;
     }
     setState(() => _busy = true);
-    final txId = await app.importSmsCandidate(
+    final txId = await context.read<SmsInboxViewModel>().importSmsCandidate(
       widget.item.id,
       type: _type,
       amount: amount,
@@ -887,11 +889,11 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
   }
 
   Future<void> _dismiss() async {
-    final app = context.read<AppProvider>();
+    final vm = context.read<SmsInboxViewModel>();
     if (_dontShowAgain != null) {
-      await app.suppressSmsKind(widget.item.senderId, _dontShowAgain!);
+      await vm.suppressSmsKind(widget.item.senderId, _dontShowAgain!);
     }
-    await app.dismissSmsCandidate(widget.item.id);
+    await vm.dismissSmsCandidate(widget.item.id);
     if (!mounted) return;
     Navigator.pop(context);
     if (_dontShowAgain != null) {
@@ -905,7 +907,7 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
   /// message is a possible transaction that the parser couldn't classify —
   /// the rule ensures future messages from this sender are routed correctly.
   Future<void> _saveRuleOnly() async {
-    final app = context.read<AppProvider>();
+    final vm = context.read<SmsInboxViewModel>();
     if (_accountId == null) {
       showAppSnackbar(context, 'Select an account first');
       return;
@@ -915,7 +917,7 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
       return;
     }
     setState(() => _busy = true);
-    await app.saveSmsRule(
+    await vm.saveSmsRule(
       senderId: widget.item.senderId,
       merchantPattern:
           (widget.item.parsedMerchant ?? '').trim().isEmpty ? null : widget.item.parsedMerchant,
@@ -923,7 +925,7 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
       categoryId: _type == 'transfer' ? 'sys_transfer' : _categoryId!,
       transactionType: _type,
     );
-    await app.dismissSmsCandidate(widget.item.id);
+    await vm.dismissSmsCandidate(widget.item.id);
     if (!mounted) return;
     Navigator.pop(context);
     showAppSnackbar(context, 'Rule saved for ${widget.item.senderId}');
@@ -1235,9 +1237,9 @@ class _RulesSheetState extends State<_RulesSheet> {
 
   Future<void> _loadSenders() async {
     setState(() => _loadingSenders = true);
-    final app = context.read<AppProvider>();
+    final vm = context.read<SmsInboxViewModel>();
     try {
-      final senders = await app.getSmsSenders();
+      final senders = await vm.getSmsSenders();
       if (mounted) setState(() => _senders = senders);
     } catch (_) {
       // Permission not granted or no messages — leave empty.
@@ -1270,7 +1272,8 @@ class _RulesSheetState extends State<_RulesSheet> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final app = context.watch<AppProvider>();
-    final rules = app.smsRules;
+    final vm = context.watch<SmsInboxViewModel>();
+    final rules = vm.smsRules;
 
     return SheetShell(
       title: 'Rules & senders',
@@ -1286,8 +1289,8 @@ class _RulesSheetState extends State<_RulesSheet> {
             'Verification codes are hidden automatically. Real transactions are never hidden.',
             style: TextStyle(fontSize: 11.5),
           ),
-          value: app.smsAutoHideOtp,
-          onChanged: (v) => app.setSmsAutoHideOtp(v),
+          value: vm.smsAutoHideOtp,
+          onChanged: (v) => vm.setSmsAutoHideOtp(v),
         ),
         const SizedBox(height: 12),
 
@@ -1312,7 +1315,7 @@ class _RulesSheetState extends State<_RulesSheet> {
                 accountName: app.accountById(r.accountId)?.name ?? 'Unknown',
                 categoryName: app.categoryById(r.categoryId)?.name ?? 'Unknown',
                 onDelete: () async {
-                  await app.deleteSmsRule(r.id);
+                  await vm.deleteSmsRule(r.id);
                 },
               )),
         const SizedBox(height: 20),
@@ -1320,7 +1323,7 @@ class _RulesSheetState extends State<_RulesSheet> {
         // ── Sender preferences ────────────────────────────────────────────
         Text('SENDER PREFERENCES', style: Theme.of(context).textTheme.labelMedium?.copyWith(letterSpacing: 1)),
         const SizedBox(height: 8),
-        if (app.smsSenderPrefs.isEmpty)
+        if (vm.smsSenderPrefs.isEmpty)
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
@@ -1333,7 +1336,7 @@ class _RulesSheetState extends State<_RulesSheet> {
             ),
           )
         else
-          ...app.smsSenderPrefs.map((p) => _SenderPrefRow(
+          ...vm.smsSenderPrefs.map((p) => _SenderPrefRow(
                 pref: p,
                 onTap: () => _openPrefSheet(p.senderId),
               )),
@@ -1611,9 +1614,9 @@ class _SenderPrefSheetState extends State<_SenderPrefSheet> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final app = context.watch<AppProvider>();
-    final pref = app.smsSenderPref(widget.sender);
-    final parseAllowed = app.isSmsSenderParseAllowed(widget.sender);
+    final vm = context.watch<SmsInboxViewModel>();
+    final pref = vm.smsSenderPref(widget.sender);
+    final parseAllowed = vm.isSmsSenderParseAllowed(widget.sender);
 
     return SheetShell(
       title: 'Parsing preferences',
@@ -1625,7 +1628,7 @@ class _SenderPrefSheetState extends State<_SenderPrefSheet> {
           contentPadding: EdgeInsets.zero,
           value: parseAllowed,
           onChanged: (v) async {
-            await app.setSmsSenderParseAllowed(widget.sender, v);
+            await vm.setSmsSenderParseAllowed(widget.sender, v);
           },
           title: const Text('Parse messages from this sender',
               style: TextStyle(fontWeight: FontWeight.w600)),
@@ -1649,16 +1652,16 @@ class _SenderPrefSheetState extends State<_SenderPrefSheet> {
         ..._kinds.map((k) {
           final kind = k.$1;
           final label = k.$2;
-          final suppressed = app.isSmsKindSuppressed(widget.sender, kind);
+          final suppressed = vm.isSmsKindSuppressed(widget.sender, kind);
           return CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             controlAffinity: ListTileControlAffinity.leading,
             value: suppressed,
             onChanged: (v) async {
               if (v ?? false) {
-                await app.suppressSmsKind(widget.sender, kind);
+                await vm.suppressSmsKind(widget.sender, kind);
               } else {
-                await app.unsuppressSmsKind(widget.sender, kind);
+                await vm.unsuppressSmsKind(widget.sender, kind);
               }
             },
             title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -1670,7 +1673,7 @@ class _SenderPrefSheetState extends State<_SenderPrefSheet> {
         if (pref != null)
           TextButton.icon(
             onPressed: () async {
-              await app.resetSmsSenderPrefs(widget.sender);
+              await vm.resetSmsSenderPrefs(widget.sender);
               if (context.mounted) Navigator.pop(context);
             },
             icon: const Icon(Icons.restart_alt_rounded, size: 18),
@@ -1725,7 +1728,6 @@ class _SenderMapSheetState extends State<_SenderMapSheet> {
   }
 
   Future<void> _save() async {
-    final app = context.read<AppProvider>();
     if (_accountId == null) {
       showAppSnackbar(context, 'Select an account');
       return;
@@ -1735,7 +1737,7 @@ class _SenderMapSheetState extends State<_SenderMapSheet> {
       return;
     }
     setState(() => _busy = true);
-    await app.saveSmsRule(
+    await context.read<SmsInboxViewModel>().saveSmsRule(
       senderId: widget.sender,
       accountId: _accountId!,
       categoryId: _type == 'transfer' ? 'sys_transfer' : _categoryId!,

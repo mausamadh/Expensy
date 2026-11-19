@@ -1,6 +1,6 @@
 # Expensy AI Agent Instructions & Guidelines
 
-This document outlines project-specific rules, requirements, and conventions for AI assistants working on Expensy. For full architectural guidelines, refer to [AI_INSTRUCTIONS.md](file:///c:/Projects/expensy/AI_INSTRUCTIONS.md) and [CLAUDE.md](file:///c:/Projects/expensy/CLAUDE.md).
+This document outlines project-specific rules, requirements, and conventions for AI assistants working on Expensy. For full architectural guidelines.
 
 ## Critical Rules & Guidelines
 
@@ -38,3 +38,8 @@ This document outlines project-specific rules, requirements, and conventions for
    - Subcategories use a single-level `parent_id` on `AppCategory` (Schema v29). Always use `AppProvider.userCategories` in user-facing category pickers so hidden system categories (`sys_transfer`, `sys_investment`) are never selectable as expense/income categories.
    - Parent budgets and top-level category aggregations (`FinancialAggregations.categoryTotals`, `InsightsScreen`, `WrappedScreen`, `PdfReportService`) roll up child subcategories and split transactions, using `AppProvider.nonOverlappingBudgets` for aggregate budget totals.
    - Transfers (including `RecurringPayment.isTransfer` and `TransactionPreset.isTransfer`) must always use `'sys_transfer'` (`Transfer`), target a distinct destination (`toAccountId != accountId`), and preserve `transferGroupId`; never allow editing or bulk-recategorizing a transfer leg to a user category.
+
+I want to have a fully autonomous sms parser that does all the sms transactions parsing, whenever a sms arrives it notifies the sms is aprsed and if something is confusion then asks for verification and the verification will help parse on next time,
+
+i want to parse all and every type of transactional sms tht exists, including banks,cards,credit cards and so on.
+USE DDD architectural pattern and event driven design principle

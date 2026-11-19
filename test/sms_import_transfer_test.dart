@@ -9,11 +9,15 @@ import 'package:finwick/providers/app_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'helpers/fake_clock.dart';
+import 'helpers/sms_vm_test_harness.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late AppDatabase db;
   late AppProvider provider;
+  late SmsVmHarness harness;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -21,6 +25,8 @@ void main() {
     AppDatabase.setInstanceForTesting(db);
     provider = AppProvider();
     await provider.load();
+    harness = SmsVmHarness(provider, FakeSmsSource(), FakeClock());
+    await harness.load();
   });
 
   tearDown(() async {
@@ -49,11 +55,12 @@ void main() {
       await provider.addAccount(c);
 
       final item = _item('sms-1');
-      provider.smsInbox = [item];
+      await db.insertSmsInbox(item);
+      await harness.load();
 
       // Source = A. Auto-pick would choose B (first other account).
       // User explicitly chooses C as the destination.
-      final txId = await provider.importSmsCandidate(
+      final txId = await harness.vm.importSmsCandidate(
         item.id,
         type: 'transfer',
         amount: 500.0,
@@ -84,7 +91,7 @@ void main() {
       expect(debit.accountId, a.id);
 
       // Inbox item marked imported.
-      expect(provider.smsInbox.first.status, 'imported');
+      expect(harness.vm.smsInbox.first.status, 'imported');
     });
 
     test('rejects a transfer whose destination equals the source', () async {
@@ -96,10 +103,11 @@ void main() {
       await provider.addAccount(b);
 
       final item = _item('sms-2');
-      provider.smsInbox = [item];
+      await db.insertSmsInbox(item);
+      await harness.load();
 
       // toAccountId == accountId -> must be rejected (no transaction created).
-      final txId = await provider.importSmsCandidate(
+      final txId = await harness.vm.importSmsCandidate(
         item.id,
         type: 'transfer',
         amount: 500.0,
@@ -110,7 +118,7 @@ void main() {
       expect(txId, isNull);
       expect(provider.transactions, isEmpty);
       expect(provider.accountById(a.id)!.balance, closeTo(1000.0, 0.01));
-      expect(provider.smsInbox.first.status, 'pending');
+      expect(harness.vm.smsInbox.first.status, 'pending');
     });
 
     test('falls back to auto-pick when toAccountId is omitted', () async {
@@ -122,10 +130,11 @@ void main() {
       await provider.addAccount(b);
 
       final item = _item('sms-3');
-      provider.smsInbox = [item];
+      await db.insertSmsInbox(item);
+      await harness.load();
 
       // No toAccountId -> auto-picks B (the only other account).
-      final txId = await provider.importSmsCandidate(
+      final txId = await harness.vm.importSmsCandidate(
         item.id,
         type: 'transfer',
         amount: 200.0,

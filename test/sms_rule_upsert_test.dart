@@ -10,11 +10,15 @@ import 'package:finwick/providers/app_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'helpers/fake_clock.dart';
+import 'helpers/sms_vm_test_harness.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late AppDatabase db;
   late AppProvider provider;
+  late SmsVmHarness harness;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -22,6 +26,8 @@ void main() {
     AppDatabase.setInstanceForTesting(db);
     provider = AppProvider();
     await provider.load();
+    harness = SmsVmHarness(provider, FakeSmsSource(), FakeClock());
+    await harness.load();
   });
 
   tearDown(() async {
@@ -52,9 +58,10 @@ void main() {
       await provider.addCategory(cat);
 
       final item = _item('sms-1', merchant: 'CAFE');
-      provider.smsInbox = [item];
+      await db.insertSmsInbox(item);
+      await harness.load();
 
-      final txId = await provider.importSmsCandidate(
+      final txId = await harness.vm.importSmsCandidate(
         item.id,
         type: 'expense',
         amount: 100.0,
@@ -63,8 +70,8 @@ void main() {
       );
 
       expect(txId, isNotNull);
-      expect(provider.smsRules, hasLength(1));
-      final rule = provider.smsRules.single;
+      expect(harness.vm.smsRules, hasLength(1));
+      final rule = harness.vm.smsRules.single;
       expect(rule.senderId, 'BANK');
       expect(rule.accountId, a.id);
       expect(rule.categoryId, cat.id);
@@ -83,21 +90,23 @@ void main() {
 
       // First import maps BANK → A.
       final item1 = _item('sms-1', merchant: 'CAFE');
-      provider.smsInbox = [item1];
-      await provider.importSmsCandidate(
+      await db.insertSmsInbox(item1);
+      await harness.load();
+      await harness.vm.importSmsCandidate(
         item1.id,
         type: 'expense',
         amount: 100.0,
         accountId: a.id,
         categoryId: cat.id,
       );
-      expect(provider.smsRules, hasLength(1));
+      expect(harness.vm.smsRules, hasLength(1));
 
       // Second import from the same sender maps to B — the rule must be
       // updated in place, not duplicated.
       final item2 = _item('sms-2', merchant: 'CAFE');
-      provider.smsInbox = [item2];
-      await provider.importSmsCandidate(
+      await db.insertSmsInbox(item2);
+      await harness.load();
+      await harness.vm.importSmsCandidate(
         item2.id,
         type: 'expense',
         amount: 50.0,
@@ -105,8 +114,8 @@ void main() {
         categoryId: cat.id,
       );
 
-      expect(provider.smsRules, hasLength(1));
-      final rule = provider.smsRules.single;
+      expect(harness.vm.smsRules, hasLength(1));
+      final rule = harness.vm.smsRules.single;
       expect(rule.accountId, b.id, reason: 'rule should be updated to the latest account');
       expect(rule.senderId, 'BANK');
     });
@@ -118,8 +127,9 @@ void main() {
       await provider.addCategory(cat);
 
       final item1 = _item('sms-1', merchant: 'CAFE');
-      provider.smsInbox = [item1];
-      await provider.importSmsCandidate(
+      await db.insertSmsInbox(item1);
+      await harness.load();
+      await harness.vm.importSmsCandidate(
         item1.id,
         type: 'expense',
         amount: 100.0,
@@ -129,7 +139,7 @@ void main() {
 
       // A fresh item from the same sender should match the saved rule.
       final item2 = _item('sms-2', merchant: 'CAFE');
-      final rule = provider.smsRuleForItem(item2);
+      final rule = harness.vm.smsRuleForItem(item2);
       expect(rule, isNotNull);
       expect(rule!.accountId, a.id);
       expect(rule.categoryId, cat.id);
@@ -146,25 +156,25 @@ void main() {
       await provider.addAccount(b);
       await provider.addCategory(cat);
 
-      await provider.saveSmsRule(
+      await harness.vm.saveSmsRule(
         senderId: 'BANK',
         merchantPattern: 'CAFE',
         accountId: a.id,
         categoryId: cat.id,
         transactionType: 'expense',
       );
-      expect(provider.smsRules, hasLength(1));
+      expect(harness.vm.smsRules, hasLength(1));
 
       // Same sender + pattern, different account → update in place.
-      await provider.saveSmsRule(
+      await harness.vm.saveSmsRule(
         senderId: 'BANK',
         merchantPattern: 'CAFE',
         accountId: b.id,
         categoryId: cat.id,
         transactionType: 'expense',
       );
-      expect(provider.smsRules, hasLength(1));
-      expect(provider.smsRules.single.accountId, b.id);
+      expect(harness.vm.smsRules, hasLength(1));
+      expect(harness.vm.smsRules.single.accountId, b.id);
     });
 
     test('keeps distinct merchant patterns as separate rules', () async {
@@ -175,14 +185,14 @@ void main() {
       await provider.addAccount(b);
       await provider.addCategory(cat);
 
-      await provider.saveSmsRule(
+      await harness.vm.saveSmsRule(
         senderId: 'BANK',
         merchantPattern: 'CAFE',
         accountId: a.id,
         categoryId: cat.id,
         transactionType: 'expense',
       );
-      await provider.saveSmsRule(
+      await harness.vm.saveSmsRule(
         senderId: 'BANK',
         merchantPattern: 'MARKET',
         accountId: b.id,
@@ -190,7 +200,7 @@ void main() {
         transactionType: 'expense',
       );
 
-      expect(provider.smsRules, hasLength(2));
+      expect(harness.vm.smsRules, hasLength(2));
     });
   });
 }
