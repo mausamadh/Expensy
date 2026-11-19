@@ -14,7 +14,12 @@ import 'aggregations.dart';
 import '../database/app_database.dart';
 import '../database/db_helper.dart';
 import '../domain/ledger/ports/ports.dart';
+import '../domain/ledger/ports/write_ports.dart';
+import '../domain/ledger/balance_delta.dart';
+import '../domain/ledger/rates_unavailable_exception.dart';
 import '../adapters/ledger/drift_ledger_repositories.dart';
+import '../adapters/ledger/drift_ledger_write_repositories.dart';
+import '../application/ledger/ledger_write_use_cases.dart';
 import '../services/exchange_rate_service.dart';
 import '../services/notification_service.dart';
 import '../services/lended_notification_service.dart';
@@ -36,17 +41,6 @@ import 'package:path/path.dart' as p;
 import 'package:expensy_saf/expensy_saf.dart';
 import '../theme/app_theme.dart';
 import '../utils/service_localizations.dart';
-
-// Thrown when a cross-currency transaction or transfer is attempted before
-// live or cached exchange rates have loaded.
-class RatesUnavailableException implements Exception {
-  final String? _message;
-  const RatesUnavailableException([String? message]) : _message = message;
-  String get message =>
-      _message ?? ServiceLocalizations.current.transfer_exchangeRatesNotLoaded;
-  @override
-  String toString() => 'RatesUnavailableException: $message';
-}
 
 class AppSettings {
   String currency;
@@ -177,14 +171,70 @@ class AppProvider extends ChangeNotifier {
   final CategoryRepository _categoryRepo;
   final TransactionRepository _transactionRepo;
 
+  // ── Ledger write use cases (Phase 2b) ─────────────────────────────────
+  // The provider delegates its write methods to these application-layer use
+  // cases. They perform the domain computation + the atomic DB write and
+  // return result objects; the provider keeps the in-memory sync and side
+  // effects (notifications, widgets, snapshots) under its own mutex.
+  final AccountWriteRepository _accountWriteRepo;
+  final AddTransaction _addTransaction;
+  final UpdateTransaction _updateTransaction;
+  final DeleteTransaction _deleteTransaction;
+  final AddTransfer _addTransfer;
+  final SaveTransactionSplits _saveTransactionSplits;
+  final AddAccount _addAccount;
+  final UpdateAccount _updateAccount;
+  final DeleteAccount _deleteAccount;
+  final RestoreAccountSnapshot _restoreAccountSnapshot;
+
   AppProvider({
     AccountRepository? accountRepo,
     CategoryRepository? categoryRepo,
     TransactionRepository? transactionRepo,
+    TransactionWriteRepository? transactionWriteRepo,
+    AccountWriteRepository? accountWriteRepo,
   })  : _accountRepo = accountRepo ?? const DriftAccountRepository(),
         _categoryRepo = categoryRepo ?? const DriftCategoryRepository(),
         _transactionRepo =
-            transactionRepo ?? const DriftTransactionRepository();
+            transactionRepo ?? const DriftTransactionRepository(),
+        _accountWriteRepo =
+            accountWriteRepo ?? const DriftAccountWriteRepository(),
+        _addTransaction = AddTransaction(
+          transactions: transactionWriteRepo ??
+              const DriftTransactionWriteRepository(),
+          balance: const BalanceDeltaService(),
+        ),
+        _updateTransaction = UpdateTransaction(
+          transactions: transactionWriteRepo ??
+              const DriftTransactionWriteRepository(),
+          balance: const BalanceDeltaService(),
+        ),
+        _deleteTransaction = DeleteTransaction(
+          transactions: transactionWriteRepo ??
+              const DriftTransactionWriteRepository(),
+          balance: const BalanceDeltaService(),
+        ),
+        _addTransfer = AddTransfer(
+          transactions: transactionWriteRepo ??
+              const DriftTransactionWriteRepository(),
+          balance: const BalanceDeltaService(),
+        ),
+        _saveTransactionSplits = SaveTransactionSplits(
+          transactions: transactionWriteRepo ??
+              const DriftTransactionWriteRepository(),
+        ),
+        _addAccount = AddAccount(
+          accounts: accountWriteRepo ?? const DriftAccountWriteRepository(),
+        ),
+        _updateAccount = UpdateAccount(
+          accounts: accountWriteRepo ?? const DriftAccountWriteRepository(),
+        ),
+        _deleteAccount = DeleteAccount(
+          accounts: accountWriteRepo ?? const DriftAccountWriteRepository(),
+        ),
+        _restoreAccountSnapshot = RestoreAccountSnapshot(
+          accounts: accountWriteRepo ?? const DriftAccountWriteRepository(),
+        );
 
   AppSettings settings = AppSettings();
   List<Account> _accounts = [];
@@ -795,6 +845,13 @@ class AppProvider extends ChangeNotifier {
 
   Account? accountById(String id) => _accountsById[id];
 
+  /// The in-memory ledger state handed to the ledger write use cases.
+  LedgerContext get _ledgerContext => LedgerContext(
+        accountById: accountById,
+        settingsCurrency: settings.currency,
+        exchangeRates: exchangeRates,
+      );
+
   AppCategory get transferCategory =>
       _categoriesById['sys_transfer'] ??
       AppCategory(
@@ -1012,7 +1069,7 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> addAccount(Account a) async {
     await _serializeMutation(() async {
-      await DBHelper.insertAccount(a);
+      await _addAccount(a);
       accounts = await DBHelper.getAccounts();
       if (a.type == 'credit' && a.creditReminderEnabled) {
         await CreditReminderService().scheduleReminder(a);
@@ -1026,14 +1083,13 @@ class AppProvider extends ChangeNotifier {
   Future<void> updateAccount(Account a) async {
     await _serializeMutation(() async {
       final old = accountById(a.id);
-      final balanceDelta = old != null ? (a.balance - old.balance) : null;
-      await DBHelper.updateAccount(a, balanceDelta: balanceDelta);
+      await _updateAccount(a, old);
       accounts = await DBHelper.getAccounts();
       if (a.dontLinkToCard) {
         final linkedCards =
             accounts.where((acc) => acc.linkedAccountId == a.id).toList();
         for (final card in linkedCards) {
-          await DBHelper.updateAccount(
+          await _accountWriteRepo.updateAccount(
             card.copyWith(clearLinkedAccount: true),
             balanceDelta: 0.0,
           );
@@ -1123,11 +1179,7 @@ class AppProvider extends ChangeNotifier {
 
     return () async {
       await _serializeMutation(() async {
-        await DBHelper.restoreAccountSnapshot(
-          a,
-          txs,
-          attachedSplits,
-        );
+        await _restoreAccountSnapshot(a, txs, attachedSplits);
         accounts = [...accounts, a];
         final nextTxs = [...transactions, ...txs]
           ..sort((x, y) => y.date.compareTo(x.date));
@@ -1144,7 +1196,7 @@ class AppProvider extends ChangeNotifier {
   Future<void> deleteAccount(String id) async {
     await _serializeMutation(() async {
       await CreditReminderService().cancelReminder(id);
-      await DBHelper.deleteAccountCascade(id);
+      await _deleteAccount(id);
       accounts = accounts.where((a) => a.id != id).toList();
       final txIds = transactions
           .where((t) => t.accountId == id)
@@ -1437,29 +1489,17 @@ class AppProvider extends ChangeNotifier {
     List<TransactionSplit>? splits,
   }) async {
     await _serializeMutation(() async {
-      final delta = _txDelta(t, requireRates: true);
-      final balanceAccountId = balanceAccountIdFor(t.accountId);
-      final normalizedCurrency = txCurrency(t);
-      final txToSave = balanceAccountId != t.accountId
-          ? t.copyWith(
-              accountId: balanceAccountId,
-              paidViaAccountId: t.paidViaAccountId ?? t.accountId,
-              currency: normalizedCurrency,
-            )
-          : (t.currency.isEmpty ? t.copyWith(currency: normalizedCurrency) : t);
-
-      await DBHelper.applyTransactionWithBalance(txToSave, delta);
+      final result = await _addTransaction(t, _ledgerContext, splits: splits);
       if (splits != null) {
-        await DBHelper.saveTransactionSplits(txToSave.id, splits);
         this.splits = await DBHelper.getAllSplits();
         _rebuildSplitsCache();
       }
 
-      _patchAccountBalance(balanceAccountId, delta);
-      _insertTransactionInMemory(txToSave);
+      _patchAccountBalance(result.balanceAccountId, result.delta);
+      _insertTransactionInMemory(result.tx);
 
       notifyListeners();
-      await _checkBudgetAlert(txToSave);
+      await _checkBudgetAlert(result.tx);
       updateHomeWidgets();
       recordNetWorthSnapshot();
     });
@@ -1471,56 +1511,28 @@ class AppProvider extends ChangeNotifier {
     List<TransactionSplit>? splits,
   }) async {
     await _serializeMutation(() async {
-      final oldDelta = _txDelta(original, reverse: true);
-      final newDelta = _txDelta(updated, requireRates: true);
-
-      final oldBalanceAccId = balanceAccountIdFor(original.accountId);
-      final newBalanceAccId = balanceAccountIdFor(updated.accountId);
-      final normalizedCurrency = txCurrency(updated);
-
-      // Enforce 'sys_transfer' and preserve transferGroupId on transfer legs.
-      final isTransferTx = original.isTransfer || updated.isTransfer;
-      final enforcedUpdated = isTransferTx
-          ? updated.copyWith(
-              categoryId: 'sys_transfer',
-              transferGroupId: original.transferGroupId ?? updated.transferGroupId,
-            )
-          : updated;
-
-      final txToSave = newBalanceAccId != enforcedUpdated.accountId
-          ? enforcedUpdated.copyWith(
-              accountId: newBalanceAccId,
-              paidViaAccountId:
-                  enforcedUpdated.paidViaAccountId ?? enforcedUpdated.accountId,
-              currency: normalizedCurrency,
-            )
-          : (enforcedUpdated.currency.isEmpty
-              ? enforcedUpdated.copyWith(currency: normalizedCurrency)
-              : enforcedUpdated);
-
-      await DBHelper.applyTransactionEdit(
-        updated: txToSave,
-        oldAccountId: oldBalanceAccId,
-        oldDelta: oldDelta,
-        newAccountId: newBalanceAccId,
-        newDelta: newDelta,
+      final result = await _updateTransaction(
+        updated,
+        original,
+        _ledgerContext,
+        splits: splits,
       );
       if (splits != null) {
-        await DBHelper.saveTransactionSplits(txToSave.id, splits);
         this.splits = await DBHelper.getAllSplits();
         _rebuildSplitsCache();
       }
 
-      if (oldBalanceAccId == newBalanceAccId) {
-        _patchAccountBalance(oldBalanceAccId, oldDelta + newDelta);
+      if (result.oldBalanceAccId == result.newBalanceAccId) {
+        _patchAccountBalance(result.oldBalanceAccId,
+            result.oldDelta + result.newDelta);
       } else {
-        _patchAccountBalance(oldBalanceAccId, oldDelta);
-        _patchAccountBalance(newBalanceAccId, newDelta);
+        _patchAccountBalance(result.oldBalanceAccId, result.oldDelta);
+        _patchAccountBalance(result.newBalanceAccId, result.newDelta);
       }
 
-      _updateTransactionInMemory(txToSave);
+      _updateTransactionInMemory(result.tx);
       notifyListeners();
-      await _checkBudgetAlert(txToSave);
+      await _checkBudgetAlert(result.tx);
       updateHomeWidgets();
       recordNetWorthSnapshot();
     });
@@ -1574,42 +1586,26 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> deleteTransaction(String id) async {
     await _serializeMutation(() async {
-      final t = transactions.where((x) => x.id == id).firstOrNull;
-      if (t != null) {
-        if (t.transferGroupId != null && t.transferGroupId!.isNotEmpty) {
-          final pair = transactions
-              .where((tx) => tx.transferGroupId == t.transferGroupId)
-              .toList();
-          for (final member in pair) {
-            final delta = _txDelta(member, reverse: true);
-            final balAccId = balanceAccountIdFor(member.accountId);
-            await DBHelper.applyDeleteTransactionWithBalance(
-                member.id, balAccId, delta);
-            _patchAccountBalance(balAccId, delta);
-            splits.removeWhere((s) => s.transactionId == member.id);
-            _splitsByTxId.remove(member.id);
-          }
-          transactions = transactions
-              .where((tx) => tx.transferGroupId != t.transferGroupId)
-              .toList();
-          notifyListeners();
-          updateHomeWidgets();
-          recordNetWorthSnapshot();
-          return;
-        }
+      final result = await _deleteTransaction(id, transactions, _ledgerContext);
 
-        final delta = _txDelta(t, reverse: true);
-        final balAccId = balanceAccountIdFor(t.accountId);
-        await DBHelper.applyDeleteTransactionWithBalance(
-            t.id, balAccId, delta);
-        _patchAccountBalance(balAccId, delta);
-      } else {
-        await DBHelper.deleteTransaction(id);
+      for (final r in result.reversals) {
+        _patchAccountBalance(r.accountId, r.delta);
       }
 
-      splits.removeWhere((s) => s.transactionId == id);
-      _splitsByTxId.remove(id);
-      transactions = transactions.where((tx) => tx.id != id).toList();
+      if (result.transferGroupId != null) {
+        final groupId = result.transferGroupId!;
+        transactions =
+            transactions.where((tx) => tx.transferGroupId != groupId).toList();
+        for (final removedId in result.removedIds) {
+          splits.removeWhere((s) => s.transactionId == removedId);
+          _splitsByTxId.remove(removedId);
+        }
+      } else {
+        splits.removeWhere((s) => s.transactionId == id);
+        _splitsByTxId.remove(id);
+        transactions = transactions.where((tx) => tx.id != id).toList();
+      }
+
       notifyListeners();
       updateHomeWidgets();
       recordNetWorthSnapshot();
@@ -1627,85 +1623,27 @@ class AppProvider extends ChangeNotifier {
   }) async {
     if (fromId == toId || fromAmount <= 0) return null;
     return await _serializeMutation<AppTransaction?>(() async {
-      final effFromId = balanceAccountIdFor(fromId);
-      final effToId = balanceAccountIdFor(toId);
-      if (effFromId == effToId) return null;
-
-      final fromAcc = accountById(effFromId);
-      final toAcc   = accountById(effToId);
-      final fromCurrency = fromAcc?.currency ?? settings.currency;
-      final toCurrency   = toAcc?.currency   ?? settings.currency;
-
-      final double creditAmount;
-      if (toAmount != null && toAmount > 0) {
-        creditAmount = toAmount;
-      } else if (fromCurrency == toCurrency) {
-        creditAmount = fromAmount;
-      } else {
-        if (exchangeRates.isEmpty) {
-          throw const RatesUnavailableException();
-        }
-        final converted = convertBetween(fromAmount, fromCurrency, toCurrency);
-        if (converted == null) {
-          throw const RatesUnavailableException();
-        }
-        creditAmount = converted;
-      }
-
-      final txDate = date ?? DateTime.now();
-      const catId = 'sys_transfer';
-      final transferGroupId = newId();
-      final cleanTitle = title?.trim() ?? '';
-      final outDesc = cleanTitle.isNotEmpty
-          ? '$cleanTitle (Transfer out)'
-          : 'Transfer out';
-      final inDesc = cleanTitle.isNotEmpty
-          ? '$cleanTitle (Transfer in)'
-          : 'Transfer in';
-
-      final debit = AppTransaction(
-        id: newId(),
-        type: 'expense',
-        amount: fromAmount,
-        description: outDesc,
-        accountId: effFromId,
-        paidViaAccountId: effFromId != fromId ? fromId : null,
-        categoryId: catId,
-        date: txDate,
+      final result = await _addTransfer(
+        fromId: fromId,
+        toId: toId,
+        fromAmount: fromAmount,
+        toAmount: toAmount,
         note: note,
-        currency: fromCurrency,
-        transferGroupId: transferGroupId,
+        title: title,
+        date: date,
+        ctx: _ledgerContext,
       );
-      final credit = AppTransaction(
-        id: newId(),
-        type: 'income',
-        amount: creditAmount,
-        description: inDesc,
-        accountId: effToId,
-        paidViaAccountId: effToId != toId ? toId : null,
-        categoryId: catId,
-        date: txDate,
-        note: note,
-        currency: toCurrency,
-        transferGroupId: transferGroupId,
-      );
+      if (result == null) return null;
 
-      await DBHelper.applyTransferWithBalances(
-        debit,
-        credit,
-        -fromAmount,
-        creditAmount,
-      );
-
-      _patchAccountBalance(effFromId, -fromAmount);
-      _patchAccountBalance(effToId, creditAmount);
-      _insertTransactionInMemory(debit);
-      _insertTransactionInMemory(credit);
+      _patchAccountBalance(result.fromAccountId, result.fromDelta);
+      _patchAccountBalance(result.toAccountId, result.toDelta);
+      _insertTransactionInMemory(result.debit);
+      _insertTransactionInMemory(result.credit);
 
       notifyListeners();
       updateHomeWidgets();
       recordNetWorthSnapshot();
-      return debit;
+      return result.debit;
     });
   }
 
@@ -1787,7 +1725,7 @@ class AppProvider extends ChangeNotifier {
   Future<void> saveTransactionSplits(
       String transactionId, List<TransactionSplit> newSplits) async {
     await _serializeMutation(() async {
-      await DBHelper.saveTransactionSplits(transactionId, newSplits);
+      await _saveTransactionSplits(transactionId, newSplits);
       splits = await DBHelper.getAllSplits();
       _rebuildSplitsCache();
       notifyListeners();

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
 import '../models/models.dart';
+import '../domain/ledger/rates_unavailable_exception.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
 import '../widgets/app_numeric_keypad.dart';
@@ -509,8 +510,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         await app.addTransaction(targetTx, splits: splitPayload);
       }
       if (mounted) Navigator.pop(context);
-    } on RatesUnavailableException catch (e) {
-      if (mounted) showAppSnackbar(context, e.message);
+    } on RatesUnavailableException {
+      if (mounted) {
+        showAppSnackbar(
+            context,
+            AppLocalizations.of(context)!.transfer_exchangeRatesNotLoaded);
+      }
     }
   }
 

@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
 import '../models/models.dart';
+import '../domain/ledger/rates_unavailable_exception.dart';
 import '../presentation/recurring_localizations.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
@@ -761,8 +762,13 @@ class _RecurringCardState extends State<_RecurringCard> {
                 onTap: () async {
                   try {
                     await context.read<AppProvider>().markRecurringPaid(r);
-                  } on RatesUnavailableException catch (e) {
-                    if (context.mounted) showAppSnackbar(context, e.message);
+                  } on RatesUnavailableException {
+                    if (context.mounted) {
+                      showAppSnackbar(
+                          context,
+                          AppLocalizations.of(context)!
+                              .transfer_exchangeRatesNotLoaded);
+                    }
                   }
                 }),
             ]),

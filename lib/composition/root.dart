@@ -1,6 +1,7 @@
 import 'package:get_it/get_it.dart';
 
 import '../adapters/ledger/drift_ledger_repositories.dart';
+import '../adapters/ledger/drift_ledger_write_repositories.dart';
 import '../adapters/sms/app_provider_ledger_context.dart';
 import '../adapters/sms/app_provider_ledger_gateway.dart';
 import '../adapters/sms/drift_sms_repositories.dart';
@@ -10,6 +11,7 @@ import '../adapters/sms/template_registry_loader.dart';
 import '../adapters/time/system_clock.dart';
 import '../application/mutation_gate.dart';
 import '../domain/ledger/ports/ports.dart';
+import '../domain/ledger/ports/write_ports.dart';
 import '../domain/shared/clock.dart';
 import '../domain/sms_import/ports/ports.dart';
 import '../providers/app_provider.dart';
@@ -41,6 +43,14 @@ class CompositionRoot {
     getIt.registerSingleton<CategoryRepository>(const DriftCategoryRepository());
     getIt.registerSingleton<TransactionRepository>(
         const DriftTransactionRepository());
+
+    // Ledger write ports (Phase 2b) — atomic balance-mutating writes.
+    getIt.registerSingleton<TransactionWriteRepository>(
+        const DriftTransactionWriteRepository());
+    getIt.registerSingleton<AccountWriteRepository>(
+        const DriftAccountWriteRepository());
+    getIt.registerSingleton<CategoryWriteRepository>(
+        const DriftCategoryWriteRepository());
   }
 
   /// Registers the SMS import context (adapters + view model).

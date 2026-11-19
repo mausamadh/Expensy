@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
+import '../domain/ledger/rates_unavailable_exception.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import '../utils/snackbar.dart';
@@ -183,9 +184,12 @@ class PresetsCarousel extends StatelessWidget {
                               onUndo: () => app.deleteTransaction(tx.id),
                             );
                           }
-                        } on RatesUnavailableException catch (e) {
+                        } on RatesUnavailableException {
                           if (context.mounted) {
-                            showAppSnackbar(context, e.message);
+                            showAppSnackbar(
+                                context,
+                                AppLocalizations.of(context)!
+                                    .transfer_exchangeRatesNotLoaded);
                           }
                         }
                       },

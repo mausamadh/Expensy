@@ -4,6 +4,7 @@
 import 'package:drift/native.dart';
 import 'package:finwick/database/app_database.dart';
 import 'package:finwick/models/models.dart';
+import 'package:finwick/domain/ledger/rates_unavailable_exception.dart';
 import 'package:finwick/providers/app_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';

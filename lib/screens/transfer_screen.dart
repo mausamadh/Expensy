@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
+import '../domain/ledger/rates_unavailable_exception.dart';
 import '../theme/app_theme.dart';
 import '../widgets/presets_carousel.dart';
 import '../widgets/shared_widgets.dart';
@@ -99,8 +100,10 @@ class _TransferScreenState extends State<TransferScreen> {
         note: _noteCtrl.text.trim(),
       );
       if (mounted) Navigator.pop(context);
-    } on RatesUnavailableException catch (e) {
-      if (mounted) showAppSnackbar(context, e.message);
+    } on RatesUnavailableException {
+      if (mounted) {
+        showAppSnackbar(context, l10n.transfer_exchangeRatesNotLoaded);
+      }
     }
   }
 
