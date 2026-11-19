@@ -16,6 +16,7 @@ import 'presentation/viewmodels/networth_view_model.dart';
 import 'presentation/viewmodels/presets_view_model.dart';
 import 'presentation/viewmodels/recurring_view_model.dart';
 import 'presentation/viewmodels/sms_inbox_view_model.dart';
+import 'presentation/viewmodels/transactions_view_model.dart';
 import 'providers/app_provider.dart';
 import 'l10n/app_localizations.dart';
 import 'theme/app_theme.dart';
@@ -105,6 +106,11 @@ void main() async {
   // the VM in place.
   CompositionRoot.initNetWorth(provider);
   final netWorthVm = CompositionRoot.getIt<NetWorthViewModel>();
+  // Wire the transactions (ledger) view model before load(): load() assigns
+  // the transactions/splits lists through the provider's delegating setters,
+  // which need the VM in place.
+  CompositionRoot.initTransactions(provider);
+  final transactionsVm = CompositionRoot.getIt<TransactionsViewModel>();
   try {
     await provider.load(); // DB reads finish before Flutter draws anything
   } catch (e, stack) {
@@ -132,6 +138,8 @@ void main() async {
         ChangeNotifierProvider<CertificateViewModel>.value(
             value: certificateVm),
         ChangeNotifierProvider<NetWorthViewModel>.value(value: netWorthVm),
+        ChangeNotifierProvider<TransactionsViewModel>.value(
+            value: transactionsVm),
         ChangeNotifierProvider<SmsInboxViewModel>.value(value: smsVm),
       ],
       child: const ExpensyApp(),

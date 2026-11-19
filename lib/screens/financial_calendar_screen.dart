@@ -8,6 +8,7 @@ import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
 import '../presentation/viewmodels/loans_view_model.dart';
 import '../presentation/viewmodels/recurring_view_model.dart';
+import '../presentation/viewmodels/transactions_view_model.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
 import '../widgets/shared_widgets.dart';
@@ -71,6 +72,9 @@ class _FinancialCalendarScreenState extends State<FinancialCalendarScreen> {
     context.watch<LendedViewModel>();
     context.watch<LoansViewModel>();
     context.watch<RecurringViewModel>();
+    // The ledger slice is owned by TransactionsViewModel (Phase 6) — watch
+    // it so the calendar rebuilds when transactions mutate.
+    context.watch<TransactionsViewModel>();
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cur = app.settings.currency;

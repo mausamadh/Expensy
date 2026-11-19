@@ -6,6 +6,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
 import '../presentation/viewmodels/categories_view_model.dart';
+import '../presentation/viewmodels/transactions_view_model.dart';
 import '../providers/aggregations.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
@@ -135,6 +136,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
     context.watch<CategoriesViewModel>();
+    // The ledger slice is owned by TransactionsViewModel (Phase 6) — watch
+    // it so the memoized statistics rebuild when transactions mutate.
+    context.watch<TransactionsViewModel>();
     final cs = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
     String fmt(double v) => formatAmount(v, app.settings.currency);

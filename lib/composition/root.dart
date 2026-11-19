@@ -25,6 +25,8 @@ import '../adapters/sms/template_registry_loader.dart';
 import '../adapters/time/system_clock.dart';
 import '../adapters/wealth/drift_asset_repository.dart';
 import '../application/backup/backup_use_cases.dart';
+import '../application/ledger/ledger_write_use_cases.dart'
+    hide LedgerContext;
 import '../application/mutation_gate.dart';
 import '../domain/backup/backup_validator.dart';
 import '../domain/backup/ports/ports.dart';
@@ -32,6 +34,7 @@ import '../domain/budgeting/ports/budget_store.dart';
 import '../domain/budgeting/ports/budget_write_port.dart';
 import '../domain/certificates/ports/certificate_store.dart';
 import '../domain/categories/ports/category_store.dart';
+import '../domain/ledger/balance_delta.dart';
 import '../domain/fx/ports/exchange_rate_provider.dart';
 import '../domain/goals/ports/goals_repository.dart';
 import '../domain/lended/ports/lended_repository.dart';
@@ -57,6 +60,7 @@ import '../presentation/viewmodels/networth_view_model.dart';
 import '../presentation/viewmodels/presets_view_model.dart';
 import '../presentation/viewmodels/recurring_view_model.dart';
 import '../presentation/viewmodels/sms_inbox_view_model.dart';
+import '../presentation/viewmodels/transactions_view_model.dart';
 import '../services/certificate_reminder_service.dart';
 import '../services/notification_service.dart';
 import '../services/recurring_payment_processor.dart';
@@ -425,6 +429,45 @@ class CompositionRoot {
       ),
     );
     provider.wireCertificateVm(getIt<CertificateViewModel>());
+  }
+
+  /// Wires the Ledger (transactions) bounded context (Phase 6). Registers
+  /// the [TransactionsViewModel] as a lazy singleton with the ledger write
+  /// use cases, the transaction read port, and the provider's cross-cutting
+  /// hooks, then wires it into the provider so the ledger shims delegate to
+  /// it.
+  static void initTransactions(AppProvider provider) {
+    getIt.registerLazySingleton<TransactionsViewModel>(
+      () => TransactionsViewModel(
+        addTransaction: AddTransaction(
+          transactions: getIt<TransactionWriteRepository>(),
+          balance: const BalanceDeltaService(),
+        ),
+        updateTransaction: UpdateTransaction(
+          transactions: getIt<TransactionWriteRepository>(),
+          balance: const BalanceDeltaService(),
+        ),
+        deleteTransaction: DeleteTransaction(
+          transactions: getIt<TransactionWriteRepository>(),
+          balance: const BalanceDeltaService(),
+        ),
+        addTransfer: AddTransfer(
+          transactions: getIt<TransactionWriteRepository>(),
+          balance: const BalanceDeltaService(),
+        ),
+        saveTransactionSplits: SaveTransactionSplits(
+          transactions: getIt<TransactionWriteRepository>(),
+        ),
+        transactionRepo: getIt<TransactionRepository>(),
+        ledgerContext: () => provider.ledgerContext,
+        patchAccountBalance: provider.patchAccountBalance,
+        checkBudgetAlert: provider.checkBudgetAlert,
+        updateHomeWidgets: provider.updateHomeWidgets,
+        recordNetWorthSnapshot: provider.recordNetWorthSnapshot,
+        serializeMutation: provider.serializeMutation,
+      ),
+    );
+    provider.wireTransactionsVm(getIt<TransactionsViewModel>());
   }
 
   /// Wires the Net Worth bounded context (Phase 6). Registers the

@@ -14,6 +14,7 @@ import '../presentation/viewmodels/lended_view_model.dart';
 import '../presentation/viewmodels/loans_view_model.dart';
 import '../presentation/viewmodels/presets_view_model.dart';
 import '../presentation/viewmodels/recurring_view_model.dart';
+import '../presentation/viewmodels/transactions_view_model.dart';
 import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../utils/snackbar.dart';
@@ -297,6 +298,9 @@ class _BackupScreenState extends State<BackupScreen> {
     context.watch<BudgetsViewModel>();
     context.watch<RecurringViewModel>();
     context.watch<CertificateViewModel>();
+    // Keep the transaction count in sync (the view model owns that state
+    // slice, Phase 6).
+    context.watch<TransactionsViewModel>();
     final cs = Theme.of(context).colorScheme;
 
     // Live counts for the "what's included" breakdown. This list is kept in
@@ -1114,6 +1118,9 @@ class _SelectiveBackupSheetState extends State<_SelectiveBackupSheet> {
     context.watch<BudgetsViewModel>();
     context.watch<RecurringViewModel>();
     context.watch<CertificateViewModel>();
+    // Keep the transaction count in sync (the view model owns that state
+    // slice, Phase 6).
+    context.watch<TransactionsViewModel>();
     final cs = Theme.of(context).colorScheme;
 
     final entities = [

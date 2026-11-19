@@ -10,6 +10,8 @@ import 'package:finwick/providers/app_provider.dart';
 import 'package:finwick/screens/export_screen.dart';
 import 'package:finwick/services/pdf_report_service.dart';
 import 'package:finwick/l10n/app_localizations.dart';
+import 'package:finwick/presentation/viewmodels/transactions_view_model.dart';
+import 'helpers/transactions_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -124,21 +126,23 @@ void main() {
         currency: 'USD',
         colorValue: 0xFF1E88E5,
       );
-      app.accounts.clear();
-      app.accounts.add(acc);
-      app.transactions.clear();
-      app.transactions.add(
-        AppTransaction(
-          id: 'tx1',
-          type: 'expense',
-          amount: 50.0,
-          description: 'Coffee',
-          accountId: 'acc1',
-          categoryId: '',
-          date: DateTime.now(),
-          currency: 'USD',
-        ),
+      final tx = AppTransaction(
+        id: 'tx1',
+        type: 'expense',
+        amount: 50.0,
+        description: 'Coffee',
+        accountId: 'acc1',
+        categoryId: '',
+        date: DateTime.now(),
+        currency: 'USD',
       );
+
+      // Wire the TransactionsViewModel first (wrapWithTransactions does this),
+      // then assign data through the delegating setters so it lands in the VM.
+      final vm = buildTransactionsViewModel();
+      app.wireTransactionsVm(vm);
+      app.accounts = [acc];
+      app.transactions = [tx];
 
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 2.0;
@@ -148,8 +152,11 @@ void main() {
       });
 
       await tester.pumpWidget(
-        ChangeNotifierProvider<AppProvider>.value(
-          value: app,
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AppProvider>.value(value: app),
+            ChangeNotifierProvider<TransactionsViewModel>.value(value: vm),
+          ],
           child: const MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,

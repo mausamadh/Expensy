@@ -13,6 +13,7 @@ import '../presentation/viewmodels/certificate_view_model.dart';
 import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/loans_view_model.dart';
 import '../presentation/viewmodels/networth_view_model.dart';
+import '../presentation/viewmodels/transactions_view_model.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
@@ -253,6 +254,9 @@ class _InsightsScreenState extends State<InsightsScreen> {
     // The net-worth slice is owned by NetWorthViewModel (Phase 6) — watch
     // it so the net-worth trend rebuilds when a snapshot is recorded.
     context.watch<NetWorthViewModel>();
+    // The ledger slice is owned by TransactionsViewModel (Phase 6) — watch
+    // it so the insights rebuild when transactions mutate.
+    context.watch<TransactionsViewModel>();
     final cs  = Theme.of(context).colorScheme;
     final cur = app.settings.currency;
     // Helper method `fmt`: handles user action or computes derived UI state.

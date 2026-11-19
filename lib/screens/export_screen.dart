@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/transactions_view_model.dart';
 import '../services/pdf_report_service.dart';
 import '../utils/haptics.dart';
 
@@ -149,6 +150,9 @@ class _ExportScreenState extends State<ExportScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final app = context.watch<AppProvider>();
+    // The ledger slice is owned by TransactionsViewModel (Phase 6) — watch
+    // it so the export count rebuilds when transactions mutate.
+    context.watch<TransactionsViewModel>();
     final cs = Theme.of(context).colorScheme;
     final start = DateTime(_from.year, _from.month, _from.day);
     final end = DateTime(_to.year, _to.month, _to.day, 23, 59, 59);

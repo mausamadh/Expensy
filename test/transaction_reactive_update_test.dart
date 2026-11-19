@@ -13,6 +13,7 @@ import 'helpers/presets_test_harness.dart';
 import 'helpers/goals_test_harness.dart';
 import 'helpers/lended_test_harness.dart';
 import 'helpers/loans_test_harness.dart';
+import 'helpers/transactions_test_harness.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -149,7 +150,7 @@ void main() {
 
   group('Cross-Screen Two-Way Deletion & Sync Widget Tests', () {
     Widget buildTestApp(Widget child) {
-      return wrapWithBudgets(provider, wrapWithLended(
+      return wrapWithTransactions(provider, wrapWithBudgets(provider, wrapWithLended(
         provider,
         wrapWithGoals(
           provider,
@@ -169,7 +170,7 @@ void main() {
             ),
           ),
         ),
-      ));
+      )));
     }
 
     testWidgets('TransactionsScreen updates immediately when transaction added/deleted',

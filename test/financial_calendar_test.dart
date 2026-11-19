@@ -11,6 +11,7 @@ import 'helpers/categories_test_harness.dart';
 import 'helpers/lended_test_harness.dart';
 import 'helpers/loans_test_harness.dart';
 import 'helpers/recurring_test_harness.dart';
+import 'helpers/transactions_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -216,7 +217,7 @@ void main() {
 
       // Wire the view models into the provider first (the wraps do this),
       // then assign data so it lands in the VMs, then pump.
-      final widget = wrapWithRecurring(app, wrapWithLended(
+      final widget = wrapWithTransactions(app, wrapWithRecurring(app, wrapWithLended(
         app,
         wrapWithLoans(
           app,
@@ -229,7 +230,7 @@ void main() {
             ),
           ),
         ),
-      ));
+      )));
 
       app.categories = [cat];
       app.accounts = [acc];

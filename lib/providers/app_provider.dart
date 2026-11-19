@@ -59,6 +59,7 @@ import '../presentation/viewmodels/budgets_view_model.dart';
 import '../presentation/viewmodels/recurring_view_model.dart';
 import '../presentation/viewmodels/certificate_view_model.dart';
 import '../presentation/viewmodels/networth_view_model.dart';
+import '../presentation/viewmodels/transactions_view_model.dart';
 
 class AppSettings {
   String currency;
@@ -430,19 +431,52 @@ class AppProvider extends ChangeNotifier {
     _recurringHistoryCountFallback = vm.recurringHistoryCount;
   }
 
-  List<AppTransaction>        transactions = [];
-  // recurring is delegated to RecurringViewModel (Phase 6) — see the
-  // delegation block above.
-  // wishlist / savingsGoals / savingsContributions are delegated to
-  // GoalsViewModel (Phase 6) — see the delegation block below.
-  // lendedPeople / lended are delegated to LendedViewModel (Phase 6) — see
-  // the delegation block below.
-  // budgets is delegated to BudgetsViewModel (Phase 6) — see the delegation
-  // block below.
-  // netWorthSnapshots is delegated to NetWorthViewModel (Phase 6) — see the
-  // delegation block below.
-  List<TransactionSplit>      splits       = [];
+  // ── Ledger (delegated to TransactionsViewModel, Phase 6) ──────────────
+  /// Back-reference to the transactions view model, wired by the composition
+  /// root before [load] runs. Null in standalone/test construction, in which
+  /// case the local [_transactionsFallback] / [_splitsFallback] fields are
+  /// used so the net-worth engine, backup/more screens, and the SMS adapter
+  /// keep working without a view model.
+  TransactionsViewModel? _transactionsVm;
+  List<AppTransaction> _transactionsFallback = [];
+  List<TransactionSplit> _splitsFallback = [];
   Map<String, List<TransactionSplit>> _splitsByTxId = {};
+
+  /// All transactions (newest first). Delegates to the view model when wired.
+  List<AppTransaction> get transactions =>
+      _transactionsVm?.transactions ?? _transactionsFallback;
+
+  /// Replaces the transaction list. Delegates to the view model when wired;
+  /// the view model's setter notifies its own listeners.
+  set transactions(List<AppTransaction> next) {
+    if (_transactionsVm != null) {
+      _transactionsVm!.transactions = next;
+    } else {
+      _transactionsFallback = next;
+    }
+  }
+
+  /// All splits. Delegates to the view model when wired.
+  List<TransactionSplit> get splits =>
+      _transactionsVm?.splits ?? _splitsFallback;
+
+  /// Replaces the split list. Delegates to the view model when wired; the
+  /// view model's setter rebuilds its split cache and notifies.
+  set splits(List<TransactionSplit> next) {
+    if (_transactionsVm != null) {
+      _transactionsVm!.splits = next;
+    } else {
+      _splitsFallback = next;
+      _rebuildSplitsCache();
+    }
+  }
+
+  /// Wires the transactions view model (composition root, before [load]).
+  void wireTransactionsVm(TransactionsViewModel vm) {
+    _transactionsVm = vm;
+    _transactionsFallback = vm.transactions;
+    _splitsFallback = vm.splits;
+  }
 
   // ── Assets (delegated to AssetsViewModel, Phase 6) ────────────────────
   /// Back-reference to the assets view model, wired by the composition root
@@ -1320,6 +1354,10 @@ class AppProvider extends ChangeNotifier {
         exchangeRates: exchangeRates,
       );
 
+  /// Public hook for the TransactionsViewModel: the ledger context resolved
+  /// at mutation time.
+  LedgerContext get ledgerContext => _ledgerContext;
+
   AppCategory get transferCategory =>
       _categoriesVm?.transferCategory ??
       _categoriesFallback.firstWhere(
@@ -1955,6 +1993,13 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
+  /// Public hook for the TransactionsViewModel: applies an atomic balance
+  /// delta to [accountId] (skipping gold accounts). The view model's own
+  /// `notifyListeners()` drives the UI update; the `accounts` setter does not
+  /// notify on its own.
+  void patchAccountBalance(String accountId, double delta) =>
+      _patchAccountBalance(accountId, delta);
+
   void _insertTransactionInMemory(AppTransaction t) {
     final next = List<AppTransaction>.from(transactions);
     next.add(t);
@@ -1978,6 +2023,11 @@ class AppProvider extends ChangeNotifier {
     AppTransaction t, {
     List<TransactionSplit>? splits,
   }) async {
+    final vm = _transactionsVm;
+    if (vm != null) {
+      await vm.addTransaction(t, splits: splits);
+      return;
+    }
     await serializeMutation(() async {
       final result = await _addTransaction(t, _ledgerContext, splits: splits);
       if (splits != null) {
@@ -2000,6 +2050,11 @@ class AppProvider extends ChangeNotifier {
     AppTransaction original, {
     List<TransactionSplit>? splits,
   }) async {
+    final vm = _transactionsVm;
+    if (vm != null) {
+      await vm.updateTransaction(updated, original, splits: splits);
+      return;
+    }
     await serializeMutation(() async {
       final result = await _updateTransaction(
         updated,
@@ -2074,7 +2129,18 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
+  /// Public hook for the TransactionsViewModel: runs the post-mutation budget
+  /// alert check. Reads the split cache through [isTransactionSplit]/
+  /// [getSplits], which delegate to the view model when wired, so the VM's
+  /// freshly-rebuilt cache is what the alert logic sees.
+  Future<void> checkBudgetAlert(AppTransaction t) => _checkBudgetAlert(t);
+
   Future<void> deleteTransaction(String id) async {
+    final vm = _transactionsVm;
+    if (vm != null) {
+      await vm.deleteTransaction(id);
+      return;
+    }
     await serializeMutation(() async {
       final result = await _deleteTransaction(id, transactions, _ledgerContext);
 
@@ -2087,11 +2153,11 @@ class AppProvider extends ChangeNotifier {
         transactions =
             transactions.where((tx) => tx.transferGroupId != groupId).toList();
         for (final removedId in result.removedIds) {
-          splits.removeWhere((s) => s.transactionId == removedId);
+          splits = splits.where((s) => s.transactionId != removedId).toList();
           _splitsByTxId.remove(removedId);
         }
       } else {
-        splits.removeWhere((s) => s.transactionId == id);
+        splits = splits.where((s) => s.transactionId != id).toList();
         _splitsByTxId.remove(id);
         transactions = transactions.where((tx) => tx.id != id).toList();
       }
@@ -2111,6 +2177,18 @@ class AppProvider extends ChangeNotifier {
     String? title,
     DateTime? date,
   }) async {
+    final vm = _transactionsVm;
+    if (vm != null) {
+      return await vm.addTransfer(
+        fromId: fromId,
+        toId: toId,
+        fromAmount: fromAmount,
+        toAmount: toAmount,
+        note: note,
+        title: title,
+        date: date,
+      );
+    }
     if (fromId == toId || fromAmount <= 0) return null;
     return await serializeMutation<AppTransaction?>(() async {
       final result = await _addTransfer(
@@ -2212,6 +2290,9 @@ class AppProvider extends ChangeNotifier {
   }
 
   // ── Splits ────────────────────────────────────────────────────────────
+  // The split cache lives in the TransactionsViewModel when wired; the
+  // provider keeps its own [_splitsByTxId] only for standalone/test
+  // construction (no VM).
   void _rebuildSplitsCache() {
     _splitsByTxId = {};
     for (final s in splits) {
@@ -2220,19 +2301,37 @@ class AppProvider extends ChangeNotifier {
   }
 
   @visibleForTesting
-  void rebuildSplitsCache() => _rebuildSplitsCache();
+  void rebuildSplitsCache() {
+    final vm = _transactionsVm;
+    if (vm != null) {
+      vm.rebuildSplitsCache();
+      return;
+    }
+    _rebuildSplitsCache();
+  }
 
-  bool isTransactionSplit(String txId) =>
-      _splitsByTxId.containsKey(txId) && _splitsByTxId[txId]!.isNotEmpty;
+  bool isTransactionSplit(String txId) {
+    final vm = _transactionsVm;
+    if (vm != null) return vm.isTransactionSplit(txId);
+    return _splitsByTxId.containsKey(txId) && _splitsByTxId[txId]!.isNotEmpty;
+  }
 
-  List<TransactionSplit> getSplits(String txId) =>
-      _splitsByTxId[txId] ?? const [];
+  List<TransactionSplit> getSplits(String txId) {
+    final vm = _transactionsVm;
+    if (vm != null) return vm.getSplits(txId);
+    return _splitsByTxId[txId] ?? const [];
+  }
 
   Future<List<TransactionSplit>> getSplitsForTransaction(String transactionId) =>
       AppDatabase.instance.getSplitsForTransaction(transactionId);
 
   Future<void> saveTransactionSplits(
       String transactionId, List<TransactionSplit> newSplits) async {
+    final vm = _transactionsVm;
+    if (vm != null) {
+      await vm.saveTransactionSplits(transactionId, newSplits);
+      return;
+    }
     await serializeMutation(() async {
       await _saveTransactionSplits(transactionId, newSplits);
       splits = await AppDatabase.instance.getAllSplits();
@@ -3887,7 +3986,7 @@ class AppProvider extends ChangeNotifier {
           await AppDatabase.instance.applyDeleteTransactionWithBalance(
               tx.id, balAccId, delta);
           _patchAccountBalance(balAccId, delta);
-          splits.removeWhere((s) => s.transactionId == tx.id);
+          splits = splits.where((s) => s.transactionId != tx.id).toList();
           _splitsByTxId.remove(tx.id);
         }
         if (relatedTxs.isNotEmpty) {
@@ -3919,7 +4018,7 @@ class AppProvider extends ChangeNotifier {
       await AppDatabase.instance.applyDeleteTransactionWithBalance(
           tx.id, balAccId, delta);
       _patchAccountBalance(balAccId, delta);
-      splits.removeWhere((s) => s.transactionId == tx.id);
+      splits = splits.where((s) => s.transactionId != tx.id).toList();
       _splitsByTxId.remove(tx.id);
     }
     final relIds = txs.map((t) => t.id).toSet();

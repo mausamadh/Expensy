@@ -11,6 +11,7 @@ import '../models/models.dart';
 import '../providers/app_provider.dart';
 import '../presentation/viewmodels/budgets_view_model.dart';
 import '../presentation/viewmodels/categories_view_model.dart';
+import '../presentation/viewmodels/transactions_view_model.dart';
 import '../providers/aggregations.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
@@ -101,6 +102,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final app = context.watch<AppProvider>();
     context.watch<CategoriesViewModel>();
     context.watch<BudgetsViewModel>();
+    // The ledger slice is owned by TransactionsViewModel (Phase 6) — watch
+    // it so the memoized transaction list rebuilds when it mutates.
+    context.watch<TransactionsViewModel>();
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 

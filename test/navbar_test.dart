@@ -18,6 +18,7 @@ import 'helpers/goals_test_harness.dart';
 import 'helpers/lended_test_harness.dart';
 import 'helpers/loans_test_harness.dart';
 import 'helpers/recurring_test_harness.dart';
+import 'helpers/transactions_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -64,7 +65,7 @@ void main() {
     testWidgets('MainShell renders floating navbar with rounded square highlight', (tester) async {
       final app = AppProvider();
       await tester.pumpWidget(
-        wrapWithCertificates(app, wrapWithRecurring(app, wrapWithBudgets(app, wrapWithLended(
+        wrapWithTransactions(app, wrapWithCertificates(app, wrapWithRecurring(app, wrapWithBudgets(app, wrapWithLended(
           app,
           wrapWithGoals(
             app,
@@ -83,7 +84,7 @@ void main() {
               ),
             ),
           ),
-        )))),
+        ))))),
       );
 
       expect(find.byType(NavigationBar), findsOneWidget);
@@ -141,7 +142,7 @@ void main() {
     testWidgets('Tapping all tabs displays each screen and never renders blank SizedBox', (tester) async {
       final app = AppProvider();
       await tester.pumpWidget(
-        wrapWithCertificates(app, wrapWithRecurring(app, wrapWithBudgets(app, wrapWithLended(
+        wrapWithTransactions(app, wrapWithCertificates(app, wrapWithRecurring(app, wrapWithBudgets(app, wrapWithLended(
           app,
           wrapWithGoals(
             app,
@@ -160,7 +161,7 @@ void main() {
               ),
             ),
           ),
-        )))),
+        ))))),
       );
 
       // Tab 0: Home is visible
