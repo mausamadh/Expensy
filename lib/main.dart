@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'composition/root.dart';
 import 'presentation/viewmodels/assets_view_model.dart';
+import 'presentation/viewmodels/presets_view_model.dart';
 import 'presentation/viewmodels/sms_inbox_view_model.dart';
 import 'providers/app_provider.dart';
 import 'l10n/app_localizations.dart';
@@ -52,6 +53,10 @@ void main() async {
   // through the provider's delegating setter, which needs the VM in place.
   CompositionRoot.initAssets(provider);
   final assetsVm = CompositionRoot.getIt<AssetsViewModel>();
+  // Wire the presets view model before load(): load() assigns the preset
+  // list through the provider's delegating setter, which needs the VM in place.
+  CompositionRoot.initPresets(provider);
+  final presetsVm = CompositionRoot.getIt<PresetsViewModel>();
   try {
     await provider.load(); // DB reads finish before Flutter draws anything
   } catch (e, stack) {
@@ -69,6 +74,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider<AppProvider>.value(value: provider),
         ChangeNotifierProvider<AssetsViewModel>.value(value: assetsVm),
+        ChangeNotifierProvider<PresetsViewModel>.value(value: presetsVm),
         ChangeNotifierProvider<SmsInboxViewModel>.value(value: smsVm),
       ],
       child: const ExpensyApp(),

@@ -9,6 +9,7 @@ import 'package:finwick/providers/app_provider.dart';
 import 'package:finwick/screens/budget_screen.dart';
 import 'package:finwick/screens/home_screen.dart';
 import 'package:finwick/l10n/app_localizations.dart';
+import 'helpers/presets_test_harness.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -544,9 +545,9 @@ void main() {
       app.transactions = [];
 
       await tester.pumpWidget(
-        ChangeNotifierProvider<AppProvider>.value(
-          value: app,
-          child: const MaterialApp(
+        wrapWithPresets(
+          app,
+          const MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: HomeScreen(),

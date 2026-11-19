@@ -50,6 +50,7 @@ import 'package:expensy_saf/expensy_saf.dart';
 import '../theme/app_theme.dart';
 import '../utils/service_localizations.dart';
 import '../presentation/viewmodels/assets_view_model.dart';
+import '../presentation/viewmodels/presets_view_model.dart';
 
 class AppSettings {
   String currency;
@@ -338,7 +339,6 @@ class AppProvider extends ChangeNotifier {
   List<SavingsGoal>           savingsGoals = [];
   List<SavingsContribution>   savingsContributions = [];
   List<NetWorthSnapshot>      netWorthSnapshots = [];
-  List<TransactionPreset>     presets      = [];
   List<TransactionSplit>      splits       = [];
   Map<String, List<TransactionSplit>> _splitsByTxId = {};
 
@@ -367,6 +367,34 @@ class AppProvider extends ChangeNotifier {
   void wireAssetsVm(AssetsViewModel vm) {
     _assetsVm = vm;
     _assetsFallback = vm.assets;
+  }
+
+  // ── Presets (delegated to PresetsViewModel, Phase 6) ──────────────────
+  /// Back-reference to the presets view model, wired by the composition root
+  /// before [load] runs. Null in standalone/test construction, in which case
+  /// the local [_presetsFallback] field is used so the preset CRUD shims and
+  /// the carousel/backup screens keep working without a view model.
+  PresetsViewModel? _presetsVm;
+  List<TransactionPreset> _presetsFallback = [];
+
+  /// All presets in creation order. Delegates to the view model when wired.
+  List<TransactionPreset> get presets =>
+      _presetsVm?.presets ?? _presetsFallback;
+
+  /// Replaces the preset list. Delegates to the view model when wired; the
+  /// view model's setter notifies its own listeners.
+  set presets(List<TransactionPreset> next) {
+    if (_presetsVm != null) {
+      _presetsVm!.presets = next;
+    } else {
+      _presetsFallback = next;
+    }
+  }
+
+  /// Wires the presets view model (composition root, before [load]).
+  void wirePresetsVm(PresetsViewModel vm) {
+    _presetsVm = vm;
+    _presetsFallback = vm.presets;
   }
 
   /// Total row count in `recurring_history` — kept for display purposes
@@ -1753,21 +1781,40 @@ class AppProvider extends ChangeNotifier {
   }
 
   // ── Presets ───────────────────────────────────────────────────────────
+  // Thin delegating shims. When the PresetsViewModel is wired (production),
+  // the mutation runs through the view model so its listeners update. In
+  // standalone/test construction (no VM) the shims hit the DB directly and
+  // update the local fallback list, preserving the pre-Phase-6 behavior.
   Future<void> addPreset(TransactionPreset p) async {
+    final vm = _presetsVm;
+    if (vm != null) {
+      await vm.addPreset(p);
+      return;
+    }
     await AppDatabase.instance.insertPreset(p);
-    presets = await AppDatabase.instance.getPresets();
+    _presetsFallback = await AppDatabase.instance.getPresets();
     notifyListeners();
   }
 
   Future<void> updatePreset(TransactionPreset p) async {
+    final vm = _presetsVm;
+    if (vm != null) {
+      await vm.updatePreset(p);
+      return;
+    }
     await AppDatabase.instance.updatePreset(p);
-    presets = await AppDatabase.instance.getPresets();
+    _presetsFallback = await AppDatabase.instance.getPresets();
     notifyListeners();
   }
 
   Future<void> deletePreset(String id) async {
+    final vm = _presetsVm;
+    if (vm != null) {
+      await vm.deletePreset(id);
+      return;
+    }
     await AppDatabase.instance.deletePreset(id);
-    presets = presets.where((p) => p.id != id).toList();
+    _presetsFallback = _presetsFallback.where((p) => p.id != id).toList();
     notifyListeners();
   }
 

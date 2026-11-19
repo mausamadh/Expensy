@@ -7,6 +7,7 @@ import '../adapters/budgeting/drift_budget_write_repository.dart';
 import '../adapters/fx/http_exchange_rate_provider.dart';
 import '../adapters/ledger/drift_ledger_repositories.dart';
 import '../adapters/ledger/drift_ledger_write_repositories.dart';
+import '../adapters/ledger/drift_preset_repository.dart';
 import '../adapters/sms/app_provider_ledger_context.dart';
 import '../adapters/sms/app_provider_ledger_gateway.dart';
 import '../adapters/sms/drift_sms_repositories.dart';
@@ -22,6 +23,7 @@ import '../domain/backup/ports/ports.dart';
 import '../domain/budgeting/ports/budget_write_port.dart';
 import '../domain/fx/ports/exchange_rate_provider.dart';
 import '../domain/ledger/ports/ports.dart';
+import '../domain/ledger/ports/preset_repository.dart';
 import '../domain/ledger/ports/write_ports.dart';
 import '../domain/shared/clock.dart';
 import '../domain/sms_import/ports/ports.dart';
@@ -29,6 +31,7 @@ import '../domain/wealth/ports/asset_repository.dart';
 import '../database/app_database.dart';
 import '../providers/app_provider.dart';
 import '../presentation/viewmodels/assets_view_model.dart';
+import '../presentation/viewmodels/presets_view_model.dart';
 import '../presentation/viewmodels/sms_inbox_view_model.dart';
 
 /// Composition root: the ONLY place concrete adapters are constructed.
@@ -75,6 +78,9 @@ class CompositionRoot {
 
     // Wealth persistence port (Phase 6) — asset (valuables) storage.
     getIt.registerSingleton<AssetRepository>(const DriftAssetRepository());
+
+    // Ledger persistence port (Phase 6) — transaction preset storage.
+    getIt.registerSingleton<PresetRepository>(const DriftPresetRepository());
 
     // Backup ports (Phase 5) — data export/import, keychain, safety
     // snapshots. Resolved by the backup use cases below.
@@ -185,6 +191,19 @@ class CompositionRoot {
       ),
     );
     provider.wireAssetsVm(getIt<AssetsViewModel>());
+  }
+
+  /// Registers the Presets view model (Phase 6).
+  ///
+  /// Called from `main()` right after the [AppProvider] is constructed and
+  /// BEFORE `provider.load()` runs, because `load()` assigns the preset list
+  /// through the provider's delegating setter, which requires the view model
+  /// to already be wired.
+  static void initPresets(AppProvider provider) {
+    getIt.registerLazySingleton<PresetsViewModel>(
+      () => PresetsViewModel(repository: getIt<PresetRepository>()),
+    );
+    provider.wirePresetsVm(getIt<PresetsViewModel>());
   }
 
   /// Test hook: clears all registrations so a test can build its own

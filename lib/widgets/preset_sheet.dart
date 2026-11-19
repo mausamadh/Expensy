@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/presets_view_model.dart';
 import '../widgets/shared_widgets.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
@@ -144,6 +145,7 @@ class _PresetSheetState extends State<PresetSheet> {
     if (_accountId == null) return;
 
     final app = context.read<AppProvider>();
+    final presetsVm = context.read<PresetsViewModel>();
     final acc = app.accountById(_accountId!);
     final currency = acc?.currency ?? app.settings.currency;
 
@@ -187,14 +189,14 @@ class _PresetSheetState extends State<PresetSheet> {
         note: _noteCtrl.text.trim(),
         colorValue: _colorValue,
       );
-      await app.updatePreset(updated);
+      await presetsVm.updatePreset(updated);
       if (mounted) {
         showAppSnackbar(context, l10n.presets_presetUpdated);
         Navigator.pop(context);
       }
     } else {
       final preset = TransactionPreset(
-        id: app.newId(),
+        id: presetsVm.newId(),
         title: title,
         type: _type,
         amount: amount,
@@ -206,7 +208,7 @@ class _PresetSheetState extends State<PresetSheet> {
         note: _noteCtrl.text.trim(),
         colorValue: _colorValue,
       );
-      await app.addPreset(preset);
+      await presetsVm.addPreset(preset);
       if (mounted) {
         showAppSnackbar(context, l10n.presets_presetAdded);
         Navigator.pop(context);
@@ -217,8 +219,8 @@ class _PresetSheetState extends State<PresetSheet> {
   Future<void> _delete() async {
     if (!isEdit) return;
     final l10n = AppLocalizations.of(context)!;
-    final app = context.read<AppProvider>();
-    await app.deletePreset(widget.existing!.id);
+    final presetsVm = context.read<PresetsViewModel>();
+    await presetsVm.deletePreset(widget.existing!.id);
     if (mounted) {
       showAppSnackbar(context, l10n.presets_presetDeleted);
       Navigator.pop(context);

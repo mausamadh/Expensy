@@ -8,6 +8,7 @@ import 'package:finwick/screens/transactions_screen.dart';
 import 'package:finwick/l10n/app_localizations.dart';
 import 'package:drift/native.dart';
 import 'package:provider/provider.dart';
+import 'helpers/presets_test_harness.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -143,9 +144,9 @@ void main() {
 
   group('Cross-Screen Two-Way Deletion & Sync Widget Tests', () {
     Widget buildTestApp(Widget child) {
-      return ChangeNotifierProvider<AppProvider>.value(
-        value: provider,
-        child: MaterialApp(
+      return wrapWithPresets(
+        provider,
+        MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: const Locale('en'),

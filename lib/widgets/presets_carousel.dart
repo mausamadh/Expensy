@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/presets_view_model.dart';
 import '../domain/ledger/rates_unavailable_exception.dart';
 import '../theme/app_theme.dart';
 import '../utils/haptics.dart';
@@ -32,6 +33,10 @@ class PresetsCarousel extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final app = context.watch<AppProvider>();
+    // Watch the presets view model so the carousel rebuilds when presets are
+    // added/edited/deleted (the provider no longer notifies for preset
+    // mutations — the view model owns that state slice, Phase 6).
+    context.watch<PresetsViewModel>();
     final cs = Theme.of(context).colorScheme;
     final isAmoled = isAmoledSurface(cs);
     final presets = allowedTypes == null
