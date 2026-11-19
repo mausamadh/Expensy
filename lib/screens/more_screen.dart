@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/certificate_view_model.dart';
 import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/goals_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
@@ -53,6 +54,9 @@ class MoreScreen extends StatelessWidget {
     // The loans slice is owned by LoansViewModel (Phase 6) — watch it so
     // the badge count stays in sync.
     context.watch<LoansViewModel>();
+    // The certificates slice is owned by CertificateViewModel (Phase 6) —
+    // watch it so the badge count and net-worth hero stay in sync.
+    context.watch<CertificateViewModel>();
 
     final tabTeal = isDark ? const Color(0xFF4DB6AC) : kCertificateColor;
 

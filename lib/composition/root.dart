@@ -5,6 +5,7 @@ import '../adapters/backup/expensy_saf_keychain.dart';
 import '../adapters/backup/safety_snapshot_store.dart';
 import '../adapters/budgeting/drift_budget_store.dart';
 import '../adapters/budgeting/drift_budget_write_repository.dart';
+import '../adapters/certificates/drift_certificate_store.dart';
 import '../adapters/categories/drift_category_store.dart';
 import '../adapters/fx/http_exchange_rate_provider.dart';
 import '../adapters/goals/drift_goals_repository.dart';
@@ -28,6 +29,7 @@ import '../domain/backup/backup_validator.dart';
 import '../domain/backup/ports/ports.dart';
 import '../domain/budgeting/ports/budget_store.dart';
 import '../domain/budgeting/ports/budget_write_port.dart';
+import '../domain/certificates/ports/certificate_store.dart';
 import '../domain/categories/ports/category_store.dart';
 import '../domain/fx/ports/exchange_rate_provider.dart';
 import '../domain/goals/ports/goals_repository.dart';
@@ -44,6 +46,7 @@ import '../database/app_database.dart';
 import '../providers/app_provider.dart';
 import '../presentation/viewmodels/assets_view_model.dart';
 import '../presentation/viewmodels/budgets_view_model.dart';
+import '../presentation/viewmodels/certificate_view_model.dart';
 import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/goals_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
@@ -51,6 +54,7 @@ import '../presentation/viewmodels/loans_view_model.dart';
 import '../presentation/viewmodels/presets_view_model.dart';
 import '../presentation/viewmodels/recurring_view_model.dart';
 import '../presentation/viewmodels/sms_inbox_view_model.dart';
+import '../services/certificate_reminder_service.dart';
 import '../services/notification_service.dart';
 import '../services/recurring_payment_processor.dart';
 
@@ -116,6 +120,9 @@ class CompositionRoot {
     // storage.
     getIt.registerSingleton<LoanRepository>(const DriftLoanRepository());
     getIt.registerSingleton<RecurringStore>(const DriftRecurringStore());
+
+    // Certificates persistence port (Phase 6) — fixed-income certificates.
+    getIt.registerSingleton<CertificateStore>(const DriftCertificateStore());
 
     // Categories persistence port (Phase 6) — user categories +
     // subcategories. Distinct from the ledger's read-only
@@ -384,6 +391,34 @@ class CompositionRoot {
       ),
     );
     provider.wireRecurringVm(getIt<RecurringViewModel>());
+  }
+
+  /// Wires the Certificates bounded context (Phase 6). Registers the
+  /// [CertificateViewModel] as a lazy singleton with the certificate store
+  /// and the provider's cross-cutting hooks, then wires it into the
+  /// provider so the certificate shims delegate to it.
+  static void initCertificate(AppProvider provider) {
+    getIt.registerLazySingleton<CertificateViewModel>(
+      () => CertificateViewModel(
+        store: getIt<CertificateStore>(),
+        addTransaction: (t) => provider.addTransaction(t),
+        updateTransaction: (updated, original) =>
+            provider.updateTransaction(updated, original),
+        newId: provider.newId,
+        convertToMain: provider.convertToMain,
+        deleteTransactionsWithBalance:
+            provider.deleteTransactionsWithBalance,
+        transactions: () => provider.transactions,
+        recordNetWorthSnapshot: provider.recordNetWorthSnapshot,
+        updateHomeWidgets: provider.updateHomeWidgets,
+        scheduleReminder: (c) =>
+            CertificateReminderService().scheduleReminder(c),
+        cancelReminder: (id) =>
+            CertificateReminderService().cancelReminder(id),
+        serializeMutation: provider.serializeMutation,
+      ),
+    );
+    provider.wireCertificateVm(getIt<CertificateViewModel>());
   }
 
   /// Test hook: clears all registrations so a test can build its own

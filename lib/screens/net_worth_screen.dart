@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import '../l10n/app_localizations.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/certificate_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
 import '../presentation/viewmodels/loans_view_model.dart';
 import '../theme/app_theme.dart';
@@ -47,6 +48,9 @@ class _NetWorthScreenState extends State<NetWorthScreen> {
     // The loans slice is owned by LoansViewModel (Phase 6) — watch it so
     // the outstanding-debt total rebuilds when loans mutate.
     context.watch<LoansViewModel>();
+    // The certificates slice is owned by CertificateViewModel (Phase 6) —
+    // watch it so the certificate value rebuilds when certificates mutate.
+    context.watch<CertificateViewModel>();
 
     final currency = app.settings.currency;
     // Helper method `fmt`: handles user action or computes derived UI state.

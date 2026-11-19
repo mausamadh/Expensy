@@ -57,6 +57,7 @@ import '../presentation/viewmodels/loans_view_model.dart';
 import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/budgets_view_model.dart';
 import '../presentation/viewmodels/recurring_view_model.dart';
+import '../presentation/viewmodels/certificate_view_model.dart';
 
 class AppSettings {
   String currency;
@@ -675,7 +676,34 @@ class AppProvider extends ChangeNotifier {
 
   // loans / loanPayments are delegated to LoansViewModel (Phase 6) — see
   // the delegation block below.
-  List<Certificate> certificates = [];
+
+  // ── Certificates (delegated to CertificateViewModel, Phase 6) ─────────
+  /// Back-reference to the certificate view model, wired by the composition
+  /// root before [load] runs. Null in standalone/test construction, in which
+  /// case the local fallback field is used so the certificate shims and the
+  /// screens keep working without a view model.
+  CertificateViewModel? _certificateVm;
+  List<Certificate> _certificatesFallback = [];
+
+  /// All certificates. Delegates to the view model when wired.
+  List<Certificate> get certificates =>
+      _certificateVm?.certificates ?? _certificatesFallback;
+
+  /// Replaces the certificate list. Delegates to the view model when
+  /// wired; the view model's setter notifies its own listeners.
+  set certificates(List<Certificate> next) {
+    if (_certificateVm != null) {
+      _certificateVm!.certificates = next;
+    } else {
+      _certificatesFallback = next;
+    }
+  }
+
+  /// Wires the certificate view model (composition root, before [load]).
+  void wireCertificateVm(CertificateViewModel vm) {
+    _certificateVm = vm;
+    _certificatesFallback = vm.certificates;
+  }
 
   final _erService = ExchangeRateService();
   final _notif       = NotificationService();
@@ -3729,6 +3757,11 @@ class AppProvider extends ChangeNotifier {
 
   // ── Certificates ──────────────────────────────────────────────────────────
   Future<void> addCertificate(Certificate c) async {
+    final vm = _certificateVm;
+    if (vm != null) {
+      await vm.addCertificate(c);
+      return;
+    }
     await serializeMutation(() async {
       final now = DateTime.now();
       final tx = AppTransaction(
@@ -3754,6 +3787,11 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> updateCertificate(Certificate c) async {
+    final vm = _certificateVm;
+    if (vm != null) {
+      await vm.updateCertificate(c);
+      return;
+    }
     await serializeMutation(() async {
       final oldCert = certificates.firstWhereOrNull((item) => item.id == c.id);
       if (oldCert != null &&
@@ -3785,6 +3823,11 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> deleteCertificate(String id) async {
+    final vm = _certificateVm;
+    if (vm != null) {
+      await vm.deleteCertificate(id);
+      return;
+    }
     await serializeMutation(() async {
       await CertificateReminderService().cancelReminder(id);
       final cert = certificates.firstWhereOrNull((c) => c.id == id);
@@ -3825,7 +3868,34 @@ class AppProvider extends ChangeNotifier {
     });
   }
 
+  /// Deletes [txs] and reverses their balance impact (DB + in-memory),
+  /// dropping their splits and removing them from [transactions].
+  ///
+  /// Injected into [CertificateViewModel] so the certificate delete-cascade
+  /// can remove related transactions without the VM reaching into the
+  /// provider's private balance/split helpers.
+  Future<void> deleteTransactionsWithBalance(
+      List<AppTransaction> txs) async {
+    if (txs.isEmpty) return;
+    for (final tx in txs) {
+      final delta = _txDelta(tx, reverse: true);
+      final balAccId = balanceAccountIdFor(tx.accountId);
+      await AppDatabase.instance.applyDeleteTransactionWithBalance(
+          tx.id, balAccId, delta);
+      _patchAccountBalance(balAccId, delta);
+      splits.removeWhere((s) => s.transactionId == tx.id);
+      _splitsByTxId.remove(tx.id);
+    }
+    final relIds = txs.map((t) => t.id).toSet();
+    transactions = transactions.where((t) => !relIds.contains(t.id)).toList();
+  }
+
   Future<void> redeemCertificate(String id, {bool returnPrincipal = true}) async {
+    final vm = _certificateVm;
+    if (vm != null) {
+      await vm.redeemCertificate(id, returnPrincipal: returnPrincipal);
+      return;
+    }
     await serializeMutation(() async {
       await CertificateReminderService().cancelReminder(id);
       final cert = certificates.firstWhereOrNull((c) => c.id == id);
@@ -3860,6 +3930,11 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> checkAndProcessCertificates() async {
+    final vm = _certificateVm;
+    if (vm != null) {
+      await vm.checkAndProcessCertificates();
+      return;
+    }
     await serializeMutation(() async {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);

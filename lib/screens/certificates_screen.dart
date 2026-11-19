@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/certificate_view_model.dart';
 import '../theme/app_theme.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/fintech_components.dart';
@@ -33,6 +34,7 @@ class CertificatesScreen extends StatelessWidget {
   // Builds the widget subtree using theme-adaptive colors and localization.
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    context.watch<CertificateViewModel>();
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
     final cur = app.settings.currency;

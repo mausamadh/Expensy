@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../providers/app_provider.dart';
+import '../presentation/viewmodels/certificate_view_model.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
 import '../l10n/app_localizations.dart';
@@ -41,6 +42,7 @@ class _CertificateDetailScreenState extends State<CertificateDetailScreen> {
   // Builds the widget subtree using theme-adaptive colors and localization.
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
+    context.watch<CertificateViewModel>();
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;

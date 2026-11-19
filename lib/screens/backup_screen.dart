@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
 import '../presentation/viewmodels/budgets_view_model.dart';
+import '../presentation/viewmodels/certificate_view_model.dart';
 import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/goals_view_model.dart';
 import '../presentation/viewmodels/lended_view_model.dart';
@@ -295,6 +296,7 @@ class _BackupScreenState extends State<BackupScreen> {
     // Phase 6).
     context.watch<BudgetsViewModel>();
     context.watch<RecurringViewModel>();
+    context.watch<CertificateViewModel>();
     final cs = Theme.of(context).colorScheme;
 
     // Live counts for the "what's included" breakdown. This list is kept in
@@ -1111,6 +1113,7 @@ class _SelectiveBackupSheetState extends State<_SelectiveBackupSheet> {
     // Phase 6).
     context.watch<BudgetsViewModel>();
     context.watch<RecurringViewModel>();
+    context.watch<CertificateViewModel>();
     final cs = Theme.of(context).colorScheme;
 
     final entities = [

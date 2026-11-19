@@ -9,6 +9,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
 import '../presentation/viewmodels/budgets_view_model.dart';
+import '../presentation/viewmodels/certificate_view_model.dart';
 import '../presentation/viewmodels/categories_view_model.dart';
 import '../presentation/viewmodels/loans_view_model.dart';
 import '../models/models.dart';
@@ -247,6 +248,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
     context.watch<CategoriesViewModel>();
     context.watch<LoansViewModel>();
     context.watch<BudgetsViewModel>();
+    context.watch<CertificateViewModel>();
     final cs  = Theme.of(context).colorScheme;
     final cur = app.settings.currency;
     // Helper method `fmt`: handles user action or computes derived UI state.
