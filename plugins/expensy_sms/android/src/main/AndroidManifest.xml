@@ -7,10 +7,13 @@
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
 
     <application>
-        <!--
-          Live-capture receiver. Registered at runtime (registerReceiver) only
-          while the app is in the foreground, so no exported manifest receiver
-          is required and no background-start restrictions apply.
-        -->
+        <receiver
+            android:name="com.ma.finwick.sms.SmsBackgroundReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

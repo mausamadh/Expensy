@@ -115,8 +115,8 @@ void main() {
           id: 'i1', senderId: 'PROMO_999', body: 'x', rawHash: 'h1');
       final b = SmsInboxItem(
           id: 'i2', senderId: 'PROMO_999', body: 'y', rawHash: 'h2');
-      final c = SmsInboxItem(
-          id: 'i3', senderId: 'Khalti', body: 'z', rawHash: 'h3');
+      final c =
+          SmsInboxItem(id: 'i3', senderId: 'Khalti', body: 'z', rawHash: 'h3');
       await db.insertSmsInbox(a);
       await db.insertSmsInbox(b);
       await db.insertSmsInbox(c);
@@ -185,7 +185,8 @@ void main() {
       expect(harness.vm.smsInbox.first.senderId, 'OTHER');
     });
 
-    test('scanAndImport skips kind-suppressed non-transactional messages but '
+    test(
+        'scanAndImport skips kind-suppressed non-transactional messages but '
         'keeps transactions from the same sender', () async {
       harness.source.messages = [
         // OTP from BANK — suppressed.
@@ -317,15 +318,15 @@ void main() {
     }
 
     Future<void> _expectMigrated(AppDatabase migrated) async {
-      // The migration must have run to completion: version bumped to 34.
+      // The migration must have run through the final SMS schema version.
       final version =
           await migrated.customSelect('PRAGMA user_version;').getSingle();
-      expect(version.read<int>('user_version'), 34);
+      expect(
+          version.read<int>('user_version'), AppDatabase.currentSchemaVersion);
 
       // The old table is gone.
       final oldTables = await migrated
-          .customSelect(
-              "SELECT name FROM sqlite_master "
+          .customSelect("SELECT name FROM sqlite_master "
               "WHERE type = 'table' AND name = 'sms_blocked_senders'")
           .get();
       expect(oldTables, isEmpty);
@@ -338,11 +339,11 @@ void main() {
       expect(prefs.first.suppressedKinds, isEmpty);
     }
 
-    test('migrates sms_blocked_senders rows into sms_sender_prefs and drops '
+    test(
+        'migrates sms_blocked_senders rows into sms_sender_prefs and drops '
         'the old table', () async {
       final migrated = await _openAtV33((db) {
-        db.execute(
-            'CREATE TABLE sms_blocked_senders (id TEXT NOT NULL, '
+        db.execute('CREATE TABLE sms_blocked_senders (id TEXT NOT NULL, '
             'sender_id TEXT NOT NULL, created_at TEXT NOT NULL, '
             'PRIMARY KEY (id))');
         db.execute(
@@ -363,16 +364,14 @@ void main() {
       // committed before the INSERT failed). The idempotent guards must
       // carry the row over and drop the old table without error.
       final migrated = await _openAtV33((db) {
-        db.execute(
-            'CREATE TABLE sms_blocked_senders (id TEXT NOT NULL, '
+        db.execute('CREATE TABLE sms_blocked_senders (id TEXT NOT NULL, '
             'sender_id TEXT NOT NULL, created_at TEXT NOT NULL, '
             'PRIMARY KEY (id))');
         db.execute(
             "INSERT INTO sms_blocked_senders (id, sender_id, created_at) "
             "VALUES ('b1', 'BANK_999', '2024-01-01T00:00:00.000')");
         // The partially-created prefs table from the interrupted run.
-        db.execute(
-            "CREATE TABLE sms_sender_prefs (id TEXT NOT NULL, "
+        db.execute("CREATE TABLE sms_sender_prefs (id TEXT NOT NULL, "
             "sender_id TEXT NOT NULL, parse_allowed INTEGER NOT NULL DEFAULT 1, "
             "suppressed_kinds TEXT NOT NULL DEFAULT '', "
             "created_at TEXT NOT NULL, PRIMARY KEY (id))");
@@ -406,8 +405,8 @@ void main() {
     });
 
     test('dismissSmsCandidate marks dismissed in memory and DB', () async {
-      final a = SmsInboxItem(
-          id: 'd1', senderId: 'BANK', body: 'x', rawHash: 'dh1');
+      final a =
+          SmsInboxItem(id: 'd1', senderId: 'BANK', body: 'x', rawHash: 'dh1');
       await db.insertSmsInbox(a);
       await harness.load();
 
@@ -419,8 +418,8 @@ void main() {
 
     test('restoreSmsCandidate reverts a dismissed item back to pending',
         () async {
-      final a = SmsInboxItem(
-          id: 'd2', senderId: 'BANK', body: 'x', rawHash: 'dh2');
+      final a =
+          SmsInboxItem(id: 'd2', senderId: 'BANK', body: 'x', rawHash: 'dh2');
       await db.insertSmsInbox(a);
       await harness.load();
 
@@ -432,8 +431,8 @@ void main() {
     });
 
     test('restoreSmsCandidate is a no-op for unknown ids', () async {
-      final a = SmsInboxItem(
-          id: 'd3', senderId: 'BANK', body: 'x', rawHash: 'dh3');
+      final a =
+          SmsInboxItem(id: 'd3', senderId: 'BANK', body: 'x', rawHash: 'dh3');
       await db.insertSmsInbox(a);
       await harness.load();
 

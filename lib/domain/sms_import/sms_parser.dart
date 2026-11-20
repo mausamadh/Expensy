@@ -14,6 +14,8 @@ export 'parsed_transaction.dart';
 export 'parse_result.dart';
 export 'parser_template.dart';
 export 'sms_kind_classifier.dart';
+export 'sms_import_policy.dart';
+export 'sms_verification.dart';
 export 'template_parser.dart';
 export 'template_registry.dart';
 export 'transaction_gate.dart';

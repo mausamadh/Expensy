@@ -14,8 +14,10 @@
 
 import 'dart:async';
 
-import 'package:finwick/adapters/sms/app_provider_ledger_context.dart';
-import 'package:finwick/adapters/sms/app_provider_ledger_gateway.dart';
+import 'package:finwick/adapters/sms/drift_ledger_context.dart';
+import 'package:finwick/adapters/sms/drift_ledger_gateway.dart';
+import 'package:finwick/adapters/ledger/drift_ledger_repositories.dart';
+import 'package:finwick/adapters/ledger/drift_ledger_write_repositories.dart';
 import 'package:finwick/adapters/sms/drift_sms_repositories.dart';
 import 'package:finwick/adapters/sms/shared_prefs_sms_settings.dart';
 import 'package:finwick/application/mutation_gate.dart';
@@ -75,8 +77,14 @@ class SmsVmHarness {
           ruleRepo: const DriftSmsRuleRepository(),
           prefRepo: const DriftSmsSenderPrefRepository(),
           settings: const SharedPreferencesSmsSettings(),
-          ledger: AppProviderLedgerGateway(provider),
-          ledgerContext: AppProviderLedgerContext(provider),
+          ledger: DriftLedgerGateway(
+            accounts: const DriftAccountRepository(),
+            transactions: const DriftTransactionWriteRepository(),
+            settingsCurrency: () => provider.settings.currency,
+            exchangeRates: () => provider.exchangeRates,
+            onLedgerChanged: () async => provider.load(),
+          ),
+          ledgerContext: DriftLedgerContext(provider),
           registryProvider: const FakeTemplateRegistryProvider(),
           gate: MutationGate(),
           clock: clock,

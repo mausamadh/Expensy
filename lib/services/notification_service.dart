@@ -27,6 +27,13 @@ class NotificationService {
 
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
+  static String? _pendingNotificationPayload;
+
+  static String? takePendingNotificationPayload() {
+    final payload = _pendingNotificationPayload;
+    _pendingNotificationPayload = null;
+    return payload;
+  }
 
   static const _channelId = 'expensy_recurring';
   static const _channelName = 'Recurring Payment Reminders';
@@ -43,16 +50,20 @@ class NotificationService {
     try {
       tz_data.initializeTimeZones();
 
-      const androidSettings =
-          AndroidInitializationSettings('ic_notification');
-      await _plugin
-          .initialize(settings: const InitializationSettings(android: androidSettings));
+      const androidSettings = AndroidInitializationSettings('ic_notification');
+      await _plugin.initialize(
+        settings: const InitializationSettings(android: androidSettings),
+        onDidReceiveNotificationResponse: (NotificationResponse response) {
+          _pendingNotificationPayload = response.payload;
+        },
+      );
       _initialized = true;
 
       final android = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
       if (android != null) {
-        await android.createNotificationChannel(const AndroidNotificationChannel(
+        await android
+            .createNotificationChannel(const AndroidNotificationChannel(
           _channelId,
           _channelName,
           description: _channelDesc,
@@ -60,10 +71,21 @@ class NotificationService {
           playSound: true,
           enableVibration: true,
         ));
-        await android.createNotificationChannel(const AndroidNotificationChannel(
+        await android
+            .createNotificationChannel(const AndroidNotificationChannel(
           'expensy_backup',
           'Automatic Backup Alerts',
-          description: 'Notifications for automated backup status and error alerts',
+          description:
+              'Notifications for automated backup status and error alerts',
+          importance: Importance.high,
+          playSound: true,
+          enableVibration: true,
+        ));
+        await android
+            .createNotificationChannel(const AndroidNotificationChannel(
+          'expensy_sms',
+          'SMS Transaction Alerts',
+          description: 'Parsed transactions and SMS verification requests',
           importance: Importance.high,
           playSound: true,
           enableVibration: true,
@@ -174,7 +196,8 @@ class NotificationService {
     try {
       await _ensureInit();
       await _plugin.cancel(id: _notifId(paymentId));
-      await _plugin.cancel(id: _advanceId(paymentId)); // safe even when not scheduled
+      await _plugin.cancel(
+          id: _advanceId(paymentId)); // safe even when not scheduled
     } catch (e) {
       debugPrint('Notification cancelReminder warning: $e');
     }
@@ -234,6 +257,33 @@ class NotificationService {
   /// Uses a distinct suffix so it never collides with [_notifId].
   int _advanceId(String paymentId) =>
       ('${paymentId}_adv').hashCode & 0x7FFFFFFF;
+
+  Future<void> showSmsNotification({
+    required String inboxId,
+    required String title,
+    required String body,
+  }) async {
+    await _ensureInit();
+    await _plugin.show(
+      id: _notifId('sms_$inboxId'),
+      title: title,
+      body: body,
+      notificationDetails: const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'expensy_sms',
+          'SMS Transaction Alerts',
+          channelDescription:
+              'Parsed transactions and SMS verification requests',
+          importance: Importance.high,
+          priority: Priority.high,
+          category: AndroidNotificationCategory.social,
+          playSound: true,
+          enableVibration: true,
+        ),
+      ),
+      payload: 'sms:$inboxId',
+    );
+  }
 
   /// Builds the shared [NotificationDetails] for recurring payment reminders.
   NotificationDetails _buildDetails() => const NotificationDetails(

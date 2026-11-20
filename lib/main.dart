@@ -29,7 +29,9 @@ import 'services/notification_bootstrap.dart';
 import 'services/quick_add_service.dart';
 import 'services/workmanager_service.dart';
 import 'services/auto_backup_service.dart';
+import 'services/notification_service.dart';
 import 'utils/service_localizations.dart';
+import 'screens/sms_inbox_screen.dart';
 
 /// Root navigator key so the "Quick Add Transaction" home screen widget can
 /// push [AddTransactionScreen] on top of whatever's currently showing,
@@ -122,6 +124,15 @@ void main() async {
   CompositionRoot.initSms(provider);
   final smsVm = CompositionRoot.getIt<SmsInboxViewModel>();
   await smsVm.load();
+  final smsPermissions = await smsVm.checkSmsPermissions();
+  if (smsPermissions.canScan) {
+    await smsVm.scanSmsInbox();
+  }
+  if (smsVm.smsLiveCaptureEnabled &&
+      smsPermissions.receive &&
+      smsPermissions.canScan) {
+    await smsVm.startSmsLiveCapture();
+  }
 
   runApp(
     MultiProvider(
@@ -145,6 +156,16 @@ void main() async {
       child: const ExpensyApp(),
     ),
   );
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final payload = NotificationService.takePendingNotificationPayload();
+    if (payload != null && payload.startsWith('sms:')) {
+      rootNavigatorKey.currentState?.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const SmsInboxScreen(),
+        ),
+      );
+    }
+  });
 }
 
 class ExpensyApp extends StatefulWidget {

@@ -33,6 +33,7 @@ class SmsInboxScreen extends StatefulWidget {
 
 class _SmsInboxScreenState extends State<SmsInboxScreen> {
   bool _live = false;
+
   /// Active inbox filters (UI-only; they never touch the DB).
   /// `_senderFilter` is a sender id, or null for "all senders".
   /// `_dateFilter` is a preset key, or null for "all time".
@@ -76,6 +77,7 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
     final vm = context.read<SmsInboxViewModel>();
     await vm.load();
     await vm.checkSmsPermissions();
+    _live = vm.smsLiveCaptureEnabled;
     if (mounted) setState(() {});
   }
 
@@ -85,7 +87,9 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
     if (!mounted) return;
     showAppSnackbar(
       context,
-      added > 0 ? 'Found $added new transaction(s)' : 'No new transactions found',
+      added > 0
+          ? 'Found $added new transaction(s)'
+          : 'No new transactions found',
     );
   }
 
@@ -104,9 +108,8 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final vm = context.watch<SmsInboxViewModel>();
     final perms = vm.smsPermissions;
-    final pending =
-        vm.smsInbox.where((i) => i.status == 'pending').toList()
-          ..sort((a, b) => b.smsTimestamp.compareTo(a.smsTimestamp));
+    final pending = vm.smsInbox.where((i) => i.status == 'pending').toList()
+      ..sort((a, b) => b.smsTimestamp.compareTo(a.smsTimestamp));
     final filtered = _filtered(pending);
     // Derive senders from ALL inbox items (not just pending) so the sender
     // filter dropdown stays valid after the last pending item of a sender is
@@ -159,14 +162,17 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
             if (perms != null && !perms.canScan)
               _PermissionBanner(
                 onGrant: () async {
-                  await context.read<SmsInboxViewModel>().requestSmsPermissions();
+                  await context
+                      .read<SmsInboxViewModel>()
+                      .requestSmsPermissions();
                   if (mounted) setState(() {});
                 },
               ),
             if (_live)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 color: kSuccessColor.withValues(alpha: isDark ? 0.18 : 0.12),
                 child: Row(
                   children: [
@@ -186,11 +192,10 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
                 dateFilter: _dateFilter,
                 onSenderChanged: (v) => setState(() => _senderFilter = v),
                 onDateChanged: (v) => setState(() => _dateFilter = v),
-                onClear: () =>
-                    setState(() {
-                      _senderFilter = null;
-                      _dateFilter = null;
-                    }),
+                onClear: () => setState(() {
+                  _senderFilter = null;
+                  _dateFilter = null;
+                }),
               ),
             Expanded(
               child: vm.smsScanning
@@ -288,7 +293,8 @@ class _PermissionBanner extends StatelessWidget {
             style: FilledButton.styleFrom(
               minimumSize: const Size(0, 36),
               padding: const EdgeInsets.symmetric(horizontal: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
             child: const Text('Grant', style: TextStyle(fontSize: 12.5)),
           ),
@@ -351,8 +357,10 @@ class _FilterBar extends StatelessWidget {
               isExpanded: true,
               decoration: InputDecoration(
                 labelText: 'Sender',
-                labelStyle: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.5)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                labelStyle: TextStyle(
+                    fontSize: 11, color: cs.onSurface.withValues(alpha: 0.5)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide.none,
@@ -375,7 +383,8 @@ class _FilterBar extends StatelessWidget {
                 ...senders.map(
                   (s) => DropdownMenuItem(
                     value: s,
-                    child: Text(s, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    child:
+                        Text(s, maxLines: 1, overflow: TextOverflow.ellipsis),
                   ),
                 ),
               ],
@@ -392,8 +401,10 @@ class _FilterBar extends StatelessWidget {
               isExpanded: true,
               decoration: InputDecoration(
                 labelText: 'Date',
-                labelStyle: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.5)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                labelStyle: TextStyle(
+                    fontSize: 11, color: cs.onSurface.withValues(alpha: 0.5)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide.none,
@@ -467,7 +478,8 @@ class _EmptyState extends StatelessWidget {
             Text(
               'Scan your inbox to find transaction messages from banks, wallets, and merchants.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: cs.onSurface.withValues(alpha: 0.6)),
+              style: TextStyle(
+                  fontSize: 13, color: cs.onSurface.withValues(alpha: 0.6)),
             ),
             const SizedBox(height: 18),
             FilledButton.icon(
@@ -476,7 +488,8 @@ class _EmptyState extends StatelessWidget {
               label: const Text('Scan inbox'),
               style: FilledButton.styleFrom(
                 minimumSize: const Size(0, 46),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(22)),
               ),
             ),
           ],
@@ -537,7 +550,9 @@ class _CandidateCard extends StatelessWidget {
         : null;
 
     final date = item.parsedDate ??
-        (item.smsTimestamp > 0 ? DateTime.fromMillisecondsSinceEpoch(item.smsTimestamp) : null);
+        (item.smsTimestamp > 0
+            ? DateTime.fromMillisecondsSinceEpoch(item.smsTimestamp)
+            : null);
 
     return GestureDetector(
       onTap: () {
@@ -551,7 +566,9 @@ class _CandidateCard extends StatelessWidget {
           color: cs.surfaceContainer.withValues(alpha: isDark ? 0.45 : 0.65),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.05),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.05),
           ),
         ),
         child: Column(
@@ -563,10 +580,12 @@ class _CandidateCard extends StatelessWidget {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: _typeColor(item.parsedType).withValues(alpha: isDark ? 0.2 : 0.12),
+                    color: _typeColor(item.parsedType)
+                        .withValues(alpha: isDark ? 0.2 : 0.12),
                     borderRadius: BorderRadius.circular(13),
                   ),
-                  child: Icon(_typeIcon(item.parsedType), size: 20, color: _typeColor(item.parsedType)),
+                  child: Icon(_typeIcon(item.parsedType),
+                      size: 20, color: _typeColor(item.parsedType)),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -577,21 +596,25 @@ class _CandidateCard extends StatelessWidget {
                         item.parsedMerchant ?? item.senderId,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 13.5),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         item.senderId,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.5)),
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: cs.onSurface.withValues(alpha: 0.5)),
                       ),
                     ],
                   ),
                 ),
                 if (amount != null)
                   Text(
-                    (item.parsedType == 'income' ? '+' : '') + formatAmount(amount, cur),
+                    (item.parsedType == 'income' ? '+' : '') +
+                        formatAmount(amount, cur),
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 14,
@@ -612,7 +635,9 @@ class _CandidateCard extends StatelessWidget {
                 if (date != null)
                   Text(
                     DateFormat('d MMM yyyy').format(date),
-                    style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.55)),
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: cs.onSurface.withValues(alpha: 0.55)),
                   ),
                 const Spacer(),
                 if (item.reviewReason != null && item.reviewReason!.isNotEmpty)
@@ -637,7 +662,8 @@ class _CandidateCard extends StatelessWidget {
                 item.body,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11.5, color: cs.onSurface.withValues(alpha: 0.7)),
+                style: TextStyle(
+                    fontSize: 11.5, color: cs.onSurface.withValues(alpha: 0.7)),
               ),
             ),
             const SizedBox(height: 10),
@@ -708,9 +734,12 @@ class _CandidateCard extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete message?'),
-        content: const Text('This removes the candidate permanently. It cannot be recovered.'),
+        content: const Text(
+            'This removes the candidate permanently. It cannot be recovered.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: kDangerColor),
             onPressed: () => Navigator.pop(ctx, true),
@@ -742,6 +771,7 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
   late String? _toAccountId;
   late String? _categoryId;
   late DateTime _date;
+
   /// Kind to suppress for this sender on dismiss (null = don't suppress).
   String? _dontShowAgain;
   bool _busy = false;
@@ -765,19 +795,22 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
     final major = item.parsedAmountMinorUnits != null
         ? item.parsedAmountMinorUnits! / math.pow(10, Iso4217.exponentFor(cur))
         : 0.0;
-    _amountCtrl = TextEditingController(text: major > 0 ? major.toStringAsFixed(2) : '');
+    _amountCtrl =
+        TextEditingController(text: major > 0 ? major.toStringAsFixed(2) : '');
     _descCtrl = TextEditingController(text: _autoDescription(item));
     _date = item.parsedDate ??
-        (item.smsTimestamp > 0 ? DateTime.fromMillisecondsSinceEpoch(item.smsTimestamp) : DateTime.now());
+        (item.smsTimestamp > 0
+            ? DateTime.fromMillisecondsSinceEpoch(item.smsTimestamp)
+            : DateTime.now());
 
     // Default account: the saved rule's account if it still exists, else the
     // first non-credit account.
     final accounts = app.accounts.where((a) => !a.isCredit).toList();
     final ruleAccount = rule?.accountId;
-    _accountId = (ruleAccount != null &&
-            accounts.any((a) => a.id == ruleAccount))
-        ? ruleAccount
-        : (accounts.isNotEmpty ? accounts.first.id : null);
+    _accountId =
+        (ruleAccount != null && accounts.any((a) => a.id == ruleAccount))
+            ? ruleAccount
+            : (accounts.isNotEmpty ? accounts.first.id : null);
 
     // Default destination for transfers: first account that isn't the source.
     final toCandidates = accounts.where((a) => a.id != _accountId).toList();
@@ -825,13 +858,22 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
       _type = t;
       if (t == 'transfer') {
         // Pick a sensible default destination (first account != source).
-        final accounts = context.read<AppProvider>().accounts.where((a) => !a.isCredit).toList();
+        final accounts = context
+            .read<AppProvider>()
+            .accounts
+            .where((a) => !a.isCredit)
+            .toList();
         final toCandidates = accounts.where((a) => a.id != _accountId).toList();
         _toAccountId = toCandidates.isNotEmpty ? toCandidates.first.id : null;
       } else {
-        final cats = context.read<AppProvider>().userCategories.where((c) => c.type == t).toList();
+        final cats = context
+            .read<AppProvider>()
+            .userCategories
+            .where((c) => c.type == t)
+            .toList();
         if (_categoryId == null ||
-            (context.read<AppProvider>().categoryById(_categoryId!)?.type != t)) {
+            (context.read<AppProvider>().categoryById(_categoryId!)?.type !=
+                t)) {
           _categoryId = cats.isNotEmpty ? cats.first.id : null;
         }
       }
@@ -843,7 +885,11 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
     setState(() {
       _accountId = id;
       if (_type == 'transfer' && _toAccountId == id) {
-        final accounts = context.read<AppProvider>().accounts.where((a) => !a.isCredit).toList();
+        final accounts = context
+            .read<AppProvider>()
+            .accounts
+            .where((a) => !a.isCredit)
+            .toList();
         final toCandidates = accounts.where((a) => a.id != id).toList();
         _toAccountId = toCandidates.isNotEmpty ? toCandidates.first.id : null;
       }
@@ -864,21 +910,22 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
       showAppSnackbar(context, 'Select a category');
       return;
     }
-    if (_type == 'transfer' && (_toAccountId == null || _toAccountId == _accountId)) {
+    if (_type == 'transfer' &&
+        (_toAccountId == null || _toAccountId == _accountId)) {
       showAppSnackbar(context, 'Select a different destination account');
       return;
     }
     setState(() => _busy = true);
     final txId = await context.read<SmsInboxViewModel>().importSmsCandidate(
-      widget.item.id,
-      type: _type,
-      amount: amount,
-      accountId: _accountId,
-      toAccountId: _type == 'transfer' ? _toAccountId : null,
-      categoryId: _type == 'transfer' ? null : _categoryId,
-      description: _descCtrl.text,
-      date: _date,
-    );
+          widget.item.id,
+          type: _type,
+          amount: amount,
+          accountId: _accountId,
+          toAccountId: _type == 'transfer' ? _toAccountId : null,
+          categoryId: _type == 'transfer' ? null : _categoryId,
+          description: _descCtrl.text,
+          date: _date,
+        );
     if (!mounted) return;
     if (txId != null) {
       Navigator.pop(context);
@@ -920,8 +967,9 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
     setState(() => _busy = true);
     await vm.saveSmsRule(
       senderId: widget.item.senderId,
-      merchantPattern:
-          (widget.item.parsedMerchant ?? '').trim().isEmpty ? null : widget.item.parsedMerchant,
+      merchantPattern: (widget.item.parsedMerchant ?? '').trim().isEmpty
+          ? null
+          : widget.item.parsedMerchant,
       accountId: _accountId!,
       categoryId: _type == 'transfer' ? 'sys_transfer' : _categoryId!,
       transactionType: _type,
@@ -949,7 +997,9 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
         // ── Original SMS message ──────────────────────────────────────────
         if (widget.item.body.trim().isNotEmpty) ...[
           Text('SMS MESSAGE',
-              style: Theme.of(context).textTheme.labelMedium
+              style: Theme.of(context)
+                  .textTheme
+                  .labelMedium
                   ?.copyWith(letterSpacing: 1)),
           const SizedBox(height: 8),
           Container(
@@ -1018,7 +1068,9 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
           children: [
             Expanded(
               child: Text('ACCOUNT',
-                  style: Theme.of(context).textTheme.labelMedium
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelMedium
                       ?.copyWith(letterSpacing: 1)),
             ),
             TextButton.icon(
@@ -1070,7 +1122,9 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
         // ── Destination account (transfers only) ──────────────────────────
         if (_type == 'transfer') ...[
           Text('TRANSFER TO',
-              style: Theme.of(context).textTheme.labelMedium
+              style: Theme.of(context)
+                  .textTheme
+                  .labelMedium
                   ?.copyWith(letterSpacing: 1)),
           const SizedBox(height: 8),
           AccountCardPicker(
@@ -1084,7 +1138,11 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
 
         // ── Category (not for transfers) ──────────────────────────────────
         if (_type != 'transfer') ...[
-          Text('CATEGORY', style: Theme.of(context).textTheme.labelMedium?.copyWith(letterSpacing: 1)),
+          Text('CATEGORY',
+              style: Theme.of(context)
+                  .textTheme
+                  .labelMedium
+                  ?.copyWith(letterSpacing: 1)),
           const SizedBox(height: 8),
           CategoryChipPicker(
             categories: cats,
@@ -1125,8 +1183,7 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
                 'Account & category are remembered for this sender — '
                 'next time it will be pre-filled.',
                 style: TextStyle(
-                    fontSize: 11.5,
-                    color: cs.onSurface.withValues(alpha: 0.6)),
+                    fontSize: 11.5, color: cs.onSurface.withValues(alpha: 0.6)),
               ),
             ),
           ],
@@ -1136,9 +1193,10 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
         Row(
           children: [
             Expanded(
-              child: Text(
-                  "DON'T SHOW AGAIN",
-                  style: Theme.of(context).textTheme.labelMedium
+              child: Text("DON'T SHOW AGAIN",
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelMedium
                       ?.copyWith(letterSpacing: 1)),
             ),
             Expanded(
@@ -1190,7 +1248,8 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
                 onPressed: _busy ? null : _dismiss,
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
                 child: const Text('Dismiss'),
               ),
@@ -1210,7 +1269,8 @@ class _SmsVerifySheetState extends State<_SmsVerifySheet> {
                 label: const Text('Add transaction'),
                 style: FilledButton.styleFrom(
                   minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
               ),
             ),
@@ -1283,11 +1343,16 @@ class _RulesSheetState extends State<_RulesSheet> {
       showHandle: true,
       children: [
         // ── Global filters ────────────────────────────────────────────────
-        Text('GLOBAL FILTERS', style: Theme.of(context).textTheme.labelMedium?.copyWith(letterSpacing: 1)),
+        Text('GLOBAL FILTERS',
+            style: Theme.of(context)
+                .textTheme
+                .labelMedium
+                ?.copyWith(letterSpacing: 1)),
         const SizedBox(height: 4),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Auto-hide OTPs', style: TextStyle(fontWeight: FontWeight.w600)),
+          title: const Text('Auto-hide OTPs',
+              style: TextStyle(fontWeight: FontWeight.w600)),
           subtitle: const Text(
             'Verification codes are hidden automatically. Real transactions are never hidden.',
             style: TextStyle(fontSize: 11.5),
@@ -1298,7 +1363,11 @@ class _RulesSheetState extends State<_RulesSheet> {
         const SizedBox(height: 12),
 
         // ── Saved rules ───────────────────────────────────────────────────
-        Text('SAVED RULES', style: Theme.of(context).textTheme.labelMedium?.copyWith(letterSpacing: 1)),
+        Text('SAVED RULES',
+            style: Theme.of(context)
+                .textTheme
+                .labelMedium
+                ?.copyWith(letterSpacing: 1)),
         const SizedBox(height: 8),
         if (rules.isEmpty)
           Container(
@@ -1324,7 +1393,11 @@ class _RulesSheetState extends State<_RulesSheet> {
         const SizedBox(height: 20),
 
         // ── Sender preferences ────────────────────────────────────────────
-        Text('SENDER PREFERENCES', style: Theme.of(context).textTheme.labelMedium?.copyWith(letterSpacing: 1)),
+        Text('SENDER PREFERENCES',
+            style: Theme.of(context)
+                .textTheme
+                .labelMedium
+                ?.copyWith(letterSpacing: 1)),
         const SizedBox(height: 8),
         if (vm.smsSenderPrefs.isEmpty)
           Container(
@@ -1350,7 +1423,10 @@ class _RulesSheetState extends State<_RulesSheet> {
           children: [
             Expanded(
               child: Text('DETECTED SENDERS',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(letterSpacing: 1)),
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelMedium
+                      ?.copyWith(letterSpacing: 1)),
             ),
             IconButton(
               icon: const Icon(Icons.refresh_rounded, size: 18),
@@ -1435,7 +1511,8 @@ class _SenderRow extends StatelessWidget {
                   sender,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 13),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -1498,7 +1575,9 @@ class _RuleRow extends StatelessWidget {
         color: cs.surfaceContainer.withValues(alpha: isDark ? 0.45 : 0.65),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.05),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.05),
         ),
       ),
       child: Row(
@@ -1511,20 +1590,24 @@ class _RuleRow extends StatelessWidget {
                   rule.senderId,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 13),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   '${rule.transactionType} → $accountName · $categoryName',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11.5, color: cs.onSurface.withValues(alpha: 0.6)),
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      color: cs.onSurface.withValues(alpha: 0.6)),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, size: 18, color: kDangerColor),
+            icon: const Icon(Icons.delete_outline_rounded,
+                size: 18, color: kDangerColor),
             tooltip: 'Delete rule',
             onPressed: onDelete,
           ),
@@ -1558,7 +1641,9 @@ class _SenderPrefRow extends StatelessWidget {
         color: cs.surfaceContainer.withValues(alpha: isDark ? 0.45 : 0.65),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.05),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.05),
         ),
       ),
       child: Row(
@@ -1577,12 +1662,15 @@ class _SenderPrefRow extends StatelessWidget {
                   pref.senderId,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 13),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   subtitle,
-                  style: TextStyle(fontSize: 11.5, color: cs.onSurface.withValues(alpha: 0.6)),
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      color: cs.onSurface.withValues(alpha: 0.6)),
                 ),
               ],
             ),
@@ -1644,12 +1732,15 @@ class _SenderPrefSheetState extends State<_SenderPrefSheet> {
 
         // ── Per-kind suppression ──────────────────────────────────────────
         Text("DON'T SHOW AGAIN",
-            style: Theme.of(context).textTheme.labelMedium
+            style: Theme.of(context)
+                .textTheme
+                .labelMedium
                 ?.copyWith(letterSpacing: 1)),
         const SizedBox(height: 4),
         Text(
           'Hide specific kinds of messages. Transactions are never hidden.',
-          style: TextStyle(fontSize: 11.5, color: cs.onSurface.withValues(alpha: 0.6)),
+          style: TextStyle(
+              fontSize: 11.5, color: cs.onSurface.withValues(alpha: 0.6)),
         ),
         const SizedBox(height: 8),
         ..._kinds.map((k) {
@@ -1667,7 +1758,8 @@ class _SenderPrefSheetState extends State<_SenderPrefSheet> {
                 await vm.unsuppressSmsKind(widget.sender, kind);
               }
             },
-            title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+            title: Text(label,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
           );
         }),
         const SizedBox(height: 8),
@@ -1721,9 +1813,14 @@ class _SenderMapSheetState extends State<_SenderMapSheet> {
     setState(() {
       _type = t;
       if (t != 'transfer') {
-        final cats = context.read<AppProvider>().userCategories.where((c) => c.type == t).toList();
+        final cats = context
+            .read<AppProvider>()
+            .userCategories
+            .where((c) => c.type == t)
+            .toList();
         if (_categoryId == null ||
-            (context.read<AppProvider>().categoryById(_categoryId!)?.type != t)) {
+            (context.read<AppProvider>().categoryById(_categoryId!)?.type !=
+                t)) {
           _categoryId = cats.isNotEmpty ? cats.first.id : null;
         }
       }
@@ -1741,11 +1838,11 @@ class _SenderMapSheetState extends State<_SenderMapSheet> {
     }
     setState(() => _busy = true);
     await context.read<SmsInboxViewModel>().saveSmsRule(
-      senderId: widget.sender,
-      accountId: _accountId!,
-      categoryId: _type == 'transfer' ? 'sys_transfer' : _categoryId!,
-      transactionType: _type,
-    );
+          senderId: widget.sender,
+          accountId: _accountId!,
+          categoryId: _type == 'transfer' ? 'sys_transfer' : _categoryId!,
+          transactionType: _type,
+        );
     if (!mounted) return;
     Navigator.pop(context);
     showAppSnackbar(context, 'Mapped $widget.sender');
@@ -1785,7 +1882,9 @@ class _SenderMapSheetState extends State<_SenderMapSheet> {
           children: [
             Expanded(
               child: Text('ACCOUNT',
-                  style: Theme.of(context).textTheme.labelMedium
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelMedium
                       ?.copyWith(letterSpacing: 1)),
             ),
             TextButton.icon(
@@ -1836,7 +1935,11 @@ class _SenderMapSheetState extends State<_SenderMapSheet> {
 
         // ── Category (not for transfers) ──────────────────────────────────
         if (_type != 'transfer') ...[
-          Text('CATEGORY', style: Theme.of(context).textTheme.labelMedium?.copyWith(letterSpacing: 1)),
+          Text('CATEGORY',
+              style: Theme.of(context)
+                  .textTheme
+                  .labelMedium
+                  ?.copyWith(letterSpacing: 1)),
           const SizedBox(height: 8),
           CategoryChipPicker(
             categories: cats,
@@ -1859,7 +1962,8 @@ class _SenderMapSheetState extends State<_SenderMapSheet> {
           label: const Text('Save mapping'),
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(48),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
         ),
       ],

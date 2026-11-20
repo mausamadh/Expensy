@@ -7,6 +7,8 @@ import 'package:finwick/domain/shared/uuid.dart';
 import 'package:finwick/domain/sms_import/sms_entities.dart';
 import 'package:finwick/domain/sms_import/sms_inbox_pipeline.dart';
 import 'package:finwick/domain/sms_import/sms_rule_matcher.dart';
+import 'package:finwick/domain/sms_import/sms_verification.dart';
+import 'package:finwick/domain/sms_import/sms_import_policy.dart';
 import 'package:finwick/domain/sms_import/template_registry.dart';
 import 'package:finwick/domain/sms_import/ports/ports.dart';
 
@@ -27,6 +29,9 @@ class SmsInboxViewModel extends ChangeNotifier {
     required SmsRuleRepository ruleRepo,
     required SmsSenderPrefRepository prefRepo,
     required SmsSettings settings,
+    SmsVerificationRepository? verificationRepo,
+    SmsOutboxRepository? outboxRepo,
+    SmsNotificationGateway? notificationGateway,
     required LedgerGateway ledger,
     required LedgerContext ledgerContext,
     required TemplateRegistryProvider registryProvider,
@@ -37,6 +42,9 @@ class SmsInboxViewModel extends ChangeNotifier {
         _ruleRepo = ruleRepo,
         _prefRepo = prefRepo,
         _settings = settings,
+        _verificationRepo = verificationRepo,
+        _outboxRepo = outboxRepo,
+        _notificationGateway = notificationGateway,
         _ledger = ledger,
         _ledgerContext = ledgerContext,
         _registryProvider = registryProvider,
@@ -50,6 +58,9 @@ class SmsInboxViewModel extends ChangeNotifier {
   final SmsRuleRepository _ruleRepo;
   final SmsSenderPrefRepository _prefRepo;
   final SmsSettings _settings;
+  final SmsVerificationRepository? _verificationRepo;
+  final SmsOutboxRepository? _outboxRepo;
+  final SmsNotificationGateway? _notificationGateway;
   final LedgerGateway _ledger;
   final LedgerContext _ledgerContext;
   final TemplateRegistryProvider _registryProvider;
@@ -64,6 +75,8 @@ class SmsInboxViewModel extends ChangeNotifier {
   List<SmsSenderPref> _prefs = [];
   bool _scanning = false;
   bool _autoHideOtp = true;
+  bool _liveCaptureEnabled = false;
+  List<SmsLearningProposal> _learningProposals = [];
   SmsPermissions? _permissions;
   TemplateRegistry? _registry;
   LiveCaptureController? _live;
@@ -74,6 +87,8 @@ class SmsInboxViewModel extends ChangeNotifier {
   List<SmsSenderPref> get smsSenderPrefs => _prefs;
   bool get smsScanning => _scanning;
   bool get smsAutoHideOtp => _autoHideOtp;
+  bool get smsLiveCaptureEnabled => _liveCaptureEnabled;
+  List<SmsLearningProposal> get smsLearningProposals => _learningProposals;
   SmsPermissions? get smsPermissions => _permissions;
 
   // ── Load ───────────────────────────────────────────────────────────────
@@ -83,6 +98,10 @@ class SmsInboxViewModel extends ChangeNotifier {
     _rules = await _ruleRepo.getAll();
     _prefs = await _prefRepo.getAll();
     _autoHideOtp = await _settings.getAutoHideOtp();
+    _liveCaptureEnabled = await _settings.getLiveCaptureEnabled();
+    _learningProposals =
+        await (_verificationRepo?.getLearningProposals(status: 'active') ??
+            Future<List<SmsLearningProposal>>.value(const []));
     _registry = await _registryProvider.load();
     notifyListeners();
   }
@@ -123,14 +142,62 @@ class SmsInboxViewModel extends ChangeNotifier {
         senderPrefs: {for (final p in _prefs) p.senderId: p},
         autoHideOtp: _autoHideOtp,
         defaultCurrency: _ledgerContext.defaultCurrency,
+        learningProposals: _learningProposals,
       );
       if (inserted > 0) {
         _inbox = await _inboxRepo.getAll();
+        await _autoImportSafeCandidates();
       }
       return inserted;
     } finally {
       _scanning = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> _autoImportSafeCandidates() async {
+    const policy = SmsImportPolicy();
+    final candidates = _inbox
+        .where((item) => item.status == 'pending')
+        .toList(growable: false);
+    for (final item in candidates) {
+      final rule = _matcher.matchRule(item, _rules);
+      final type =
+          rule?.transactionType ?? _matcher.typeFromParsed(item.parsedType);
+      final accountId = rule?.accountId ??
+          _matcher.defaultAccountId(
+              _ledgerContext.accountIds, _ledgerContext.accountTypes);
+      final categoryId = rule?.categoryId ??
+          _matcher.defaultCategoryId(
+            type,
+            _ledgerContext.categoryIds,
+            _ledgerContext.categoryTypes,
+            _ledgerContext.categoryIsSystem,
+          );
+      final toAccountId = type == 'transfer'
+          ? _matcher.transferToAccount(
+              accountId,
+              _ledgerContext.accountIds,
+            )
+          : null;
+      final decision = policy.decide(
+        mode: SmsImportMode.balanced,
+        parsedType: type,
+        amountMinorUnits: item.parsedAmountMinorUnits,
+        currency: item.parsedCurrency,
+        confidence: item.confidence,
+        accountId: accountId,
+        categoryId: categoryId,
+        toAccountId: toAccountId,
+      );
+      if (!decision.shouldAutoImport) continue;
+      await importSmsCandidate(
+        item.id,
+        type: type,
+        accountId: accountId,
+        toAccountId: toAccountId,
+        categoryId: categoryId,
+      );
     }
   }
 
@@ -174,8 +241,14 @@ class SmsInboxViewModel extends ChangeNotifier {
       date: date,
     );
     if (result == null) return null;
-    _inbox = _inbox.map((i) => i.id == inboxId ? result.updatedItem : i).toList();
+    _inbox =
+        _inbox.map((i) => i.id == inboxId ? result.updatedItem : i).toList();
     _rules = await _ruleRepo.getAll();
+    await _notificationGateway?.notifyImported(
+      inboxId: inboxId,
+      description:
+          result.updatedItem.parsedMerchant ?? result.updatedItem.senderId,
+    );
     notifyListeners();
     return result.txId;
   }
@@ -237,7 +310,68 @@ class SmsInboxViewModel extends ChangeNotifier {
   }
 
   /// Returns the rule that matches [item], if any.
-  SmsRule? smsRuleForItem(SmsInboxItem item) => _matcher.matchRule(item, _rules);
+  SmsRule? smsRuleForItem(SmsInboxItem item) =>
+      _matcher.matchRule(item, _rules);
+
+  Future<SmsVerification?> submitSmsVerification(
+    String inboxId,
+    Map<String, dynamic> corrections,
+  ) async {
+    final verificationRepo = _verificationRepo;
+    final outboxRepo = _outboxRepo;
+    if (verificationRepo == null || outboxRepo == null) return null;
+
+    SmsInboxItem? item;
+    for (final candidate in _inbox) {
+      if (candidate.id == inboxId) {
+        item = candidate;
+        break;
+      }
+    }
+    if (item == null) return null;
+
+    final submit = SubmitSmsVerification(
+      verificationRepo: verificationRepo,
+      outboxRepo: outboxRepo,
+      gate: _gate,
+      clock: _clock,
+      uuid: _uuid,
+    );
+    final verification = await submit(
+      inboxId: item.id,
+      senderId: item.senderId,
+      rawHash: item.rawHash,
+      body: item.body,
+      corrections: corrections,
+    );
+    notifyListeners();
+    return verification;
+  }
+
+  Future<SmsLearningProposal?> applySmsVerification(
+    String verificationId, {
+    int activationThreshold = 3,
+  }) async {
+    final verificationRepo = _verificationRepo;
+    final outboxRepo = _outboxRepo;
+    if (verificationRepo == null || outboxRepo == null) return null;
+
+    final apply = ApplySmsVerification(
+      verificationRepo: verificationRepo,
+      outboxRepo: outboxRepo,
+      gate: _gate,
+      clock: _clock,
+      uuid: _uuid,
+    );
+    final proposal = await apply(
+      verificationId: verificationId,
+      activationThreshold: activationThreshold,
+    );
+    _learningProposals =
+        await verificationRepo.getLearningProposals(status: 'active');
+    notifyListeners();
+    return proposal;
+  }
 
   // ── Sender preferences ─────────────────────────────────────────────────
   Future<void> setSmsSenderParseAllowed(String senderId, bool allowed) async {
@@ -257,9 +391,7 @@ class SmsInboxViewModel extends ChangeNotifier {
         if (item.senderId == id && item.status == 'pending') {
           final updated = await decline(item.id, inbox: _inbox);
           if (updated != null) {
-            _inbox = _inbox
-                .map((i) => i.id == item.id ? updated : i)
-                .toList();
+            _inbox = _inbox.map((i) => i.id == item.id ? updated : i).toList();
           }
         }
       }
@@ -321,6 +453,8 @@ class SmsInboxViewModel extends ChangeNotifier {
   // ── Live capture ───────────────────────────────────────────────────────
   Future<void> startSmsLiveCapture() async {
     if (_live != null) return;
+    await _settings.setLiveCaptureEnabled(true);
+    _liveCaptureEnabled = true;
     final registry = _registry ?? await _registryProvider.load();
     _live = LiveCaptureController(
       source: _source,
@@ -331,17 +465,30 @@ class SmsInboxViewModel extends ChangeNotifier {
       isKindSuppressed: isSmsKindSuppressed,
       autoHideOtp: () => _autoHideOtp,
       defaultCurrency: () => _ledgerContext.defaultCurrency,
-      onInserted: (_) {
-        _inbox = [..._inbox];
+      learningProposals: () => _learningProposals,
+      onInserted: (item) async {
+        _inbox = [item, ..._inbox];
+        if (item.confidence != 'high') {
+          _notificationGateway?.notifyVerificationRequired(
+            inboxId: item.id,
+            reason: item.reviewReason ?? 'The SMS could not be parsed safely',
+          );
+        } else {
+          await _autoImportSafeCandidates();
+        }
         notifyListeners();
       },
     );
     await _live!.start();
+    notifyListeners();
   }
 
   Future<void> stopSmsLiveCapture() async {
     await _live?.stop();
     _live = null;
+    await _settings.setLiveCaptureEnabled(false);
+    _liveCaptureEnabled = false;
+    notifyListeners();
   }
 
   @override

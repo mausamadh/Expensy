@@ -1,14 +1,8 @@
 import 'package:finwick/domain/sms_import/ports/ports.dart';
 import 'package:finwick/providers/app_provider.dart';
 
-/// [LedgerContext] backed by [AppProvider].
-///
-/// Reads the provider's in-memory account/category lists and the default
-/// currency, exposing them as parallel primitive lists so the domain's
-/// [SmsRuleMatcher] can pick defaults without depending on the ledger's
-/// model types.
-class AppProviderLedgerContext implements LedgerContext {
-  const AppProviderLedgerContext(this._provider);
+class DriftLedgerContext implements LedgerContext {
+  const DriftLedgerContext(this._provider);
 
   final AppProvider _provider;
 

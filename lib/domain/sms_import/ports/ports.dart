@@ -8,6 +8,8 @@ import 'dart:async';
 
 import '../sms_entities.dart';
 import '../template_registry.dart';
+import '../sms_events.dart';
+import '../sms_verification.dart';
 
 /// Loads the [TemplateRegistry] (built-in + user templates).
 ///
@@ -88,6 +90,9 @@ abstract interface class SmsSettings {
   Future<bool> getAutoHideOtp();
 
   Future<void> setAutoHideOtp(bool value);
+
+  Future<bool> getLiveCaptureEnabled();
+  Future<void> setLiveCaptureEnabled(bool value);
 }
 
 /// Writes ledger transactions from the SMS import context.
@@ -144,4 +149,65 @@ abstract interface class LedgerContext {
 
   /// Whether each category is a system category, parallel to [categoryIds].
   List<bool> get categoryIsSystem;
+}
+
+/// Durable SMS event-outbox repository.
+///
+/// Enqueue operations use an idempotency key so repeated receive/scan/retry
+/// deliveries cannot create duplicate domain events.
+abstract interface class SmsOutboxRepository {
+  Future<bool> enqueueIfAbsent(SmsOutboxEvent event);
+
+  Future<SmsOutboxEvent?> claimNext(DateTime now);
+
+  Future<void> markCompleted(String eventId, DateTime processedAt);
+
+  Future<void> requeue(
+    String eventId, {
+    required int attemptCount,
+    required DateTime availableAt,
+    required String? lastError,
+  });
+
+  Future<void> markDeadLetter(
+    String eventId, {
+    required int attemptCount,
+    required DateTime processedAt,
+    required String? lastError,
+  });
+
+  Future<List<SmsOutboxEvent>> getAll({int limit = 100});
+
+  Future<int> countByStatus(SmsOutboxStatus status);
+}
+
+abstract interface class SmsVerificationRepository {
+  Future<void> insertVerification(SmsVerification verification);
+  Future<SmsVerification?> getVerification(String id);
+  Future<List<SmsVerification>> getVerifications({int limit = 100});
+  Future<void> updateVerification(SmsVerification verification);
+
+  Future<void> insertLearningProposal(SmsLearningProposal proposal);
+  Future<SmsLearningProposal?> findLearningProposal(
+      String senderId, String normalizedPattern);
+  Future<void> updateLearningProposal(SmsLearningProposal proposal);
+  Future<List<SmsLearningProposal>> getLearningProposals(
+      {String? status, int limit = 100});
+}
+
+abstract interface class SmsNotificationGateway {
+  Future<void> notifyImported({
+    required String inboxId,
+    required String description,
+  });
+
+  Future<void> notifyVerificationRequired({
+    required String inboxId,
+    required String reason,
+  });
+
+  Future<void> notifyImportFailed({
+    required String inboxId,
+    required String reason,
+  });
 }

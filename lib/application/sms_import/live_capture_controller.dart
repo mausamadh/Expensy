@@ -16,6 +16,7 @@ import 'package:finwick/domain/sms_import/ports/ports.dart';
 import 'package:finwick/domain/sms_import/sms_entities.dart';
 import 'package:finwick/domain/sms_import/sms_inbox_pipeline.dart';
 import 'package:finwick/domain/sms_import/sms_kind_classifier.dart';
+import 'package:finwick/domain/sms_import/sms_verification.dart';
 
 class LiveCaptureController {
   LiveCaptureController({
@@ -28,6 +29,7 @@ class LiveCaptureController {
     required this.autoHideOtp,
     required this.defaultCurrency,
     required this.onInserted,
+    required this.learningProposals,
   });
 
   final SmsSource source;
@@ -37,14 +39,19 @@ class LiveCaptureController {
 
   /// Whether the sender is allowed to be parsed (current view-model state).
   final bool Function(String senderId) isSenderAllowed;
+
   /// Whether a message kind is suppressed for the sender.
   final bool Function(String senderId, String kind) isKindSuppressed;
+
   /// Current global OTP auto-hide flag.
   final bool Function() autoHideOtp;
+
   /// Default currency for parsing.
   final String Function() defaultCurrency;
+
   /// Called with each newly-inserted item (view model refreshes state).
-  final void Function(SmsInboxItem item) onInserted;
+  final Future<void> Function(SmsInboxItem item) onInserted;
+  final List<SmsLearningProposal> Function() learningProposals;
 
   StreamSubscription<SmsMessage>? _sub;
 
@@ -64,7 +71,11 @@ class LiveCaptureController {
   Future<void> _onMessage(SmsMessage msg) async {
     if (!isSenderAllowed(msg.sender)) return;
 
-    final item = await pipeline.parseOne(msg, defaultCurrency: defaultCurrency());
+    final item = await pipeline.parseOne(
+      msg,
+      defaultCurrency: defaultCurrency(),
+      learningProposals: learningProposals(),
+    );
     final existing = await inboxRepo.getByHash(item.rawHash);
     if (existing != null) return;
 
@@ -77,6 +88,6 @@ class LiveCaptureController {
     await gate.run(() async {
       await inboxRepo.insert(item);
     });
-    onInserted(item);
+    await onInserted(item);
   }
 }

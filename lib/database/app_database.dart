@@ -1,5 +1,6 @@
 // lib/database/app_database.dart
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
@@ -8,6 +9,8 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart' as sqflite show getDatabasesPath;
 import 'package:collection/collection.dart';
 import '../models/models.dart';
+import '../domain/sms_import/sms_events.dart';
+import '../domain/sms_import/sms_verification.dart';
 import 'tables.dart';
 
 part 'app_database.g.dart';
@@ -80,7 +83,7 @@ class AppDatabase extends _$AppDatabase {
     _instance = db;
   }
 
-  static const int currentSchemaVersion = 34;
+  static const int currentSchemaVersion = 36;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -115,6 +118,56 @@ class AppDatabase extends _$AppDatabase {
               'CREATE INDEX IF NOT EXISTS idx_sms_rules_sender ON sms_rules(sender_id);');
           await customStatement(
               'CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_sender_pref ON sms_sender_prefs(sender_id);');
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS sms_outbox (
+              id TEXT NOT NULL PRIMARY KEY,
+              event_type TEXT NOT NULL,
+              aggregate_id TEXT NOT NULL,
+              idempotency_key TEXT NOT NULL,
+              payload_json TEXT NOT NULL,
+              status TEXT NOT NULL DEFAULT 'queued',
+              attempt_count INTEGER NOT NULL DEFAULT 0,
+              available_at TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              processed_at TEXT,
+              last_error TEXT
+            )
+          ''');
+          await customStatement(
+              'CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_outbox_idempotency ON sms_outbox(idempotency_key);');
+          await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_sms_outbox_ready ON sms_outbox(status, available_at);');
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS sms_verifications (
+              id TEXT NOT NULL PRIMARY KEY,
+              inbox_id TEXT NOT NULL,
+              sender_id TEXT NOT NULL,
+              raw_hash TEXT NOT NULL,
+              body TEXT NOT NULL,
+              corrections_json TEXT NOT NULL,
+              status TEXT NOT NULL DEFAULT 'submitted',
+              confirmation_count INTEGER NOT NULL DEFAULT 1,
+              created_at TEXT NOT NULL,
+              applied_at TEXT
+            )
+          ''');
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS sms_learning_proposals (
+              id TEXT NOT NULL PRIMARY KEY,
+              sender_id TEXT NOT NULL,
+              normalized_pattern TEXT NOT NULL,
+              corrections_json TEXT NOT NULL,
+              confirmation_count INTEGER NOT NULL DEFAULT 1,
+              activation_threshold INTEGER NOT NULL DEFAULT 3,
+              status TEXT NOT NULL DEFAULT 'draft',
+              created_at TEXT NOT NULL,
+              activated_at TEXT
+            )
+          ''');
+          await customStatement(
+              'CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_verification_inbox ON sms_verifications(inbox_id);');
+          await customStatement(
+              'CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_learning_proposal ON sms_learning_proposals(sender_id, normalized_pattern);');
           await _insertDefaultCategories();
         },
         onUpgrade: (m, from, to) async {
@@ -137,7 +190,8 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(accounts, accounts.dontLinkToCard);
           }
           if (from < 25) {
-            await m.addColumn(recurringPayments, recurringPayments.autoPayEnabled);
+            await m.addColumn(
+                recurringPayments, recurringPayments.autoPayEnabled);
             await m.addColumn(recurringPayments, recurringPayments.autoPayTime);
           }
           if (from < 26) {
@@ -173,7 +227,8 @@ class AppDatabase extends _$AppDatabase {
           if (from < 31) {
             await m.addColumn(recurringPayments, recurringPayments.toAccountId);
             await m.addColumn(recurringPayments, recurringPayments.toAmount);
-            await m.addColumn(transactionPresets, transactionPresets.toAccountId);
+            await m.addColumn(
+                transactionPresets, transactionPresets.toAccountId);
             await m.addColumn(transactionPresets, transactionPresets.toAmount);
           }
           if (from < 32) {
@@ -211,6 +266,60 @@ class AppDatabase extends _$AppDatabase {
               await customStatement('DROP TABLE IF EXISTS sms_blocked_senders');
             }
           }
+          if (from < 35) {
+            await customStatement('''
+              CREATE TABLE IF NOT EXISTS sms_outbox (
+                id TEXT NOT NULL PRIMARY KEY,
+                event_type TEXT NOT NULL,
+                aggregate_id TEXT NOT NULL,
+                idempotency_key TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'queued',
+                attempt_count INTEGER NOT NULL DEFAULT 0,
+                available_at TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                processed_at TEXT,
+                last_error TEXT
+              )
+            ''');
+            await customStatement(
+                'CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_outbox_idempotency ON sms_outbox(idempotency_key);');
+            await customStatement(
+                'CREATE INDEX IF NOT EXISTS idx_sms_outbox_ready ON sms_outbox(status, available_at);');
+          }
+          if (from < 36) {
+            await customStatement('''
+              CREATE TABLE IF NOT EXISTS sms_verifications (
+                id TEXT NOT NULL PRIMARY KEY,
+                inbox_id TEXT NOT NULL,
+                sender_id TEXT NOT NULL,
+                raw_hash TEXT NOT NULL,
+                body TEXT NOT NULL,
+                corrections_json TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'submitted',
+                confirmation_count INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                applied_at TEXT
+              )
+            ''');
+            await customStatement('''
+              CREATE TABLE IF NOT EXISTS sms_learning_proposals (
+                id TEXT NOT NULL PRIMARY KEY,
+                sender_id TEXT NOT NULL,
+                normalized_pattern TEXT NOT NULL,
+                corrections_json TEXT NOT NULL,
+                confirmation_count INTEGER NOT NULL DEFAULT 1,
+                activation_threshold INTEGER NOT NULL DEFAULT 3,
+                status TEXT NOT NULL DEFAULT 'draft',
+                created_at TEXT NOT NULL,
+                activated_at TEXT
+              )
+            ''');
+            await customStatement(
+                'CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_verification_inbox ON sms_verifications(inbox_id);');
+            await customStatement(
+                'CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_learning_proposal ON sms_learning_proposals(sender_id, normalized_pattern);');
+          }
         },
         beforeOpen: (details) async {
           try {
@@ -226,8 +335,7 @@ class AppDatabase extends _$AppDatabase {
   Future<bool> _tableExists(String name) async {
     final rows = await customSelect(
         'SELECT name FROM sqlite_master WHERE type = ? AND name = ?',
-        variables: [Variable<String>('table'), Variable<String>(name)])
-        .get();
+        variables: [Variable<String>('table'), Variable<String>(name)]).get();
     return rows.isNotEmpty;
   }
 
@@ -283,7 +391,8 @@ class AppDatabase extends _$AppDatabase {
 
   // ── Generic Map Helpers ───────────────────────────────────────────────────
   Future<void> insertMap(String table, Map<String, dynamic> map) async {
-    final tableInfo = allTables.firstWhereOrNull((t) => t.actualTableName == table);
+    final tableInfo =
+        allTables.firstWhereOrNull((t) => t.actualTableName == table);
     final validCols = tableInfo?.$columns.map((c) => c.$name).toSet();
     final filteredEntries = map.entries
         .where((e) => validCols == null || validCols.contains(e.key))
@@ -294,12 +403,13 @@ class AppDatabase extends _$AppDatabase {
     final placeholders = List.filled(keys.length, '?').join(', ');
     final cols = keys.join(', ');
     final sql = 'INSERT OR REPLACE INTO $table ($cols) VALUES ($placeholders)';
-    final values = filteredEntries.map((e) => Variable<Object>(e.value)).toList();
+    final values =
+        filteredEntries.map((e) => Variable<Object>(e.value)).toList();
     await customInsert(sql, variables: values);
   }
 
-  Future<void> updateMap(
-      String table, Map<String, dynamic> map, String idCol, String idVal) async {
+  Future<void> updateMap(String table, Map<String, dynamic> map, String idCol,
+      String idVal) async {
     final keys = map.keys.where((k) => k != idCol).toList();
     final setClause = keys.map((k) => '$k = ?').join(', ');
     final sql = 'UPDATE $table SET $setClause WHERE $idCol = ?';
@@ -317,12 +427,14 @@ class AppDatabase extends _$AppDatabase {
 
   // ── Accounts ─────────────────────────────────────────────────────────────
   Future<List<Account>> getAccounts() async {
-    final rows = await customSelect(
-        'SELECT * FROM accounts ORDER BY order_index ASC').get();
+    final rows =
+        await customSelect('SELECT * FROM accounts ORDER BY order_index ASC')
+            .get();
     return rows.map((r) => Account.fromMap(r.data)).toList();
   }
 
-  Future<void> insertAccount(Account a) async => insertMap('accounts', a.toMap());
+  Future<void> insertAccount(Account a) async =>
+      insertMap('accounts', a.toMap());
 
   Future<void> updateAccount(Account a, {double? balanceDelta}) async {
     if (balanceDelta == null) {
@@ -360,8 +472,9 @@ class AppDatabase extends _$AppDatabase {
 
   // ── Categories ───────────────────────────────────────────────────────────
   Future<List<AppCategory>> getCategories() async {
-    final rows = await customSelect(
-        'SELECT * FROM categories ORDER BY order_index ASC').get();
+    final rows =
+        await customSelect('SELECT * FROM categories ORDER BY order_index ASC')
+            .get();
     return rows.map((r) => AppCategory.fromMap(r.data)).toList();
   }
 
@@ -414,7 +527,8 @@ class AppDatabase extends _$AppDatabase {
       });
 
   // ── Transactions ─────────────────────────────────────────────────────────
-  Future<List<AppTransaction>> getTransactions({int? limit, int offset = 0}) async {
+  Future<List<AppTransaction>> getTransactions(
+      {int? limit, int offset = 0}) async {
     String query = 'SELECT * FROM transactions ORDER BY date DESC';
     if (limit != null) {
       query += ' LIMIT $limit OFFSET $offset';
@@ -427,14 +541,16 @@ class AppDatabase extends _$AppDatabase {
 
   Future<List<AppTransaction>> getTransactionsForAccount(String accountId,
       {int? limit, int offset = 0}) async {
-    String query = 'SELECT * FROM transactions WHERE account_id = ? ORDER BY date DESC';
+    String query =
+        'SELECT * FROM transactions WHERE account_id = ? ORDER BY date DESC';
     if (limit != null) {
       query += ' LIMIT $limit OFFSET $offset';
     } else if (offset > 0) {
       query += ' LIMIT -1 OFFSET $offset';
     }
-    final rows = await customSelect(query,
-        variables: [Variable<String>(accountId)]).get();
+    final rows =
+        await customSelect(query, variables: [Variable<String>(accountId)])
+            .get();
     return rows.map((r) => AppTransaction.fromMap(r.data)).toList();
   }
 
@@ -603,7 +719,8 @@ class AppDatabase extends _$AppDatabase {
   // ── Certificates ──────────────────────────────────────────────────────────
   Future<List<Certificate>> getCertificates() async {
     final rows = await customSelect(
-        'SELECT * FROM certificates ORDER BY start_date DESC').get();
+            'SELECT * FROM certificates ORDER BY start_date DESC')
+        .get();
     return rows.map((r) => Certificate.fromMap(r.data)).toList();
   }
 
@@ -645,8 +762,9 @@ class AppDatabase extends _$AppDatabase {
       deleteRow('sms_inbox', 'id', id);
 
   Future<List<SmsRule>> getSmsRules() async {
-    final rows = await customSelect(
-        'SELECT * FROM sms_rules ORDER BY created_at DESC').get();
+    final rows =
+        await customSelect('SELECT * FROM sms_rules ORDER BY created_at DESC')
+            .get();
     return rows.map((r) => SmsRule.fromMap(r.data)).toList();
   }
 
@@ -661,7 +779,8 @@ class AppDatabase extends _$AppDatabase {
 
   Future<List<SmsSenderPref>> getSmsSenderPrefs() async {
     final rows = await customSelect(
-        'SELECT * FROM sms_sender_prefs ORDER BY created_at DESC').get();
+            'SELECT * FROM sms_sender_prefs ORDER BY created_at DESC')
+        .get();
     return rows.map((r) => SmsSenderPref.fromMap(r.data)).toList();
   }
 
@@ -674,10 +793,230 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deleteSmsSenderPref(String id) async =>
       deleteRow('sms_sender_prefs', 'id', id);
 
+  // ── SMS durable event outbox ─────────────────────────────────────────
+  Future<bool> enqueueSmsOutboxEvent(SmsOutboxEvent event) async {
+    final existing = await customSelect(
+      'SELECT id FROM sms_outbox WHERE idempotency_key = ? LIMIT 1',
+      variables: [Variable<String>(event.idempotencyKey)],
+    ).get();
+    if (existing.isNotEmpty) return false;
+
+    await customInsert(
+      'INSERT OR IGNORE INTO sms_outbox '
+      '(id, event_type, aggregate_id, idempotency_key, payload_json, status, '
+      'attempt_count, available_at, created_at, processed_at, last_error) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      variables: [
+        Variable<String>(event.id),
+        Variable<String>(event.eventType),
+        Variable<String>(event.aggregateId),
+        Variable<String>(event.idempotencyKey),
+        Variable<String>(event.payloadJson),
+        Variable<String>(event.status.name),
+        Variable<int>(event.attemptCount),
+        Variable<String>(event.availableAt.toIso8601String()),
+        Variable<String>(event.createdAt.toIso8601String()),
+        Variable<String>(event.processedAt?.toIso8601String() ?? ''),
+        Variable<String>(event.lastError ?? ''),
+      ],
+    );
+    final inserted = await customSelect(
+      'SELECT id FROM sms_outbox WHERE idempotency_key = ? LIMIT 1',
+      variables: [Variable<String>(event.idempotencyKey)],
+    ).get();
+    return inserted.isNotEmpty &&
+        (inserted.first.data['id'] as String) == event.id;
+  }
+
+  Future<SmsOutboxEvent?> claimNextSmsOutboxEvent(DateTime now) async {
+    final rows = await customSelect(
+      "SELECT * FROM sms_outbox "
+      "WHERE status = 'queued' AND available_at <= ? "
+      "ORDER BY created_at ASC, id ASC LIMIT 1",
+      variables: [Variable<String>(now.toIso8601String())],
+    ).get();
+    if (rows.isEmpty) return null;
+
+    final id = rows.first.data['id'] as String;
+    await customUpdate(
+      "UPDATE sms_outbox "
+      "SET status = 'processing', attempt_count = attempt_count + 1, last_error = NULL "
+      "WHERE id = ? AND status = 'queued'",
+      variables: [Variable<String>(id)],
+    );
+    final claimed = await customSelect(
+      'SELECT * FROM sms_outbox WHERE id = ? AND status = ? LIMIT 1',
+      variables: [Variable<String>(id), Variable<String>('processing')],
+    ).get();
+    if (claimed.isEmpty) return null;
+    return SmsOutboxEvent.fromMap(claimed.first.data);
+  }
+
+  Future<void> completeSmsOutboxEvent(
+      String eventId, DateTime processedAt) async {
+    await customUpdate(
+      "UPDATE sms_outbox "
+      "SET status = 'completed', processed_at = ?, last_error = NULL "
+      "WHERE id = ?",
+      variables: [
+        Variable<String>(processedAt.toIso8601String()),
+        Variable<String>(eventId),
+      ],
+    );
+  }
+
+  Future<void> requeueSmsOutboxEvent(
+    String eventId, {
+    required int attemptCount,
+    required DateTime availableAt,
+    required String? lastError,
+  }) async {
+    await customUpdate(
+      "UPDATE sms_outbox "
+      "SET status = 'queued', attempt_count = ?, available_at = ?, last_error = ? "
+      "WHERE id = ?",
+      variables: [
+        Variable<int>(attemptCount),
+        Variable<String>(availableAt.toIso8601String()),
+        Variable<String>(lastError ?? ''),
+        Variable<String>(eventId),
+      ],
+    );
+  }
+
+  Future<void> deadLetterSmsOutboxEvent(
+    String eventId, {
+    required int attemptCount,
+    required DateTime processedAt,
+    required String? lastError,
+  }) async {
+    await customUpdate(
+      "UPDATE sms_outbox "
+      "SET status = 'dead_letter', attempt_count = ?, processed_at = ?, last_error = ? "
+      "WHERE id = ?",
+      variables: [
+        Variable<int>(attemptCount),
+        Variable<String>(processedAt.toIso8601String()),
+        Variable<String>(lastError ?? ''),
+        Variable<String>(eventId),
+      ],
+    );
+  }
+
+  Future<List<SmsOutboxEvent>> getSmsOutboxEvents({int limit = 100}) async {
+    final rows = await customSelect(
+      'SELECT * FROM sms_outbox ORDER BY created_at DESC LIMIT ?',
+      variables: [Variable<int>(limit)],
+    ).get();
+    return rows.map((row) => SmsOutboxEvent.fromMap(row.data)).toList();
+  }
+
+  Future<int> countSmsOutboxByStatus(SmsOutboxStatus status) async {
+    final rows = await customSelect(
+      'SELECT COUNT(*) AS count FROM sms_outbox WHERE status = ?',
+      variables: [Variable<String>(status.name)],
+    ).get();
+    return (rows.first.data['count'] as int?) ?? 0;
+  }
+
+  // ── SMS verification & learning ──────────────────────────────────────
+  Future<void> insertSmsVerification(SmsVerification verification) async {
+    await customInsert(
+      'INSERT OR REPLACE INTO sms_verifications '
+      '(id, inbox_id, sender_id, raw_hash, body, corrections_json, status, '
+      'confirmation_count, created_at, applied_at) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      variables: [
+        Variable<String>(verification.id),
+        Variable<String>(verification.inboxId),
+        Variable<String>(verification.senderId),
+        Variable<String>(verification.rawHash),
+        Variable<String>(verification.body),
+        Variable<String>(verification.correctionsJson),
+        Variable<String>(verification.status),
+        Variable<int>(verification.confirmationCount),
+        Variable<String>(verification.createdAt.toIso8601String()),
+        Variable<String>(verification.appliedAt?.toIso8601String() ?? ''),
+      ],
+    );
+  }
+
+  Future<SmsVerification?> getSmsVerification(String id) async {
+    final rows = await customSelect(
+      'SELECT * FROM sms_verifications WHERE id = ? LIMIT 1',
+      variables: [Variable<String>(id)],
+    ).get();
+    if (rows.isEmpty) return null;
+    return SmsVerification.fromMap(rows.first.data);
+  }
+
+  Future<List<SmsVerification>> getSmsVerifications({int limit = 100}) async {
+    final rows = await customSelect(
+      'SELECT * FROM sms_verifications ORDER BY created_at DESC LIMIT ?',
+      variables: [Variable<int>(limit)],
+    ).get();
+    return rows.map((row) => SmsVerification.fromMap(row.data)).toList();
+  }
+
+  Future<void> updateSmsVerification(SmsVerification verification) =>
+      insertSmsVerification(verification);
+
+  Future<void> insertSmsLearningProposal(SmsLearningProposal proposal) async {
+    await customInsert(
+      'INSERT OR REPLACE INTO sms_learning_proposals '
+      '(id, sender_id, normalized_pattern, corrections_json, confirmation_count, '
+      'activation_threshold, status, created_at, activated_at) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      variables: [
+        Variable<String>(proposal.id),
+        Variable<String>(proposal.senderId),
+        Variable<String>(proposal.normalizedPattern),
+        Variable<String>(jsonEncode(proposal.corrections)),
+        Variable<int>(proposal.confirmationCount),
+        Variable<int>(proposal.activationThreshold),
+        Variable<String>(proposal.status),
+        Variable<String>(proposal.createdAt.toIso8601String()),
+        Variable<String>(proposal.activatedAt?.toIso8601String() ?? ''),
+      ],
+    );
+  }
+
+  Future<SmsLearningProposal?> findSmsLearningProposal(
+      String senderId, String normalizedPattern) async {
+    final rows = await customSelect(
+      'SELECT * FROM sms_learning_proposals '
+      'WHERE sender_id = ? AND normalized_pattern = ? LIMIT 1',
+      variables: [
+        Variable<String>(senderId),
+        Variable<String>(normalizedPattern),
+      ],
+    ).get();
+    if (rows.isEmpty) return null;
+    return SmsLearningProposal.fromMap(rows.first.data);
+  }
+
+  Future<void> updateSmsLearningProposal(SmsLearningProposal proposal) =>
+      insertSmsLearningProposal(proposal);
+
+  Future<List<SmsLearningProposal>> getSmsLearningProposals(
+      {String? status, int limit = 100}) async {
+    final where = status == null ? '' : ' WHERE status = ?';
+    final variables = status == null
+        ? const <Variable<Object>>[]
+        : [Variable<String>(status)];
+    final rows = await customSelect(
+      'SELECT * FROM sms_learning_proposals$where '
+      'ORDER BY created_at DESC LIMIT ?',
+      variables: [...variables, Variable<int>(limit)],
+    ).get();
+    return rows.map((row) => SmsLearningProposal.fromMap(row.data)).toList();
+  }
+
   // ── Recurring Payments ───────────────────────────────────────────────────
   Future<List<RecurringPayment>> getRecurring() async {
     final rows = await customSelect(
-        'SELECT * FROM recurring_payments ORDER BY start_date ASC').get();
+            'SELECT * FROM recurring_payments ORDER BY start_date ASC')
+        .get();
     return rows.map((r) => RecurringPayment.fromMap(r.data)).toList();
   }
 
@@ -692,8 +1031,9 @@ class AppDatabase extends _$AppDatabase {
 
   // ── Wishlist ─────────────────────────────────────────────────────────────
   Future<List<WishlistItem>> getWishlist() async {
-    final rows = await customSelect(
-        'SELECT * FROM wishlist ORDER BY created_at DESC').get();
+    final rows =
+        await customSelect('SELECT * FROM wishlist ORDER BY created_at DESC')
+            .get();
     return rows.map((r) => WishlistItem.fromMap(r.data)).toList();
   }
 
@@ -709,7 +1049,8 @@ class AppDatabase extends _$AppDatabase {
   // ── Lended People ────────────────────────────────────────────────────────
   Future<List<LendedPerson>> getLendedPeople() async {
     final rows = await customSelect(
-        'SELECT * FROM lended_people ORDER BY created_at ASC').get();
+            'SELECT * FROM lended_people ORDER BY created_at ASC')
+        .get();
     return rows.map((r) => LendedPerson.fromMap(r.data)).toList();
   }
 
@@ -730,8 +1071,9 @@ class AppDatabase extends _$AppDatabase {
 
   // ── Lended Money ─────────────────────────────────────────────────────────
   Future<List<LendedMoney>> getLended() async {
-    final rows = await customSelect(
-        'SELECT * FROM lended_money ORDER BY date DESC').get();
+    final rows =
+        await customSelect('SELECT * FROM lended_money ORDER BY date DESC')
+            .get();
     return rows.map((r) => LendedMoney.fromMap(r.data)).toList();
   }
 
@@ -757,7 +1099,8 @@ class AppDatabase extends _$AppDatabase {
   // ── Assets ───────────────────────────────────────────────────────────────
   Future<List<AssetItem>> getAssets() async {
     final rows =
-        await customSelect('SELECT * FROM assets ORDER BY created_at ASC').get();
+        await customSelect('SELECT * FROM assets ORDER BY created_at ASC')
+            .get();
     return rows.map((r) => AssetItem.fromMap(r.data)).toList();
   }
 
@@ -771,7 +1114,8 @@ class AppDatabase extends _$AppDatabase {
   // ── Budgets ──────────────────────────────────────────────────────────────
   Future<List<Budget>> getBudgets() async {
     final rows =
-        await customSelect('SELECT * FROM budgets ORDER BY created_at ASC').get();
+        await customSelect('SELECT * FROM budgets ORDER BY created_at ASC')
+            .get();
     return rows.map((r) => Budget.fromMap(r.data)).toList();
   }
 
@@ -785,7 +1129,8 @@ class AppDatabase extends _$AppDatabase {
   // ── Savings Goals ────────────────────────────────────────────────────────
   Future<List<SavingsGoal>> getSavingsGoals() async {
     final rows = await customSelect(
-        'SELECT * FROM savings_goals ORDER BY created_at ASC').get();
+            'SELECT * FROM savings_goals ORDER BY created_at ASC')
+        .get();
     return rows.map((r) => SavingsGoal.fromMap(r.data)).toList();
   }
 
@@ -797,8 +1142,7 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> deleteSavingsGoal(String id) async {
     await transaction(() async {
-      await customUpdate(
-          'DELETE FROM savings_contributions WHERE goal_id = ?',
+      await customUpdate('DELETE FROM savings_contributions WHERE goal_id = ?',
           variables: [Variable<String>(id)]);
       await customUpdate('DELETE FROM savings_goals WHERE id = ?',
           variables: [Variable<String>(id)]);
@@ -816,7 +1160,8 @@ class AppDatabase extends _$AppDatabase {
 
   Future<List<SavingsContribution>> getAllSavingsContributions() async {
     final rows = await customSelect(
-        'SELECT * FROM savings_contributions ORDER BY date DESC').get();
+            'SELECT * FROM savings_contributions ORDER BY date DESC')
+        .get();
     return rows.map((r) => SavingsContribution.fromMap(r.data)).toList();
   }
 
@@ -833,8 +1178,9 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<List<RecurringHistoryEntry>> getAllRecurringHistory() async {
-    final rows = await customSelect(
-        'SELECT * FROM recurring_history ORDER BY date DESC').get();
+    final rows =
+        await customSelect('SELECT * FROM recurring_history ORDER BY date DESC')
+            .get();
     return rows.map((r) => RecurringHistoryEntry.fromMap(r.data)).toList();
   }
 
@@ -881,8 +1227,9 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<List<LoanPayment>> getAllLoanPayments() async {
-    final rows = await customSelect(
-        'SELECT * FROM loan_payments ORDER BY date DESC').get();
+    final rows =
+        await customSelect('SELECT * FROM loan_payments ORDER BY date DESC')
+            .get();
     return rows.map((r) => LoanPayment.fromMap(r.data)).toList();
   }
 
@@ -898,7 +1245,8 @@ class AppDatabase extends _$AppDatabase {
   // ── Transaction Presets ──────────────────────────────────────────────────
   Future<List<TransactionPreset>> getPresets() async {
     final rows = await customSelect(
-        'SELECT * FROM transaction_presets ORDER BY order_index ASC, created_at DESC').get();
+            'SELECT * FROM transaction_presets ORDER BY order_index ASC, created_at DESC')
+        .get();
     return rows.map((r) => TransactionPreset.fromMap(r.data)).toList();
   }
 
@@ -995,6 +1343,9 @@ class AppDatabase extends _$AppDatabase {
     'sms_inbox',
     'sms_rules',
     'sms_sender_prefs',
+    'sms_outbox',
+    'sms_verifications',
+    'sms_learning_proposals',
   ];
 
   /// Executes idempotent v28 data-integrity repairs (D1, D2, D3, D5, and system categories).
@@ -1159,14 +1510,14 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<Map<String, dynamic>> exportAll() => transaction(() async {
-    final out = <String, dynamic>{};
-    for (final t in backupTables) {
-      final rows = await customSelect('SELECT * FROM $t').get();
-      out[t] = rows.map((r) => r.data).toList();
-    }
-    out['version'] = currentSchemaVersion;
-    return out;
-  });
+        final out = <String, dynamic>{};
+        for (final t in backupTables) {
+          final rows = await customSelect('SELECT * FROM $t').get();
+          out[t] = rows.map((r) => r.data).toList();
+        }
+        out['version'] = currentSchemaVersion;
+        return out;
+      });
 
   Future<Map<String, dynamic>> exportSelective(Set<String> tables) =>
       transaction(() async {

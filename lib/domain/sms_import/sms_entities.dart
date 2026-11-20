@@ -14,6 +14,7 @@ class SmsMessage {
   final String id;
   final String sender;
   final String body;
+
   /// Epoch millis (0 if unknown).
   final int timestamp;
 
@@ -24,8 +25,9 @@ class SmsMessage {
     this.timestamp = 0,
   });
 
-  DateTime get dateTime =>
-      timestamp > 0 ? DateTime.fromMillisecondsSinceEpoch(timestamp) : DateTime.now();
+  DateTime get dateTime => timestamp > 0
+      ? DateTime.fromMillisecondsSinceEpoch(timestamp)
+      : DateTime.now();
 }
 
 /// A sender (phone number / address) with the count of messages seen.
@@ -139,6 +141,15 @@ class SmsInboxItem {
   SmsInboxItem copyWith({
     String? status,
     String? importedTxId,
+    String? parsedType,
+    int? parsedAmountMinorUnits,
+    String? parsedCurrency,
+    String? parsedMerchant,
+    String? parsedReference,
+    DateTime? parsedDate,
+    String? confidence,
+    String? reviewReason,
+    String? templateId,
   }) =>
       SmsInboxItem(
         id: id,
@@ -146,15 +157,16 @@ class SmsInboxItem {
         body: body,
         rawHash: rawHash,
         smsTimestamp: smsTimestamp,
-        parsedType: parsedType,
-        parsedAmountMinorUnits: parsedAmountMinorUnits,
-        parsedCurrency: parsedCurrency,
-        parsedMerchant: parsedMerchant,
-        parsedReference: parsedReference,
-        parsedDate: parsedDate,
-        confidence: confidence,
-        reviewReason: reviewReason,
-        templateId: templateId,
+        parsedType: parsedType ?? this.parsedType,
+        parsedAmountMinorUnits:
+            parsedAmountMinorUnits ?? this.parsedAmountMinorUnits,
+        parsedCurrency: parsedCurrency ?? this.parsedCurrency,
+        parsedMerchant: parsedMerchant ?? this.parsedMerchant,
+        parsedReference: parsedReference ?? this.parsedReference,
+        parsedDate: parsedDate ?? this.parsedDate,
+        confidence: confidence ?? this.confidence,
+        reviewReason: reviewReason ?? this.reviewReason,
+        templateId: templateId ?? this.templateId,
         status: status ?? this.status,
         importedTxId: importedTxId ?? this.importedTxId,
         createdAt: createdAt,
@@ -169,8 +181,10 @@ class SmsInboxItem {
 class SmsSenderPref {
   final String id;
   final String senderId;
+
   /// Whether messages from this sender are parsed/surfaced at all.
   final bool parseAllowed;
+
   /// Message kinds the user has acknowledged and wants hidden, e.g.
   /// `{SmsKind.otp, SmsKind.promotional}`.
   final Set<String> suppressedKinds;
@@ -198,10 +212,10 @@ class SmsSenderPref {
         senderId: (m['sender_id'] as String?) ?? '',
         parseAllowed: (m['parse_allowed'] as int? ?? 1) != 0,
         suppressedKinds: (m['suppressed_kinds'] as String? ?? '')
-                .split(',')
-                .where((k) => k.trim().isNotEmpty)
-                .map((k) => k.trim())
-                .toSet(),
+            .split(',')
+            .where((k) => k.trim().isNotEmpty)
+            .map((k) => k.trim())
+            .toSet(),
         createdAt: m['created_at'] != null
             ? DateTime.parse(m['created_at'] as String)
             : DateTime.now(),

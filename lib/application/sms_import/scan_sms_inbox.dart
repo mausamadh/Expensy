@@ -24,6 +24,7 @@ Future<SmsBatchResult> _runPipeline(
   TemplateRegistry registry,
   bool autoHideOtp,
   String defaultCurrency,
+  List<SmsLearningProposal> learningProposals,
 ) async {
   final pipeline = SmsInboxPipeline(registry);
   return pipeline.processBatch(
@@ -32,6 +33,7 @@ Future<SmsBatchResult> _runPipeline(
     seen,
     autoHideOtp: autoHideOtp,
     defaultCurrency: defaultCurrency,
+    learningProposals: learningProposals,
   );
 }
 
@@ -49,6 +51,7 @@ Future<SmsBatchResult> _runPipelineIsolate(
   TemplateRegistry registry,
   bool autoHideOtp,
   String defaultCurrency,
+  List<SmsLearningProposal> learningProposals,
 ) {
   return Isolate.run(
     () => _runPipeline(
@@ -58,6 +61,7 @@ Future<SmsBatchResult> _runPipelineIsolate(
       registry,
       autoHideOtp,
       defaultCurrency,
+      learningProposals,
     ),
   );
 }
@@ -73,6 +77,7 @@ class ScanSmsInbox {
 
   final SmsSource source;
   final SmsInboxRepository inboxRepo;
+
   /// The template registry (plain data, isolate-sendable). The pipeline is
   /// constructed *inside* the isolate so its `Uuid`/`Random` never crosses
   /// the send-port boundary.
@@ -85,6 +90,7 @@ class ScanSmsInbox {
     required Map<String, SmsSenderPref> senderPrefs,
     required bool autoHideOtp,
     required String defaultCurrency,
+    List<SmsLearningProposal> learningProposals = const [],
   }) async {
     final messages = await source.scanSms(limit: limit);
     final existing = await inboxRepo.getAll();
@@ -100,6 +106,7 @@ class ScanSmsInbox {
       registry,
       autoHideOtp,
       defaultCurrency,
+      learningProposals,
     );
 
     if (result.toInsert.isEmpty) return 0;

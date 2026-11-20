@@ -16,18 +16,19 @@ import '../adapters/ledger/drift_preset_repository.dart';
 import '../adapters/loans/drift_loan_repository.dart';
 import '../adapters/networth/drift_net_worth_store.dart';
 import '../adapters/recurring/drift_recurring_store.dart';
-import '../adapters/sms/app_provider_ledger_context.dart';
-import '../adapters/sms/app_provider_ledger_gateway.dart';
+import '../adapters/sms/drift_ledger_gateway.dart';
+import '../adapters/sms/drift_ledger_context.dart';
 import '../adapters/sms/drift_sms_repositories.dart';
 import '../adapters/sms/expensy_sms_source.dart';
+import '../adapters/sms/notification_sms_gateway.dart';
 import '../adapters/sms/shared_prefs_sms_settings.dart';
 import '../adapters/sms/template_registry_loader.dart';
 import '../adapters/time/system_clock.dart';
 import '../adapters/wealth/drift_asset_repository.dart';
 import '../application/backup/backup_use_cases.dart';
-import '../application/ledger/ledger_write_use_cases.dart'
-    hide LedgerContext;
+import '../application/ledger/ledger_write_use_cases.dart' hide LedgerContext;
 import '../application/mutation_gate.dart';
+import '../application/sms_import/sms_import_use_cases.dart';
 import '../domain/backup/backup_validator.dart';
 import '../domain/backup/ports/ports.dart';
 import '../domain/budgeting/ports/budget_store.dart';
@@ -91,7 +92,8 @@ class CompositionRoot {
     // Ledger read ports (Phase 2a) — stateless Drift adapters over the
     // existing AppDatabase. Resolved by ledger use cases (Phase 2b).
     getIt.registerSingleton<AccountRepository>(const DriftAccountRepository());
-    getIt.registerSingleton<CategoryRepository>(const DriftCategoryRepository());
+    getIt
+        .registerSingleton<CategoryRepository>(const DriftCategoryRepository());
     getIt.registerSingleton<TransactionRepository>(
         const DriftTransactionRepository());
 
@@ -146,9 +148,8 @@ class CompositionRoot {
     getIt.registerSingleton<Keychain>(const ExpensySafKeychain());
     getIt.registerSingleton<SafetySnapshotStore>(
         const FileSafetySnapshotStore());
-    getIt.registerSingleton<BackupValidator>(
-        BackupValidator(
-            currentSchemaVersion: AppDatabase.currentSchemaVersion));
+    getIt.registerSingleton<BackupValidator>(BackupValidator(
+        currentSchemaVersion: AppDatabase.currentSchemaVersion));
 
     // Backup use cases (Phase 5).
     getIt.registerLazySingleton<CreateBackup>(
@@ -204,16 +205,58 @@ class CompositionRoot {
 
     // Adapters (ports → concrete implementations)
     getIt.registerSingleton<SmsSource>(const ExpensySmsSource());
-    getIt.registerSingleton<SmsInboxRepository>(const DriftSmsInboxRepository());
+    getIt
+        .registerSingleton<SmsInboxRepository>(const DriftSmsInboxRepository());
     getIt.registerSingleton<SmsRuleRepository>(const DriftSmsRuleRepository());
     getIt.registerSingleton<SmsSenderPrefRepository>(
         const DriftSmsSenderPrefRepository());
+    getIt.registerSingleton<SmsNotificationGateway>(
+        const NotificationSmsGateway());
+    getIt.registerSingleton<SmsOutboxRepository>(
+        const DriftSmsOutboxRepository());
+    getIt.registerSingleton<SmsVerificationRepository>(
+        const DriftSmsVerificationRepository());
     getIt.registerSingleton<SmsSettings>(const SharedPreferencesSmsSettings());
-    getIt.registerSingleton<LedgerGateway>(
-        AppProviderLedgerGateway(provider));
-    getIt.registerSingleton<LedgerContext>(AppProviderLedgerContext(provider));
+    getIt.registerSingleton<LedgerGateway>(DriftLedgerGateway(
+      accounts: getIt<AccountRepository>(),
+      transactions: getIt<TransactionWriteRepository>(),
+      settingsCurrency: () => provider.settings.currency,
+      exchangeRates: () => provider.exchangeRates,
+      onLedgerChanged: () async => provider.load(),
+    ));
+    getIt.registerSingleton<LedgerContext>(DriftLedgerContext(provider));
     getIt.registerSingleton<TemplateRegistryProvider>(
         const TemplateRegistryLoader());
+    getIt.registerLazySingleton<PublishSmsOutboxEvent>(
+      () => PublishSmsOutboxEvent(
+        repository: getIt<SmsOutboxRepository>(),
+        gate: getIt<MutationGate>(),
+        clock: getIt<Clock>(),
+      ),
+    );
+    getIt.registerLazySingleton<DispatchNextSmsOutboxEvent>(
+      () => DispatchNextSmsOutboxEvent(
+        repository: getIt<SmsOutboxRepository>(),
+        gate: getIt<MutationGate>(),
+        clock: getIt<Clock>(),
+      ),
+    );
+    getIt.registerLazySingleton<SubmitSmsVerification>(
+      () => SubmitSmsVerification(
+        verificationRepo: getIt<SmsVerificationRepository>(),
+        outboxRepo: getIt<SmsOutboxRepository>(),
+        gate: getIt<MutationGate>(),
+        clock: getIt<Clock>(),
+      ),
+    );
+    getIt.registerLazySingleton<ApplySmsVerification>(
+      () => ApplySmsVerification(
+        verificationRepo: getIt<SmsVerificationRepository>(),
+        outboxRepo: getIt<SmsOutboxRepository>(),
+        gate: getIt<MutationGate>(),
+        clock: getIt<Clock>(),
+      ),
+    );
 
     // View model (presentation) — resolves its dependencies from [getIt].
     getIt.registerLazySingleton<SmsInboxViewModel>(
@@ -223,6 +266,8 @@ class CompositionRoot {
         ruleRepo: getIt<SmsRuleRepository>(),
         prefRepo: getIt<SmsSenderPrefRepository>(),
         settings: getIt<SmsSettings>(),
+        verificationRepo: getIt<SmsVerificationRepository>(),
+        outboxRepo: getIt<SmsOutboxRepository>(),
         ledger: getIt<LedgerGateway>(),
         ledgerContext: getIt<LedgerContext>(),
         registryProvider: getIt<TemplateRegistryProvider>(),
@@ -382,14 +427,14 @@ class CompositionRoot {
           DateTime? date,
         }) =>
             provider.addTransfer(
-              fromId: fromId,
-              toId: toId,
-              fromAmount: fromAmount,
-              toAmount: toAmount,
-              note: note,
-              title: title,
-              date: date,
-            ),
+          fromId: fromId,
+          toId: toId,
+          fromAmount: fromAmount,
+          toAmount: toAmount,
+          note: note,
+          title: title,
+          date: date,
+        ),
         newId: provider.newId,
         accountById: provider.accountById,
         settingsCurrency: () => provider.settings.currency,
@@ -416,15 +461,13 @@ class CompositionRoot {
             provider.updateTransaction(updated, original),
         newId: provider.newId,
         convertToMain: provider.convertToMain,
-        deleteTransactionsWithBalance:
-            provider.deleteTransactionsWithBalance,
+        deleteTransactionsWithBalance: provider.deleteTransactionsWithBalance,
         transactions: () => provider.transactions,
         recordNetWorthSnapshot: provider.recordNetWorthSnapshot,
         updateHomeWidgets: provider.updateHomeWidgets,
         scheduleReminder: (c) =>
             CertificateReminderService().scheduleReminder(c),
-        cancelReminder: (id) =>
-            CertificateReminderService().cancelReminder(id),
+        cancelReminder: (id) => CertificateReminderService().cancelReminder(id),
         serializeMutation: provider.serializeMutation,
       ),
     );

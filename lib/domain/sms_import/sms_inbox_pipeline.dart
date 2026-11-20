@@ -34,8 +34,7 @@ class SmsInboxPipeline {
   final TemplateRegistry _registry;
   final Uuid _uuid;
 
-  SmsInboxPipeline(this._registry, [Uuid? uuid])
-      : _uuid = uuid ?? Uuid();
+  SmsInboxPipeline(this._registry, [Uuid? uuid]) : _uuid = uuid ?? Uuid();
 
   /// Processes [messages] and returns the items that should be persisted.
   ///
@@ -50,12 +49,17 @@ class SmsInboxPipeline {
     Set<String> seen, {
     bool autoHideOtp = true,
     String? defaultCurrency,
+    List<SmsLearningProposal> learningProposals = const [],
   }) async {
     final out = <SmsInboxItem>[];
     for (final msg in messages) {
       final pref = senderPrefs[msg.sender];
       if (pref != null && !pref.parseAllowed) continue; // hard deny
-      final item = await parseOne(msg, defaultCurrency: defaultCurrency);
+      final item = await parseOne(
+        msg,
+        defaultCurrency: defaultCurrency,
+        learningProposals: learningProposals,
+      );
       if (seen.contains(item.rawHash)) continue; // already processed
       if (item.parsedType == null) {
         final kind = SmsKindClassifier.classify(msg.body).name;
@@ -76,7 +80,8 @@ class SmsInboxPipeline {
   /// (not yet persisted); unclassified messages come back as low-confidence
   /// "needs review" items so nothing is silently dropped.
   Future<SmsInboxItem> parseOne(SmsMessage msg,
-      {String? defaultCurrency}) async {
+      {String? defaultCurrency,
+      List<SmsLearningProposal> learningProposals = const []}) async {
     final ts = msg.timestamp > 0
         ? DateTime.fromMillisecondsSinceEpoch(msg.timestamp)
         : DateTime.now();
@@ -87,7 +92,7 @@ class SmsInboxPipeline {
       // noRoute = the gate found no transaction cues → surface as a
       // low-confidence candidate so the user can still review it.
       // noMatch / incomplete = transaction-shaped but extraction failed.
-      return SmsInboxItem(
+      var item = SmsInboxItem(
         id: _newId(),
         senderId: msg.sender,
         body: msg.body,
@@ -97,10 +102,16 @@ class SmsInboxPipeline {
         reviewReason: result.reason.name,
         status: 'pending',
       );
+      final match = const SmsLearningMatcher()
+          .match(msg.sender, msg.body, learningProposals);
+      if (match != null) {
+        item = const SmsLearningMatcher().apply(item, match);
+      }
+      return item;
     }
 
     final tx = (result as ParseSuccess).transaction;
-    return SmsInboxItem(
+    var item = SmsInboxItem(
       id: _newId(),
       senderId: msg.sender,
       body: msg.body,
@@ -117,6 +128,12 @@ class SmsInboxPipeline {
       templateId: result.templateId,
       status: 'pending',
     );
+    final match = const SmsLearningMatcher()
+        .match(msg.sender, msg.body, learningProposals);
+    if (match != null) {
+      item = const SmsLearningMatcher().apply(item, match);
+    }
+    return item;
   }
 
   /// UUID v4 for new inbox items.

@@ -9,3 +9,5 @@ export 'live_capture_controller.dart';
 export 'rule_use_cases.dart';
 export 'scan_sms_inbox.dart';
 export 'sender_pref_use_cases.dart';
+export 'sms_outbox_use_cases.dart';
+export 'verification_use_cases.dart';
