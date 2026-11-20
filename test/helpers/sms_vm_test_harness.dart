@@ -95,6 +95,8 @@ class SmsVmHarness {
           inboxRepo: const DriftSmsInboxRepository(),
           ruleRepo: const DriftSmsRuleRepository(),
           prefRepo: const DriftSmsSenderPrefRepository(),
+          senderAccountMappingRepo:
+              const DriftSmsSenderAccountMappingRepository(),
           settings: const SharedPreferencesSmsSettings(),
           ledger: DriftLedgerGateway(
             accounts: const DriftAccountRepository(),

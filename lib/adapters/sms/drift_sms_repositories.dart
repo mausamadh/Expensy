@@ -71,6 +71,19 @@ class DriftSmsSenderPrefRepository implements SmsSenderPrefRepository {
       AppDatabase.instance.deleteSmsSenderPref(id);
 }
 
+class DriftSmsSenderAccountMappingRepository
+    implements SmsSenderAccountMappingRepository {
+  const DriftSmsSenderAccountMappingRepository();
+
+  @override
+  Future<List<SmsSenderAccountMapping>> getAll() =>
+      AppDatabase.instance.getSmsSenderAccountMappings();
+
+  @override
+  Future<void> upsert(SmsSenderAccountMapping mapping) =>
+      AppDatabase.instance.upsertSmsSenderAccountMapping(mapping);
+}
+
 class DriftSmsOutboxRepository implements SmsOutboxRepository {
   const DriftSmsOutboxRepository();
 

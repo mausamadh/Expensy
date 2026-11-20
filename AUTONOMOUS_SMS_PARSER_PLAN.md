@@ -39,15 +39,19 @@ Status: proposed
 - First-run clean-entry and account reconciliation:
   - ask for SMS auto-import consent before historical SMS is auto-imported;
   - show live "Loading SMS transactions: N messages" UI while reconciliation runs;
-  - suggest bank, debit-card, credit-card, wallet, and CIT retirement accounts after parsing;
-  - suppress account suggestions when a similarly named account of the same financial type already exists, while preserving distinct card-account suggestions;
+  - do not create or suggest accounts from SMS sender names;
+  - keep actionable messages from unmapped senders in the inbox for review, clearly marking them as "Account not mapped to sender";
   - route salary/payroll income to an existing salary income category when available;
   - open account/card sheets so the user enters the current balance and linked funding account;
   - keep CIT retirement contributions low-confidence and require verification;
   - detect fund-transfer/card-payment patterns as transfers or transfer candidates, never unverified expense/income guesses;
   - auto-close SMS outcome notifications after five seconds.
+- Sender/account routing:
+  - never infer or create a ledger account from an SMS sender name;
+  - an actionable message without a confirmed account route remains pending with an explicit "Account not mapped to sender" review reason;
+  - auto-import requires a valid explicit account route and otherwise leaves the message for user verification.
 - Transfer and retirement-account handling:
-  - CIT/National investment/retirement SMS are suggested as savings/investment accounts and kept under verification;
+  - CIT/National investment/retirement SMS are classified as transaction candidates and kept under verification; they do not create or suggest accounts;
   - outgoing fund transfers and credit-card payments are marked as transfer candidates;
   - incoming fund transfers remain income candidates rather than guessed transfers;
   - auto-imported transfers still require distinct source/destination accounts and `sys_transfer`.

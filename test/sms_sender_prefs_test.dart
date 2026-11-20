@@ -363,6 +363,11 @@ void main() {
         resolved: true,
         autoImportEnabled: true,
       );
+      await harness.vm.mapSmsSendersToAccount(
+        senderIds: const ['BANK'],
+        accountType: 'bank',
+        accountId: 'acc-old-sms',
+      );
       harness.source.messages = [
         const SmsMessage(
           id: 'old-1',
@@ -397,6 +402,11 @@ void main() {
       await harness.vm.setFirstRunSmsImportConsent(
         resolved: true,
         autoImportEnabled: true,
+      );
+      await harness.vm.mapSmsSendersToAccount(
+        senderIds: const ['BANK'],
+        accountType: 'bank',
+        accountId: 'acc-retry-sms',
       );
       await const DriftSmsInboxRepository().insert(
         SmsInboxItem(
@@ -443,6 +453,11 @@ void main() {
       await harness.vm.setFirstRunSmsImportConsent(
         resolved: true,
         autoImportEnabled: true,
+      );
+      await harness.vm.mapSmsSendersToAccount(
+        senderIds: const ['SBL_ALERT'],
+        accountType: 'bank',
+        accountId: 'acc-transfer-source',
       );
       harness.source.messages = [
         const SmsMessage(
@@ -495,6 +510,11 @@ void main() {
       await harness.vm.setFirstRunSmsImportConsent(
         resolved: true,
         autoImportEnabled: true,
+      );
+      await harness.vm.mapSmsSendersToAccount(
+        senderIds: const ['SBL_ALERT'],
+        accountType: 'bank',
+        accountId: 'acc-transfer-source',
       );
       harness.source.messages = [
         const SmsMessage(
@@ -655,6 +675,11 @@ void main() {
         resolved: true,
         autoImportEnabled: true,
       );
+      await harness.vm.mapSmsSendersToAccount(
+        senderIds: const ['LAXMI_ALERT'],
+        accountType: 'bank',
+        accountId: 'acc-salary-test',
+      );
       harness.source.messages = [
         const SmsMessage(
           id: 'salary-kartik',
@@ -676,16 +701,7 @@ void main() {
       );
     });
 
-    test('account suggestions skip an existing bank but preserve card setup',
-        () async {
-      await provider.addAccount(Account(
-        id: 'acc-nabil-existing',
-        name: 'Nabil Bank - Main',
-        type: 'bank',
-        balance: 0,
-        currency: 'NPR',
-        colorValue: 0xFF6750A4,
-      ));
+    test('unmapped senders stay in review until explicitly mapped', () async {
       harness.source.messages = [
         const SmsMessage(
           id: 'nabil-bank-alert',
@@ -693,26 +709,123 @@ void main() {
           body: 'Your account is credited NPR 2,000.00. Ref: NABIL0001.',
           timestamp: 1793520000000,
         ),
-        const SmsMessage(
-          id: 'nabil-card-alert',
-          sender: 'NABIL_ALERT',
-          body: 'Credit card purchase of NPR 500.00 successful. Ref: CARD0001.',
-          timestamp: 1793520001000,
-        ),
       ];
 
       await harness.vm.scanSmsInbox(limit: 5000);
 
+      expect(provider.transactions, isEmpty);
+      expect(harness.vm.smsInbox.single.status, 'pending');
       expect(
-        harness.vm.smsAccountSuggestions
-            .where((suggestion) => suggestion.type == 'bank'),
-        isEmpty,
+        harness.vm.smsInbox.single.reviewReason,
+        'Account not mapped to sender',
+      );
+
+      await harness.vm.setFirstRunSmsImportConsent(
+        resolved: true,
+        autoImportEnabled: true,
+      );
+      await harness.vm.scanSmsInbox(limit: 5000);
+
+      expect(provider.transactions, isEmpty);
+      expect(harness.vm.smsInbox.single.status, 'pending');
+      expect(
+        harness.vm.smsInbox.single.reviewReason,
+        'Account not mapped to sender',
+      );
+    });
+
+    test('mapping a sender to an account imports its pending transactions',
+        () async {
+      await provider.addAccount(Account(
+        id: 'acc-bank-two',
+        name: 'Second Bank',
+        type: 'bank',
+        balance: 0,
+        currency: 'NPR',
+        colorValue: 0xFF6750A4,
+      ));
+      await harness.vm.setFirstRunSmsImportConsent(
+        resolved: true,
+        autoImportEnabled: true,
+      );
+      harness.source.messages = [
+        const SmsMessage(
+          id: 'sender-map-pending-1',
+          sender: 'BANK_ALERT',
+          body: 'NPR 250.00 debited for Groceries. Ref: MAP250.',
+          timestamp: 1793520000000,
+        ),
+      ];
+
+      await harness.vm.scanSmsInbox(limit: 5000);
+      expect(provider.transactions, isEmpty);
+      expect(harness.vm.smsInbox.single.status, 'pending');
+
+      final imported = await harness.vm.mapSmsSendersToAccount(
+        senderIds: const ['BANK_ALERT'],
+        accountType: 'bank',
+        accountId: 'acc-bank-two',
+      );
+
+      expect(imported, 1);
+      expect(provider.transactions, hasLength(1));
+      expect(provider.transactions.single.accountId, 'acc-bank-two');
+      expect(harness.vm.smsInbox.single.status, 'imported');
+      expect(
+        await db.getSmsSenderAccountMappings(),
+        contains(
+          isA<SmsSenderAccountMapping>()
+              .having((mapping) => mapping.senderId, 'senderId', 'BANK_ALERT')
+              .having((mapping) => mapping.accountType, 'accountType', 'bank')
+              .having(
+                  (mapping) => mapping.accountId, 'accountId', 'acc-bank-two'),
+        ),
+      );
+    });
+
+    test('one sender can map bank and card alerts to separate accounts',
+        () async {
+      await provider.addAccount(Account(
+        id: 'acc-nabil-bank',
+        name: 'Nabil Bank',
+        type: 'bank',
+        balance: 0,
+        currency: 'NPR',
+        colorValue: 0xFF6750A4,
+      ));
+      await provider.addAccount(Account(
+        id: 'acc-nabil-card',
+        name: 'Nabil Credit Card',
+        type: 'credit',
+        balance: 0,
+        currency: 'NPR',
+        colorValue: 0xFF6750A4,
+      ));
+
+      await harness.vm.mapSmsSendersToAccount(
+        senderIds: const ['NABIL_ALERT'],
+        accountType: 'bank',
+        accountId: 'acc-nabil-bank',
+      );
+      await harness.vm.mapSmsSendersToAccount(
+        senderIds: const ['NABIL_ALERT'],
+        accountType: 'credit',
+        accountId: 'acc-nabil-card',
+      );
+
+      final mappings = await db.getSmsSenderAccountMappings();
+      expect(mappings, hasLength(2));
+      expect(
+        mappings
+            .singleWhere((mapping) => mapping.accountType == 'bank')
+            .accountId,
+        'acc-nabil-bank',
       );
       expect(
-        harness.vm.smsAccountSuggestions
-            .where((suggestion) => suggestion.type == 'credit')
-            .map((suggestion) => suggestion.name),
-        contains('Nabil Bank'),
+        mappings
+            .singleWhere((mapping) => mapping.accountType == 'credit')
+            .accountId,
+        'acc-nabil-card',
       );
     });
 
@@ -762,6 +875,11 @@ void main() {
           await migrated.customSelect('PRAGMA user_version;').getSingle();
       expect(
           version.read<int>('user_version'), AppDatabase.currentSchemaVersion);
+      final mappingsTable = await migrated
+          .customSelect("SELECT name FROM sqlite_master "
+              "WHERE type = 'table' AND name = 'sms_sender_account_mappings'")
+          .get();
+      expect(mappingsTable, hasLength(1));
 
       // The old table is gone.
       final oldTables = await migrated

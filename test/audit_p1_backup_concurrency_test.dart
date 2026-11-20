@@ -32,8 +32,11 @@ void main() {
     AppDatabase.setInstanceForTesting(null);
   });
 
-  group('B1, B2, B3 — Concurrency, atomic account updates, and atomic splits', () {
-    test('B1: updateAccount applies balance changes via atomic SQL delta inside mutex', () async {
+  group('B1, B2, B3 — Concurrency, atomic account updates, and atomic splits',
+      () {
+    test(
+        'B1: updateAccount applies balance changes via atomic SQL delta inside mutex',
+        () async {
       final acc = Account(
         id: 'acc-atomic',
         name: 'Original Name',
@@ -68,7 +71,9 @@ void main() {
       expect(updated.balance, closeTo(1300.0, 0.01));
     });
 
-    test('B2 & B3: addTransaction with splits and deleteAccountWithUndo preserve splits atomically', () async {
+    test(
+        'B2 & B3: addTransaction with splits and deleteAccountWithUndo preserve splits atomically',
+        () async {
       final acc = Account(
         id: 'acc-splits',
         name: 'Split Account',
@@ -125,7 +130,9 @@ void main() {
   });
 
   group('B5 — Encrypted backup round-trip and wrong-password rejection', () {
-    test('Creates encrypted backup, rejects missing/wrong password, and restores with correct password', () async {
+    test(
+        'Creates encrypted backup, rejects missing/wrong password, and restores with correct password',
+        () async {
       await provider.addAccount(
         Account(
           id: 'acc-enc',
@@ -153,7 +160,8 @@ void main() {
       await expectLater(
         provider.parseBackupBytes(artifact.bytes, extension: 'enc'),
         throwsA(
-          predicate((e) => e is FormatException && e.message == 'NEEDS_PASSWORD'),
+          predicate(
+              (e) => e is FormatException && e.message == 'NEEDS_PASSWORD'),
         ),
       );
 
@@ -182,8 +190,12 @@ void main() {
     });
   });
 
-  group('B7, B8, B13 — Selective restore system categories, net_worth_snapshots, and schema version', () {
-    test('B7: Selective categories restore preserves sys_transfer and sys_investment', () async {
+  group(
+      'B7, B8, B13 — Selective restore system categories, net_worth_snapshots, and schema version',
+      () {
+    test(
+        'B7: Selective categories restore preserves sys_transfer and sys_investment',
+        () async {
       final selectivePayload = {
         'version': AppDatabase.currentSchemaVersion,
         'selective': true,
@@ -206,7 +218,9 @@ void main() {
       expect(catIds.contains('sys_investment'), isTrue);
     });
 
-    test('B8 & B13: exportAll and importAll include net_worth_snapshots (21 tables) and unified schema version', () async {
+    test(
+        'B8 & B13: exportAll and importAll include net_worth_snapshots (25 tables) and unified schema version',
+        () async {
       expect(
         BackupValidator.currentSchemaVersion,
         equals(AppDatabase.currentSchemaVersion),
@@ -215,7 +229,7 @@ void main() {
         provider.schemaVersion,
         equals(AppDatabase.currentSchemaVersion),
       );
-      expect(AppDatabase.backupTables.length, 21);
+      expect(AppDatabase.backupTables.length, 25);
       expect(AppDatabase.backupTables.contains('net_worth_snapshots'), isTrue);
       expect(AppDatabase.backupTables.contains('sms_inbox'), isTrue);
       expect(AppDatabase.backupTables.contains('sms_rules'), isTrue);
@@ -231,10 +245,22 @@ void main() {
           currency: 'EGP',
         ),
       );
+      await db.upsertSmsSenderAccountMapping(
+        SmsSenderAccountMapping(
+          senderId: 'NABIL_ALERT',
+          accountType: 'bank',
+          accountId: 'acc-nabil',
+          createdAt: DateTime(2026, 10, 1),
+        ),
+      );
 
       final exported = await db.exportAll();
       expect(exported.containsKey('net_worth_snapshots'), isTrue);
       expect((exported['net_worth_snapshots'] as List), isNotEmpty);
+      expect(
+        (exported['sms_sender_account_mappings'] as List),
+        hasLength(1),
+      );
 
       // Re-import and verify snapshot survives
       final jsonRoundtrip =
@@ -244,11 +270,18 @@ void main() {
         provider.netWorthSnapshots.any((s) => s.date == '2026-10-01'),
         isTrue,
       );
+      expect(
+        (await db.getSmsSenderAccountMappings()).single.accountId,
+        'acc-nabil',
+      );
     });
   });
 
-  group('B10 — Recurring manual markRecurringPaid idempotency after auto-pay', () {
-    test('markRecurringPaid is a no-op if the cycle occurrence was already paid by auto-pay', () async {
+  group('B10 — Recurring manual markRecurringPaid idempotency after auto-pay',
+      () {
+    test(
+        'markRecurringPaid is a no-op if the cycle occurrence was already paid by auto-pay',
+        () async {
       final bank = Account(
         id: 'acc-rec',
         name: 'Recurring Bank',

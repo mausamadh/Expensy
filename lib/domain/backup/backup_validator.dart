@@ -38,6 +38,7 @@ class BackupValidator {
     'transaction_splits',
     'certificates',
     'net_worth_snapshots',
+    'sms_sender_account_mappings',
   };
 
   /// Inspects a raw decoded backup map and returns a [RestorePreview] report.
@@ -78,8 +79,8 @@ class BackupValidator {
               .whereType<String>()
               .toSet() ??
           <String>{};
-      final history =
-          (data['recurring_history'] as List?)?.whereType<Map<String, dynamic>>() ??
+      final history = (data['recurring_history'] as List?)
+              ?.whereType<Map<String, dynamic>>() ??
           [];
       for (final h in history) {
         final recId = h['recurring_id'] as String?;
@@ -103,8 +104,8 @@ class BackupValidator {
               .toSet() ??
           <String>{};
       if (data.containsKey('transactions')) {
-        final txs =
-            (data['transactions'] as List?)?.whereType<Map<String, dynamic>>() ??
+        final txs = (data['transactions'] as List?)
+                ?.whereType<Map<String, dynamic>>() ??
             [];
         int missingAccTxs = 0;
         for (final t in txs) {
@@ -121,7 +122,7 @@ class BackupValidator {
 
       if (data.containsKey('recurring_payments')) {
         final recs = (data['recurring_payments'] as List?)
-            ?.whereType<Map<String, dynamic>>() ??
+                ?.whereType<Map<String, dynamic>>() ??
             [];
         int missingRecAcc = 0;
         for (final r in recs) {
@@ -142,7 +143,7 @@ class BackupValidator {
 
       if (data.containsKey('transaction_presets')) {
         final presets = (data['transaction_presets'] as List?)
-            ?.whereType<Map<String, dynamic>>() ??
+                ?.whereType<Map<String, dynamic>>() ??
             [];
         int missingPresetAcc = 0;
         for (final p in presets) {

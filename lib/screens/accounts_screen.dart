@@ -16,12 +16,12 @@ import '../utils/nav_metrics.dart';
 class AccountsScreen extends StatefulWidget {
   const AccountsScreen({super.key});
 
-  static void openSheet(BuildContext context,
+  static Future<Account?> openSheet(BuildContext context,
       {Account? existing,
       bool isCard = false,
       String? initialName,
       String? initialType}) {
-    showModalBottomSheet(
+    return showModalBottomSheet<Account>(
       context: context,
       isScrollControlled: true,
       builder: (_) => isCard
@@ -871,6 +871,7 @@ class _AccountSheetState extends State<_AccountSheet> {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) return;
     final app = context.read<AppProvider>();
+    late final Account savedAccount;
 
     if (isGold) {
       final grams = double.tryParse(_gramsCtrl.text);
@@ -890,7 +891,7 @@ class _AccountSheetState extends State<_AccountSheet> {
       }
 
       if (isEdit) {
-        await app.updateAccount(widget.existing!.copyWith(
+        savedAccount = widget.existing!.copyWith(
           name: name,
           type: _type,
           currency: _currency,
@@ -899,9 +900,10 @@ class _AccountSheetState extends State<_AccountSheet> {
           excludeFromTotal: _excludeFromTotal,
           goldKarat: _goldKarat,
           goldGrams: grams,
-        ));
+        );
+        await app.updateAccount(savedAccount);
       } else {
-        await app.addAccount(Account(
+        savedAccount = Account(
           id: app.newId(),
           name: name,
           type: _type,
@@ -911,7 +913,8 @@ class _AccountSheetState extends State<_AccountSheet> {
           excludeFromTotal: _excludeFromTotal,
           goldKarat: _goldKarat,
           goldGrams: grams,
-        ));
+        );
+        await app.addAccount(savedAccount);
       }
     } else {
       // Regular account or Card
@@ -956,7 +959,7 @@ class _AccountSheetState extends State<_AccountSheet> {
           '${_creditReminderTime.hour.toString().padLeft(2, '0')}:${_creditReminderTime.minute.toString().padLeft(2, '0')}';
 
       if (isEdit) {
-        await app.updateAccount(widget.existing!.copyWith(
+        savedAccount = widget.existing!.copyWith(
           name: name,
           type: _type,
           currency: _currency,
@@ -980,9 +983,10 @@ class _AccountSheetState extends State<_AccountSheet> {
           clearLinkedAccount: _linkedAccountId == null,
           clearGold: true,
           clearCredit: !isCredit,
-        ));
+        );
+        await app.updateAccount(savedAccount);
       } else {
-        await app.addAccount(Account(
+        savedAccount = Account(
           id: app.newId(),
           name: name,
           type: _type,
@@ -1003,10 +1007,11 @@ class _AccountSheetState extends State<_AccountSheet> {
           creditReminderEnabled: _creditReminderEnabled,
           creditEarlyReminderEnabled: _creditEarlyReminderEnabled,
           creditReminderTime: reminderTimeStr,
-        ));
+        );
+        await app.addAccount(savedAccount);
       }
     }
-    if (mounted) Navigator.pop(context);
+    if (mounted) Navigator.pop(context, savedAccount);
   }
 
   @override
@@ -1689,6 +1694,7 @@ class _CardSheetState extends State<_CardSheet> {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) return;
     final app = context.read<AppProvider>();
+    late final Account savedAccount;
 
     if (isGold) {
       final grams = double.tryParse(_gramsCtrl.text);
@@ -1708,7 +1714,7 @@ class _CardSheetState extends State<_CardSheet> {
       }
 
       if (isEdit) {
-        await app.updateAccount(widget.existing!.copyWith(
+        savedAccount = widget.existing!.copyWith(
           name: name,
           type: _type,
           currency: _currency,
@@ -1717,9 +1723,10 @@ class _CardSheetState extends State<_CardSheet> {
           excludeFromTotal: _excludeFromTotal,
           goldKarat: _goldKarat,
           goldGrams: grams,
-        ));
+        );
+        await app.updateAccount(savedAccount);
       } else {
-        await app.addAccount(Account(
+        savedAccount = Account(
           id: app.newId(),
           name: name,
           type: _type,
@@ -1729,7 +1736,8 @@ class _CardSheetState extends State<_CardSheet> {
           excludeFromTotal: _excludeFromTotal,
           goldKarat: _goldKarat,
           goldGrams: grams,
-        ));
+        );
+        await app.addAccount(savedAccount);
       }
     } else {
       if (isDebit) {
@@ -1778,7 +1786,7 @@ class _CardSheetState extends State<_CardSheet> {
           '${_creditReminderTime.hour.toString().padLeft(2, '0')}:${_creditReminderTime.minute.toString().padLeft(2, '0')}';
 
       if (isEdit) {
-        await app.updateAccount(widget.existing!.copyWith(
+        savedAccount = widget.existing!.copyWith(
           name: name,
           type: _type,
           currency: _currency,
@@ -1800,9 +1808,10 @@ class _CardSheetState extends State<_CardSheet> {
           clearLinkedAccount: linkedAccountId == null,
           clearGold: true,
           clearCredit: !isCredit,
-        ));
+        );
+        await app.updateAccount(savedAccount);
       } else {
-        await app.addAccount(Account(
+        savedAccount = Account(
           id: app.newId(),
           name: name,
           type: _type,
@@ -1822,10 +1831,11 @@ class _CardSheetState extends State<_CardSheet> {
           creditReminderEnabled: _creditReminderEnabled,
           creditEarlyReminderEnabled: _creditEarlyReminderEnabled,
           creditReminderTime: reminderTimeStr,
-        ));
+        );
+        await app.addAccount(savedAccount);
       }
     }
-    if (mounted) Navigator.pop(context);
+    if (mounted) Navigator.pop(context, savedAccount);
   }
 
   @override

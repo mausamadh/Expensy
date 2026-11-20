@@ -88,6 +88,13 @@ abstract interface class SmsSenderPrefRepository {
   Future<void> delete(String id);
 }
 
+/// Persistence for user-confirmed sender-to-account mappings.
+abstract interface class SmsSenderAccountMappingRepository {
+  Future<List<SmsSenderAccountMapping>> getAll();
+
+  Future<void> upsert(SmsSenderAccountMapping mapping);
+}
+
 /// Persistence for SMS import settings (currently: global OTP auto-hide).
 abstract interface class SmsSettings {
   /// Whether OTP messages are hidden globally without per-sender

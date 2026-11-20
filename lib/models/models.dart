@@ -1,9 +1,14 @@
 // lib/models/models.dart
 
-// SMS import entities (SmsInboxItem, SmsSenderPref, SmsRule) live in the
-// domain layer now; re-exported here for existing import sites.
+// SMS import entities live in the domain layer now; re-exported here for
+// existing model import sites.
 export '../domain/sms_import/sms_entities.dart'
-    show SmsInboxItem, SmsSender, SmsSenderPref, SmsRule;
+    show
+        SmsInboxItem,
+        SmsSender,
+        SmsSenderAccountMapping,
+        SmsSenderPref,
+        SmsRule;
 
 class Account {
   final String id;
@@ -372,9 +377,8 @@ class AppTransaction {
         paidViaAccountId: clearPaidViaAccountId
             ? null
             : (paidViaAccountId ?? this.paidViaAccountId),
-        certificateId: clearCertificateId
-            ? null
-            : (certificateId ?? this.certificateId),
+        certificateId:
+            clearCertificateId ? null : (certificateId ?? this.certificateId),
       );
 }
 
@@ -520,7 +524,8 @@ class RecurringPayment {
     if (rem <= 0 || freqVal <= 0) return const [];
     final dates = <DateTime>[];
     DateTime current = nextDate;
-    final endDay = DateTime(endDate!.year, endDate!.month, endDate!.day, 23, 59, 59);
+    final endDay =
+        DateTime(endDate!.year, endDate!.month, endDate!.day, 23, 59, 59);
     while (!current.isAfter(endDay) && dates.length < rem) {
       dates.add(current);
       current = advanceDateFrom(current);
@@ -1236,17 +1241,19 @@ class SavingsContribution {
 class Loan {
   final String id;
   String name;
-  double principal;          // original loan amount
+  double principal; // original loan amount
   String currency;
   DateTime startDate;
-  DateTime endDate;           // duration is derived: endDate - startDate
-  double? interestRate;       // annual %, nullable — optional field
-  String? accountId;          // account the loan is tied to (nullable — "not linked")
-  String? transferAccountId;  // account the loan principal is transferred to (nullable)
+  DateTime endDate; // duration is derived: endDate - startDate
+  double? interestRate; // annual %, nullable — optional field
+  String? accountId; // account the loan is tied to (nullable — "not linked")
+  String?
+      transferAccountId; // account the loan principal is transferred to (nullable)
   bool reminderEnabled;
-  int reminderDay;            // day-of-month (1-31) the payment is due
-  String reminderTime;        // 'HH:mm'
-  bool isSettled;             // manually markable "paid off" / or auto when totalPaid >= totalOwed
+  int reminderDay; // day-of-month (1-31) the payment is due
+  String reminderTime; // 'HH:mm'
+  bool
+      isSettled; // manually markable "paid off" / or auto when totalPaid >= totalOwed
   String notes;
   DateTime createdAt;
 
@@ -1271,8 +1278,8 @@ class Loan {
   /// Whole months between start and end, minimum 1, so a same-month
   /// loan never divides by zero.
   int get durationMonths {
-    final months =
-        (endDate.year - startDate.year) * 12 + (endDate.month - startDate.month);
+    final months = (endDate.year - startDate.year) * 12 +
+        (endDate.month - startDate.month);
     return months < 1 ? 1 : months;
   }
 
@@ -1346,16 +1353,20 @@ class Loan {
     bool clearInterestRate = false,
     bool clearAccount = false,
     bool clearTransferAccount = false,
-  }) => Loan(
+  }) =>
+      Loan(
         id: id,
         name: name ?? this.name,
         principal: principal ?? this.principal,
         currency: currency ?? this.currency,
         startDate: startDate ?? this.startDate,
         endDate: endDate ?? this.endDate,
-        interestRate: clearInterestRate ? null : (interestRate ?? this.interestRate),
+        interestRate:
+            clearInterestRate ? null : (interestRate ?? this.interestRate),
         accountId: clearAccount ? null : (accountId ?? this.accountId),
-        transferAccountId: clearTransferAccount ? null : (transferAccountId ?? this.transferAccountId),
+        transferAccountId: clearTransferAccount
+            ? null
+            : (transferAccountId ?? this.transferAccountId),
         reminderEnabled: reminderEnabled ?? this.reminderEnabled,
         reminderDay: reminderDay ?? this.reminderDay,
         reminderTime: reminderTime ?? this.reminderTime,
@@ -1371,7 +1382,7 @@ class LoanPayment {
   final DateTime date;
   final double amount;
   final String currency;
-  final String? accountId;   // account debited for this payment, if any
+  final String? accountId; // account debited for this payment, if any
   final String notes;
 
   const LoanPayment({
@@ -1732,7 +1743,8 @@ class Certificate {
       case 'yearly':
         final year = anchor.year + 1;
         final maxDays = DateTime(year, anchor.month + 1, 0).day;
-        candidate = DateTime(year, anchor.month, collectionDay.clamp(1, maxDays));
+        candidate =
+            DateTime(year, anchor.month, collectionDay.clamp(1, maxDays));
         break;
       case 'monthly':
       default:
@@ -1773,11 +1785,13 @@ class Certificate {
       case 'yearly':
         int year = anchor.year + 1;
         int maxDays = DateTime(year, anchor.month + 1, 0).day;
-        candidate = DateTime(year, anchor.month, collectionDay.clamp(1, maxDays));
+        candidate =
+            DateTime(year, anchor.month, collectionDay.clamp(1, maxDays));
         while (candidate.isBefore(today)) {
           year++;
           maxDays = DateTime(year, anchor.month + 1, 0).day;
-          candidate = DateTime(year, anchor.month, collectionDay.clamp(1, maxDays));
+          candidate =
+              DateTime(year, anchor.month, collectionDay.clamp(1, maxDays));
         }
         break;
       case 'monthly':

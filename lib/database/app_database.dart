@@ -83,7 +83,7 @@ class AppDatabase extends _$AppDatabase {
     _instance = db;
   }
 
-  static const int currentSchemaVersion = 36;
+  static const int currentSchemaVersion = 37;
 
   @override
   int get schemaVersion => currentSchemaVersion;
@@ -118,6 +118,15 @@ class AppDatabase extends _$AppDatabase {
               'CREATE INDEX IF NOT EXISTS idx_sms_rules_sender ON sms_rules(sender_id);');
           await customStatement(
               'CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_sender_pref ON sms_sender_prefs(sender_id);');
+          await customStatement('''
+            CREATE TABLE IF NOT EXISTS sms_sender_account_mappings (
+              sender_id TEXT NOT NULL,
+              account_type TEXT NOT NULL,
+              account_id TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              PRIMARY KEY (sender_id, account_type)
+            )
+          ''');
           await customStatement('''
             CREATE TABLE IF NOT EXISTS sms_outbox (
               id TEXT NOT NULL PRIMARY KEY,
@@ -319,6 +328,17 @@ class AppDatabase extends _$AppDatabase {
                 'CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_verification_inbox ON sms_verifications(inbox_id);');
             await customStatement(
                 'CREATE UNIQUE INDEX IF NOT EXISTS idx_sms_learning_proposal ON sms_learning_proposals(sender_id, normalized_pattern);');
+          }
+          if (from < 37) {
+            await customStatement('''
+              CREATE TABLE IF NOT EXISTS sms_sender_account_mappings (
+                sender_id TEXT NOT NULL,
+                account_type TEXT NOT NULL,
+                account_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (sender_id, account_type)
+              )
+            ''');
           }
         },
         beforeOpen: (details) async {
@@ -792,6 +812,33 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> deleteSmsSenderPref(String id) async =>
       deleteRow('sms_sender_prefs', 'id', id);
+
+  Future<List<SmsSenderAccountMapping>> getSmsSenderAccountMappings() async {
+    final rows = await customSelect(
+      'SELECT * FROM sms_sender_account_mappings ORDER BY created_at DESC',
+    ).get();
+    return rows
+        .map((row) => SmsSenderAccountMapping.fromMap(row.data))
+        .toList();
+  }
+
+  Future<void> upsertSmsSenderAccountMapping(
+    SmsSenderAccountMapping mapping,
+  ) async {
+    await customStatement(
+      'INSERT INTO sms_sender_account_mappings '
+      '(sender_id, account_type, account_id, created_at) '
+      'VALUES (?, ?, ?, ?) '
+      'ON CONFLICT(sender_id, account_type) DO UPDATE SET '
+      'account_id = excluded.account_id, created_at = excluded.created_at',
+      [
+        mapping.senderId,
+        mapping.accountType,
+        mapping.accountId,
+        mapping.createdAt.toIso8601String(),
+      ],
+    );
+  }
 
   // ── SMS durable event outbox ─────────────────────────────────────────
   Future<bool> enqueueSmsOutboxEvent(SmsOutboxEvent event) async {
@@ -1343,6 +1390,7 @@ class AppDatabase extends _$AppDatabase {
     'sms_inbox',
     'sms_rules',
     'sms_sender_prefs',
+    'sms_sender_account_mappings',
     'sms_outbox',
     'sms_verifications',
     'sms_learning_proposals',

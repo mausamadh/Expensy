@@ -210,6 +210,8 @@ class CompositionRoot {
     getIt.registerSingleton<SmsRuleRepository>(const DriftSmsRuleRepository());
     getIt.registerSingleton<SmsSenderPrefRepository>(
         const DriftSmsSenderPrefRepository());
+    getIt.registerSingleton<SmsSenderAccountMappingRepository>(
+        const DriftSmsSenderAccountMappingRepository());
     getIt.registerSingleton<SmsNotificationGateway>(
         const NotificationSmsGateway());
     getIt.registerSingleton<SmsOutboxRepository>(
@@ -265,6 +267,7 @@ class CompositionRoot {
         inboxRepo: getIt<SmsInboxRepository>(),
         ruleRepo: getIt<SmsRuleRepository>(),
         prefRepo: getIt<SmsSenderPrefRepository>(),
+        senderAccountMappingRepo: getIt<SmsSenderAccountMappingRepository>(),
         settings: getIt<SmsSettings>(),
         verificationRepo: getIt<SmsVerificationRepository>(),
         outboxRepo: getIt<SmsOutboxRepository>(),

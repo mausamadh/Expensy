@@ -29,6 +29,7 @@ class SmsInboxViewModel extends ChangeNotifier {
     required SmsInboxRepository inboxRepo,
     required SmsRuleRepository ruleRepo,
     required SmsSenderPrefRepository prefRepo,
+    required SmsSenderAccountMappingRepository senderAccountMappingRepo,
     required SmsSettings settings,
     SmsVerificationRepository? verificationRepo,
     SmsOutboxRepository? outboxRepo,
@@ -42,6 +43,7 @@ class SmsInboxViewModel extends ChangeNotifier {
         _inboxRepo = inboxRepo,
         _ruleRepo = ruleRepo,
         _prefRepo = prefRepo,
+        _senderAccountMappingRepo = senderAccountMappingRepo,
         _settings = settings,
         _verificationRepo = verificationRepo,
         _outboxRepo = outboxRepo,
@@ -58,6 +60,7 @@ class SmsInboxViewModel extends ChangeNotifier {
   final SmsInboxRepository _inboxRepo;
   final SmsRuleRepository _ruleRepo;
   final SmsSenderPrefRepository _prefRepo;
+  final SmsSenderAccountMappingRepository _senderAccountMappingRepo;
   final SmsSettings _settings;
   final SmsVerificationRepository? _verificationRepo;
   final SmsOutboxRepository? _outboxRepo;
@@ -74,6 +77,7 @@ class SmsInboxViewModel extends ChangeNotifier {
   List<SmsInboxItem> _inbox = [];
   List<SmsRule> _rules = [];
   List<SmsSenderPref> _prefs = [];
+  List<SmsSenderAccountMapping> _senderAccountMappings = [];
   bool _scanning = false;
   bool _autoHideOtp = true;
   bool _liveCaptureEnabled = false;
@@ -92,6 +96,8 @@ class SmsInboxViewModel extends ChangeNotifier {
   List<SmsInboxItem> get smsInbox => _inbox;
   List<SmsRule> get smsRules => _rules;
   List<SmsSenderPref> get smsSenderPrefs => _prefs;
+  List<SmsSenderAccountMapping> get smsSenderAccountMappings =>
+      _senderAccountMappings;
   bool get smsScanning => _scanning;
   bool get smsAutoHideOtp => _autoHideOtp;
   bool get smsLiveCaptureEnabled => _liveCaptureEnabled;
@@ -102,60 +108,6 @@ class SmsInboxViewModel extends ChangeNotifier {
   String? get smsStatusMessage => _smsStatusMessage;
   bool get smsStatusIsError => _smsStatusIsError;
   List<SmsLearningProposal> get smsLearningProposals => _learningProposals;
-  List<SmsAccountSuggestion> get smsAccountSuggestions {
-    final grouped = <String, _SmsSuggestionAccumulator>{};
-    for (final item in _inbox.where(
-      (item) => item.status == 'pending' && _isActionableSmsCandidate(item),
-    )) {
-      final body = item.body.toLowerCase();
-      final sender = item.senderId.trim();
-      if (sender.isEmpty) continue;
-      final name = _suggestedAccountName(sender);
-      final type = _suggestedAccountType(sender, body);
-      if (_accountAlreadyExists(name, type)) continue;
-      final identity = _accountSuggestionIdentity(name);
-      final key = '$type:${identity.isEmpty ? sender.toUpperCase() : identity}';
-      final acc = grouped.putIfAbsent(
-        key,
-        () => _SmsSuggestionAccumulator(
-          name: name,
-          type: type,
-          senderId: sender,
-        ),
-      );
-      acc.evidenceCount++;
-    }
-    return grouped.values
-        .map((acc) => SmsAccountSuggestion(
-              name: acc.name,
-              type: acc.type,
-              senderId: acc.senderId,
-              evidenceCount: acc.evidenceCount,
-            ))
-        .toList()
-      ..sort((a, b) => b.evidenceCount.compareTo(a.evidenceCount));
-  }
-
-  bool _accountAlreadyExists(String suggestedName, String suggestedType) {
-    final suggestedIdentity = _accountSuggestionIdentity(suggestedName);
-    if (suggestedIdentity.isEmpty) return false;
-    final names = _ledgerContext.accountNames;
-    final types = _ledgerContext.accountTypes;
-    for (var i = 0; i < names.length && i < types.length; i++) {
-      if (!_compatibleAccountTypes(suggestedType, types[i])) continue;
-      final existingIdentity = _accountSuggestionIdentity(names[i]);
-      if (existingIdentity.isEmpty) continue;
-      final shorter = suggestedIdentity.length < existingIdentity.length
-          ? suggestedIdentity
-          : existingIdentity;
-      if (shorter.length >= 4 &&
-          (suggestedIdentity.contains(existingIdentity) ||
-              existingIdentity.contains(suggestedIdentity))) {
-        return true;
-      }
-    }
-    return false;
-  }
 
   bool _compatibleAccountTypes(String suggested, String existing) {
     if (suggested == existing) return true;
@@ -188,27 +140,6 @@ class SmsInboxViewModel extends ChangeNotifier {
         .split(RegExp(r'[^a-z0-9]+'))
         .where((term) => term.isNotEmpty && !genericTerms.contains(term));
     return terms.join();
-  }
-
-  String _suggestedAccountName(String sender) {
-    final upper = sender.toUpperCase();
-    const known = <String, String>{
-      'CTZN_ALERT': 'Citizens Bank',
-      'CTZNS_ALERT': 'Citizens Bank',
-      'NABIL_ALERT': 'Nabil Bank',
-      'NBL_ALERT': 'Nepal Bank',
-      'NBLALERT': 'Nepal Bank',
-      'LAXMI_ALERT': 'Laxmi Sunrise',
-      'LAXMIALERT': 'Laxmi Sunrise',
-      'SBL_ALERT': 'Siddhartha Bank',
-      'SSF': 'Social Security Fund',
-      'CIT': 'CIT Retirement Fund',
-      'CIT_ALERT': 'CIT Retirement Fund',
-      'KHALTI': 'Khalti Wallet',
-      'ESEWA_ALERT': 'eSewa Wallet',
-      'IME_ALERT': 'IME Pay',
-    };
-    return known[upper] ?? sender;
   }
 
   String _suggestedAccountType(String sender, String body) {
@@ -244,6 +175,7 @@ class SmsInboxViewModel extends ChangeNotifier {
     _inbox = await _inboxRepo.getAll();
     _rules = await _ruleRepo.getAll();
     _prefs = await _prefRepo.getAll();
+    _senderAccountMappings = await _senderAccountMappingRepo.getAll();
     _autoHideOtp = await _settings.getAutoHideOtp();
     _liveCaptureEnabled = await _settings.getLiveCaptureEnabled();
     _smsConsentResolved = await _settings.getFirstRunSmsConsentResolved();
@@ -421,12 +353,20 @@ class SmsInboxViewModel extends ChangeNotifier {
     if (!_smsConsentResolved || !_smsAutoImportEnabled) {
       for (final item
           in (candidates ?? _inbox.where((item) => item.status == 'pending'))) {
-        if (_isActionableSmsCandidate(item) &&
-            (notifyCandidateIds == null ||
-                notifyCandidateIds.contains(item.id))) {
+        if (!_isActionableSmsCandidate(item)) continue;
+        final rule = _matcher.matchRule(item, _rules);
+        final accountId = _candidateAccountId(item, rule);
+        final reviewReason = accountId == null
+            ? 'Account not mapped to sender'
+            : 'First-run SMS import consent is required';
+        if (accountId == null) {
+          await _setCandidateReviewReason(item, reviewReason);
+        }
+        if (notifyCandidateIds == null ||
+            notifyCandidateIds.contains(item.id)) {
           await _notificationGateway?.notifyVerificationRequired(
             inboxId: item.id,
-            reason: 'First-run SMS import consent is required',
+            reason: reviewReason,
           );
         }
       }
@@ -439,19 +379,23 @@ class SmsInboxViewModel extends ChangeNotifier {
             .toList(growable: false);
     for (final item in selected.where((item) => item.status == 'pending')) {
       final rule = _matcher.matchRule(item, _rules);
-      final type =
-          rule?.transactionType ?? _matcher.typeFromParsed(item.parsedType);
-      final accountId =
-          rule?.accountId ?? _automaticSourceAccountId(item, type);
-      final categoryId = rule?.categoryId ??
-          _matcher.defaultCategoryId(
-            type,
-            _ledgerContext.categoryIds,
-            _ledgerContext.categoryTypes,
-            _ledgerContext.categoryIsSystem,
-            categoryNames: _ledgerContext.categoryNames,
-            description: item.body,
-          );
+      final hasSpecificRule = rule?.merchantPattern?.trim().isNotEmpty ?? false;
+      final type = hasSpecificRule
+          ? rule!.transactionType
+          : item.parsedType != null
+              ? _matcher.typeFromParsed(item.parsedType)
+              : rule?.transactionType ?? 'expense';
+      final accountId = _candidateAccountId(item, rule);
+      final categoryId = _ruleCategoryMatchesType(rule, type)
+          ? rule!.categoryId
+          : _matcher.defaultCategoryId(
+              type,
+              _ledgerContext.categoryIds,
+              _ledgerContext.categoryTypes,
+              _ledgerContext.categoryIsSystem,
+              categoryNames: _ledgerContext.categoryNames,
+              description: item.body,
+            );
       final toAccountId = type == 'transfer'
           ? _automaticTransferDestination(item, accountId)
           : null;
@@ -466,12 +410,19 @@ class SmsInboxViewModel extends ChangeNotifier {
         toAccountId: toAccountId,
       );
       if (!decision.shouldAutoImport) {
+        final reviewReason =
+            accountId == null && _isActionableSmsCandidate(item)
+                ? 'Account not mapped to sender'
+                : decision.reason;
+        if (item.reviewReason != reviewReason) {
+          await _setCandidateReviewReason(item, reviewReason);
+        }
         if (_isActionableSmsCandidate(item) &&
             (notifyCandidateIds == null ||
                 notifyCandidateIds.contains(item.id))) {
           await _notificationGateway?.notifyVerificationRequired(
             inboxId: item.id,
-            reason: decision.reason,
+            reason: reviewReason,
           );
         }
         continue;
@@ -503,43 +454,120 @@ class SmsInboxViewModel extends ChangeNotifier {
         SmsKindClassifier.classify(item.body) == SmsKind.transactional;
   }
 
-  String? _automaticSourceAccountId(SmsInboxItem item, String type) {
-    final ids = _ledgerContext.accountIds;
-    final types = _ledgerContext.accountTypes;
-    final names = _ledgerContext.accountNames;
-    final targetType = type == 'transfer'
-        ? 'bank'
-        : _suggestedAccountType(item.senderId, item.body);
-    final suggestionName = _suggestedAccountName(item.senderId);
-    final suggestionIdentity = _accountSuggestionIdentity(suggestionName);
-    if (suggestionIdentity.isNotEmpty) {
-      final matches = <String>[];
-      for (var i = 0; i < ids.length && i < types.length; i++) {
-        if (i >= names.length ||
-            !_compatibleAccountTypes(targetType, types[i])) {
-          continue;
-        }
-        final existingIdentity = _accountSuggestionIdentity(names[i]);
-        final shorter = suggestionIdentity.length < existingIdentity.length
-            ? suggestionIdentity
-            : existingIdentity;
-        if (shorter.length >= 4 &&
-            (suggestionIdentity.contains(existingIdentity) ||
-                existingIdentity.contains(suggestionIdentity))) {
-          matches.add(ids[i]);
-        }
+  String? _candidateAccountId(SmsInboxItem item, SmsRule? rule) {
+    final hasSpecificRule = rule?.merchantPattern?.trim().isNotEmpty ?? false;
+    final accountId = hasSpecificRule
+        ? rule!.accountId
+        : _mappedAccountId(item) ?? rule?.accountId;
+    if (accountId == null ||
+        accountId.trim().isEmpty ||
+        !_ledgerContext.accountIds.contains(accountId)) {
+      return null;
+    }
+    return accountId;
+  }
+
+  Future<void> _setCandidateReviewReason(
+    SmsInboxItem item,
+    String reason,
+  ) async {
+    if (item.reviewReason == reason) return;
+    final updated = item.copyWith(reviewReason: reason);
+    await _inboxRepo.update(updated);
+    _inbox = _inbox
+        .map((candidate) => candidate.id == item.id ? updated : candidate)
+        .toList();
+  }
+
+  String? _mappedAccountId(SmsInboxItem item) {
+    final accountType = _suggestedAccountType(item.senderId, item.body);
+    for (final mapping in _senderAccountMappings) {
+      if (mapping.senderId != item.senderId ||
+          mapping.accountType != accountType) {
+        continue;
       }
-      if (matches.length == 1) return matches.single;
-      if (matches.length > 1) return null;
+      final ids = _ledgerContext.accountIds;
+      final types = _ledgerContext.accountTypes;
+      final index = ids.indexOf(mapping.accountId);
+      if (index >= 0 &&
+          index < types.length &&
+          _compatibleAccountTypes(accountType, types[index])) {
+        return mapping.accountId;
+      }
+      return null;
+    }
+    return null;
+  }
+
+  bool _ruleCategoryMatchesType(SmsRule? rule, String type) {
+    if (rule == null) return false;
+    if (type == 'transfer') return rule.categoryId == 'sys_transfer';
+    final categoryIndex = _ledgerContext.categoryIds.indexOf(rule.categoryId);
+    return categoryIndex >= 0 &&
+        categoryIndex < _ledgerContext.categoryTypes.length &&
+        _ledgerContext.categoryTypes[categoryIndex] == type;
+  }
+
+  Future<int> mapSmsSendersToAccount({
+    required List<String> senderIds,
+    required String accountType,
+    required String accountId,
+  }) async {
+    final cleanedSenderIds = senderIds
+        .map((sender) => sender.trim())
+        .where((s) => s.isNotEmpty)
+        .toSet();
+    final accountIndex = _ledgerContext.accountIds.indexOf(accountId);
+    if (cleanedSenderIds.isEmpty ||
+        accountIndex < 0 ||
+        accountIndex >= _ledgerContext.accountTypes.length ||
+        !_compatibleAccountTypes(
+          accountType,
+          _ledgerContext.accountTypes[accountIndex],
+        )) {
+      throw ArgumentError(
+          'The SMS sender mapping does not match this account.');
     }
 
-    final eligible = <String>[];
-    for (var i = 0; i < ids.length && i < types.length; i++) {
-      if (_compatibleAccountTypes(targetType, types[i])) {
-        eligible.add(ids[i]);
+    await _gate.run(() async {
+      for (final senderId in cleanedSenderIds) {
+        final mapping = SmsSenderAccountMapping(
+          senderId: senderId,
+          accountType: accountType,
+          accountId: accountId,
+          createdAt: _clock.now(),
+        );
+        await _senderAccountMappingRepo.upsert(mapping);
+        _senderAccountMappings = [
+          ..._senderAccountMappings.where((existing) =>
+              existing.senderId != senderId ||
+              existing.accountType != accountType),
+          mapping,
+        ];
       }
+    });
+
+    final pending = _inbox
+        .where((item) =>
+            item.status == 'pending' &&
+            cleanedSenderIds.contains(item.senderId) &&
+            _suggestedAccountType(item.senderId, item.body) == accountType)
+        .toList(growable: false);
+    var importedCount = 0;
+    if (_smsConsentResolved && _smsAutoImportEnabled && pending.isNotEmpty) {
+      importedCount = await _autoImportSafeCandidates(candidates: pending);
     }
-    return eligible.length == 1 ? eligible.single : null;
+    final reviewCount = pending
+        .where((item) => _inbox.any(
+            (updated) => updated.id == item.id && updated.status == 'pending'))
+        .length;
+    _setSmsStatus(
+      _smsConsentResolved && _smsAutoImportEnabled
+          ? 'Mapped ${cleanedSenderIds.length} SMS sender(s) to the account. $importedCount imported; $reviewCount need review.'
+          : 'Mapped ${cleanedSenderIds.length} SMS sender(s) to the account. Enable auto-import to import clear transactions.',
+    );
+    notifyListeners();
+    return importedCount;
   }
 
   String? _automaticTransferDestination(
@@ -886,17 +914,4 @@ class SmsInboxViewModel extends ChangeNotifier {
     _live?.stop();
     super.dispose();
   }
-}
-
-class _SmsSuggestionAccumulator {
-  _SmsSuggestionAccumulator({
-    required this.name,
-    required this.type,
-    required this.senderId,
-  });
-
-  final String name;
-  final String type;
-  final String senderId;
-  int evidenceCount = 0;
 }

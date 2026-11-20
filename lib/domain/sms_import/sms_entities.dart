@@ -234,6 +234,40 @@ class SmsSenderPref {
       );
 }
 
+/// User-confirmed mapping from one SMS sender and account kind to a ledger
+/// account. The kind allows one institution sender to route bank and card SMS
+/// to separate accounts.
+class SmsSenderAccountMapping {
+  final String senderId;
+  final String accountType;
+  final String accountId;
+  final DateTime createdAt;
+
+  const SmsSenderAccountMapping({
+    required this.senderId,
+    required this.accountType,
+    required this.accountId,
+    required this.createdAt,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'sender_id': senderId,
+        'account_type': accountType,
+        'account_id': accountId,
+        'created_at': createdAt.toIso8601String(),
+      };
+
+  static SmsSenderAccountMapping fromMap(Map<String, dynamic> m) =>
+      SmsSenderAccountMapping(
+        senderId: (m['sender_id'] as String?) ?? '',
+        accountType: (m['account_type'] as String?) ?? 'bank',
+        accountId: (m['account_id'] as String?) ?? '',
+        createdAt: m['created_at'] != null
+            ? DateTime.parse(m['created_at'] as String)
+            : DateTime.now(),
+      );
+}
+
 /// A user-confirmed routing rule: when an SMS from [senderId] (optionally
 /// matching [merchantPattern]) is imported, use these account/category/type.
 class SmsRule {
@@ -276,19 +310,4 @@ class SmsRule {
             ? DateTime.parse(m['created_at'] as String)
             : DateTime.now(),
       );
-}
-
-/// A first-parsed account suggestion derived from SMS senders and content.
-class SmsAccountSuggestion {
-  final String name;
-  final String type; // bank | savings | debit | credit | wallet
-  final String senderId;
-  final int evidenceCount;
-
-  const SmsAccountSuggestion({
-    required this.name,
-    required this.type,
-    required this.senderId,
-    required this.evidenceCount,
-  });
 }
