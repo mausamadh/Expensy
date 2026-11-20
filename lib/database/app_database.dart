@@ -44,7 +44,12 @@ LazyDatabase _openConnection() {
         }
       }
     }
-    return NativeDatabase.createInBackground(file);
+    return NativeDatabase.createInBackground(
+      file,
+      setup: (database) {
+        database.execute('PRAGMA busy_timeout = 10000');
+      },
+    );
   });
 }
 

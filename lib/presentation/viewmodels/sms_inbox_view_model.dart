@@ -334,7 +334,9 @@ class SmsInboxViewModel extends ChangeNotifier {
     } catch (error, stackTrace) {
       debugPrint('SMS scan failed: $error\n$stackTrace');
       _setSmsStatus(
-        'SMS scan failed. Check access and try scanning again.',
+        error.toString().toLowerCase().contains('database is locked')
+            ? 'The local database is busy. Wait a few seconds, then retry the SMS scan.'
+            : 'SMS scan failed. Check access and try scanning again.',
         isError: true,
       );
       rethrow;

@@ -34,6 +34,7 @@ Status: proposed
   - fallback parsing recognizes transfer wording more broadly and distinguishes incoming credits from outgoing transfers;
   - transfer auto-import requires a uniquely resolved source and a destination identifiable from the message; ambiguous transfers stay pending for verification rather than being guessed;
   - the SMS Inbox now displays the scan's new/imported/review counts and clearly says when auto-import consent is off;
+  - app SQLite connections wait up to ten seconds for transient database locks, and the inbox reports database-busy scan failures separately;
   - the native SMS plugin now completes background inbox queries on Android's main thread, as required by Flutter's platform channel;
   - focused SMS parser/import tests, architecture guard, changed-file analysis, and debug APK build passed; live device ledger import was not run during validation.
 - First-run clean-entry and account reconciliation:
