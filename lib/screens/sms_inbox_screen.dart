@@ -112,7 +112,9 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
     } catch (_) {
       if (mounted) {
         showAppSnackbar(
-            context, 'SMS scan failed. Check access and try again.');
+          context,
+          vm.smsStatusMessage ?? 'SMS scan failed. Check access and try again.',
+        );
       }
       return;
     }
@@ -123,6 +125,156 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
           ? 'Parsed $added new SMS message(s)'
           : 'No new transactions found',
     );
+  }
+
+  Future<void> _setupSmsAccount(SmsAccountSuggestion suggestion) async {
+    final app = context.read<AppProvider>();
+    final compatibleTypes =
+        suggestion.type == 'bank' || suggestion.type == 'savings'
+            ? const {'bank', 'savings'}
+            : {suggestion.type};
+    final accounts = app.accounts
+        .where((account) => compatibleTypes.contains(account.type))
+        .toList(growable: false);
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Set up ${suggestion.senderIds.length == 1 ? suggestion.senderId : '${suggestion.senderIds.length} senders'}',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Choose an existing account or create one with its current balance. '
+                'Clear transactions can import after the sender is mapped.',
+              ),
+              const SizedBox(height: 8),
+              for (final account in accounts)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.account_balance_wallet_outlined),
+                  title: Text(account.name),
+                  subtitle: Text(account.type),
+                  onTap: () => Navigator.pop(sheetContext, account.id),
+                ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.add_circle_outline_rounded),
+                title: Text('Create ${suggestion.name}'),
+                subtitle: const Text('Enter its current balance first'),
+                onTap: () => Navigator.pop(sheetContext, '__create_account__'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+
+    Account? account;
+    if (choice == '__create_account__') {
+      final isCard =
+          const {'credit', 'debit', 'prepaid'}.contains(suggestion.type);
+      account = await AccountsScreen.openSheet(
+        context,
+        isCard: isCard,
+        initialName: suggestion.name,
+        initialType: suggestion.type,
+      );
+    } else {
+      for (final candidate in app.accounts) {
+        if (candidate.id == choice) {
+          account = candidate;
+          break;
+        }
+      }
+    }
+    if (account == null || !mounted) return;
+
+    try {
+      final vm = context.read<SmsInboxViewModel>();
+      final imported = await vm.mapSmsSendersToAccount(
+        senderIds: suggestion.senderIds,
+        accountType: suggestion.type,
+        accountId: account.id,
+      );
+      if (mounted) {
+        showAppSnackbar(
+          context,
+          !vm.smsConsentResolved || !vm.smsAutoImportEnabled
+              ? 'Mapped sender(s). Enable auto-import to import clear transactions.'
+              : imported > 0
+                  ? 'Sender mapped; $imported transaction(s) imported.'
+                  : 'Sender mapped. Uncertain messages remain in review.',
+        );
+      }
+    } catch (error, stackTrace) {
+      debugPrint('SMS sender account mapping failed: $error\n$stackTrace');
+      if (mounted) {
+        showAppSnackbar(
+          context,
+          'Could not map these SMS senders to ${account.name}. Check the account type and try again.',
+        );
+      }
+    }
+  }
+
+  Future<void> _showAllSmsAccountSuggestions() async {
+    final suggestions = context.read<SmsInboxViewModel>().smsAccountSuggestions;
+    final suggestion = await showModalBottomSheet<SmsAccountSuggestion>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(sheetContext).height * 0.7,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Possible sender accounts',
+                  style: Theme.of(sheetContext)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w800),
+                ),
+              ),
+              for (final item in suggestions)
+                ListTile(
+                  leading: Icon(
+                    item.type == 'credit'
+                        ? Icons.credit_card_rounded
+                        : item.type == 'wallet'
+                            ? Icons.account_balance_wallet_rounded
+                            : Icons.account_balance_rounded,
+                  ),
+                  title: Text('${item.name} (${item.type})'),
+                  subtitle: Text(
+                    item.senderIds.join(', '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  onTap: () => Navigator.pop(sheetContext, item),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (suggestion != null && mounted) {
+      await _setupSmsAccount(suggestion);
+    }
   }
 
   Future<void> _enableAutoImport() async {
@@ -347,6 +499,62 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),
+                  ],
+                ),
+              ),
+            if (vm.smsAccountSuggestions.isNotEmpty)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: kWarningColor.withValues(alpha: isDark ? 0.16 : 0.10),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: kWarningColor.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Set up accounts from senders',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Create or choose an account for each sender before its clear transactions auto-import.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    for (final suggestion in vm.smsAccountSuggestions.take(5))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: OutlinedButton.icon(
+                          onPressed: () => _setupSmsAccount(suggestion),
+                          icon: Icon(
+                            suggestion.type == 'credit'
+                                ? Icons.credit_card_rounded
+                                : suggestion.type == 'wallet'
+                                    ? Icons.account_balance_wallet_rounded
+                                    : Icons.account_balance_rounded,
+                            size: 18,
+                          ),
+                          label: Text(
+                            'Set up ${suggestion.name} (${suggestion.type})',
+                          ),
+                        ),
+                      ),
+                    if (vm.smsAccountSuggestions.length > 5)
+                      TextButton(
+                        onPressed: _showAllSmsAccountSuggestions,
+                        child: Text(
+                          'View all ${vm.smsAccountSuggestions.length} senders',
+                        ),
+                      ),
                   ],
                 ),
               ),

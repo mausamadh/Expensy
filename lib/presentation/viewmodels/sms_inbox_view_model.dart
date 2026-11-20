@@ -108,6 +108,43 @@ class SmsInboxViewModel extends ChangeNotifier {
   String? get smsStatusMessage => _smsStatusMessage;
   bool get smsStatusIsError => _smsStatusIsError;
   List<SmsLearningProposal> get smsLearningProposals => _learningProposals;
+  List<SmsAccountSuggestion> get smsAccountSuggestions {
+    final grouped = <String, _SmsSuggestionAccumulator>{};
+    for (final item in _inbox.where(
+      (item) => item.status == 'pending' && _isActionableSmsCandidate(item),
+    )) {
+      final sender = item.senderId.trim();
+      if (sender.isEmpty ||
+          _candidateAccountId(item, _matcher.matchRule(item, _rules)) != null) {
+        continue;
+      }
+
+      final type = _suggestedAccountType(sender, item.body);
+      final name = _suggestedAccountName(sender);
+      final identity = _accountSuggestionIdentity(name);
+      final key = '$type:${identity.isEmpty ? sender.toUpperCase() : identity}';
+      final suggestion = grouped.putIfAbsent(
+        key,
+        () => _SmsSuggestionAccumulator(
+          name: name,
+          type: type,
+          senderId: sender,
+        ),
+      );
+      suggestion.senderIds.add(sender);
+      suggestion.evidenceCount++;
+    }
+    return grouped.values
+        .map((suggestion) => SmsAccountSuggestion(
+              name: suggestion.name,
+              type: suggestion.type,
+              senderId: suggestion.senderId,
+              senderIds: suggestion.senderIds.toList(),
+              evidenceCount: suggestion.evidenceCount,
+            ))
+        .toList()
+      ..sort((a, b) => b.evidenceCount.compareTo(a.evidenceCount));
+  }
 
   bool _compatibleAccountTypes(String suggested, String existing) {
     if (suggested == existing) return true;
@@ -142,18 +179,39 @@ class SmsInboxViewModel extends ChangeNotifier {
     return terms.join();
   }
 
+  String _suggestedAccountName(String sender) {
+    const knownSenders = <String, String>{
+      'CTZN_ALERT': 'Citizens Bank',
+      'CTZNS_ALERT': 'Citizens Bank',
+      'NABIL_ALERT': 'Nabil Bank',
+      'NBL_ALERT': 'Nepal Bank',
+      'NBLALERT': 'Nepal Bank',
+      'LAXMI_ALERT': 'Laxmi Sunrise',
+      'LAXMIALERT': 'Laxmi Sunrise',
+      'SBL_ALERT': 'Siddhartha Bank',
+      'SSF': 'Social Security Fund',
+      'CIT': 'CIT Retirement Fund',
+      'CIT_ALERT': 'CIT Retirement Fund',
+      'KHALTI': 'Khalti Wallet',
+      'ESEWA_ALERT': 'eSewa Wallet',
+      'IME_ALERT': 'IME Pay',
+    };
+    return knownSenders[sender.toUpperCase()] ?? sender;
+  }
+
   String _suggestedAccountType(String sender, String body) {
     final lowerSender = sender.toLowerCase();
+    final lowerBody = body.toLowerCase();
     if (lowerSender.contains('cit') ||
-        body.contains('cit no') ||
-        body.contains('citizens investment') ||
-        body.contains('retirement fund')) {
+        lowerBody.contains('cit no') ||
+        lowerBody.contains('citizens investment') ||
+        lowerBody.contains('retirement fund')) {
       return 'savings';
     }
-    if (body.contains('credit card') ||
-        body.contains('card payment') ||
-        body.contains('card was used') ||
-        body.contains('card ending')) {
+    if (lowerBody.contains('credit card') ||
+        lowerBody.contains('card payment') ||
+        lowerBody.contains('card was used') ||
+        lowerBody.contains('card ending')) {
       return 'credit';
     }
     if (lowerSender.contains('khalti') ||
@@ -163,7 +221,9 @@ class SmsInboxViewModel extends ChangeNotifier {
         lowerSender.contains('namastepay')) {
       return 'wallet';
     }
-    if (body.contains('debit card') || body.contains('atm')) return 'debit';
+    if (lowerBody.contains('debit card') || lowerBody.contains('atm')) {
+      return 'debit';
+    }
     return 'bank';
   }
 
@@ -555,11 +615,31 @@ class SmsInboxViewModel extends ChangeNotifier {
             cleanedSenderIds.contains(item.senderId) &&
             _suggestedAccountType(item.senderId, item.body) == accountType)
         .toList(growable: false);
+    await _gate.run(() async {
+      for (final item in pending.where(
+        (item) => item.reviewReason == 'Account not mapped to sender',
+      )) {
+        final updated = item.copyWith(clearReviewReason: true);
+        await _inboxRepo.update(updated);
+        _inbox = _inbox
+            .map((candidate) => candidate.id == item.id ? updated : candidate)
+            .toList();
+      }
+    });
+    final mappedPending = _inbox
+        .where((item) =>
+            item.status == 'pending' &&
+            cleanedSenderIds.contains(item.senderId) &&
+            _suggestedAccountType(item.senderId, item.body) == accountType)
+        .toList(growable: false);
     var importedCount = 0;
-    if (_smsConsentResolved && _smsAutoImportEnabled && pending.isNotEmpty) {
-      importedCount = await _autoImportSafeCandidates(candidates: pending);
+    if (_smsConsentResolved &&
+        _smsAutoImportEnabled &&
+        mappedPending.isNotEmpty) {
+      importedCount =
+          await _autoImportSafeCandidates(candidates: mappedPending);
     }
-    final reviewCount = pending
+    final reviewCount = mappedPending
         .where((item) => _inbox.any(
             (updated) => updated.id == item.id && updated.status == 'pending'))
         .length;
@@ -916,4 +996,18 @@ class SmsInboxViewModel extends ChangeNotifier {
     _live?.stop();
     super.dispose();
   }
+}
+
+class _SmsSuggestionAccumulator {
+  _SmsSuggestionAccumulator({
+    required this.name,
+    required this.type,
+    required this.senderId,
+  });
+
+  final String name;
+  final String type;
+  final String senderId;
+  final Set<String> senderIds = {};
+  int evidenceCount = 0;
 }

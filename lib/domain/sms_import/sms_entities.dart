@@ -149,6 +149,7 @@ class SmsInboxItem {
     DateTime? parsedDate,
     String? confidence,
     String? reviewReason,
+    bool clearReviewReason = false,
     String? templateId,
   }) =>
       SmsInboxItem(
@@ -165,7 +166,8 @@ class SmsInboxItem {
         parsedReference: parsedReference ?? this.parsedReference,
         parsedDate: parsedDate ?? this.parsedDate,
         confidence: confidence ?? this.confidence,
-        reviewReason: reviewReason ?? this.reviewReason,
+        reviewReason:
+            clearReviewReason ? null : reviewReason ?? this.reviewReason,
         templateId: templateId ?? this.templateId,
         status: status ?? this.status,
         importedTxId: importedTxId ?? this.importedTxId,
@@ -310,4 +312,21 @@ class SmsRule {
             ? DateTime.parse(m['created_at'] as String)
             : DateTime.now(),
       );
+}
+
+/// A possible account inferred from pending SMS senders, for user setup.
+class SmsAccountSuggestion {
+  final String name;
+  final String type; // bank | savings | debit | credit | wallet
+  final String senderId;
+  final List<String> senderIds;
+  final int evidenceCount;
+
+  SmsAccountSuggestion({
+    required this.name,
+    required this.type,
+    required this.senderId,
+    List<String>? senderIds,
+    required this.evidenceCount,
+  }) : senderIds = List.unmodifiable(senderIds ?? [senderId]);
 }

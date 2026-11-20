@@ -715,6 +715,8 @@ void main() {
 
       expect(provider.transactions, isEmpty);
       expect(harness.vm.smsInbox.single.status, 'pending');
+      expect(harness.vm.smsAccountSuggestions, hasLength(1));
+      expect(harness.vm.smsAccountSuggestions.single.type, 'bank');
       expect(
         harness.vm.smsInbox.single.reviewReason,
         'Account not mapped to sender',
@@ -760,6 +762,7 @@ void main() {
       await harness.vm.scanSmsInbox(limit: 5000);
       expect(provider.transactions, isEmpty);
       expect(harness.vm.smsInbox.single.status, 'pending');
+      expect(harness.vm.smsAccountSuggestions, hasLength(1));
 
       final imported = await harness.vm.mapSmsSendersToAccount(
         senderIds: const ['BANK_ALERT'],
@@ -771,6 +774,7 @@ void main() {
       expect(provider.transactions, hasLength(1));
       expect(provider.transactions.single.accountId, 'acc-bank-two');
       expect(harness.vm.smsInbox.single.status, 'imported');
+      expect(harness.vm.smsAccountSuggestions, isEmpty);
       expect(
         await db.getSmsSenderAccountMappings(),
         contains(
@@ -780,6 +784,31 @@ void main() {
               .having(
                   (mapping) => mapping.accountId, 'accountId', 'acc-bank-two'),
         ),
+      );
+    });
+
+    test('possible sender list separates bank and card account types',
+        () async {
+      harness.source.messages = [
+        const SmsMessage(
+          id: 'possible-sender-bank',
+          sender: 'NABIL_ALERT',
+          body: 'Your account is credited NPR 2,000.00. Ref: NABIL0001.',
+          timestamp: 1793520000000,
+        ),
+        const SmsMessage(
+          id: 'possible-sender-card',
+          sender: 'NABIL_ALERT',
+          body: 'Credit card purchase of NPR 500.00 successful. Ref: CARD0001.',
+          timestamp: 1793520001000,
+        ),
+      ];
+
+      await harness.vm.scanSmsInbox(limit: 5000);
+
+      expect(
+        harness.vm.smsAccountSuggestions.map((suggestion) => suggestion.type),
+        containsAll(['bank', 'credit']),
       );
     });
 

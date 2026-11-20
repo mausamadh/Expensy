@@ -4,6 +4,7 @@
 // existing model import sites.
 export '../domain/sms_import/sms_entities.dart'
     show
+        SmsAccountSuggestion,
         SmsInboxItem,
         SmsSender,
         SmsSenderAccountMapping,
