@@ -70,8 +70,12 @@ class FakeTemplateRegistryProvider implements TemplateRegistryProvider {
 
 /// Fully-wired [SmsInboxViewModel] for integration tests.
 class SmsVmHarness {
-  SmsVmHarness(this.provider, this.source, this.clock)
-      : vm = SmsInboxViewModel(
+  SmsVmHarness(
+    this.provider,
+    this.source,
+    this.clock, {
+    this.notificationGateway,
+  }) : vm = SmsInboxViewModel(
           source: source,
           inboxRepo: const DriftSmsInboxRepository(),
           ruleRepo: const DriftSmsRuleRepository(),
@@ -88,11 +92,13 @@ class SmsVmHarness {
           registryProvider: const FakeTemplateRegistryProvider(),
           gate: MutationGate(),
           clock: clock,
+          notificationGateway: notificationGateway,
         );
 
   final AppProvider provider;
   final FakeSmsSource source;
   final Clock clock;
+  final SmsNotificationGateway? notificationGateway;
   final SmsInboxViewModel vm;
 
   /// Loads the view model's initial state from the repositories.

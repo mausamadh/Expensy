@@ -13,12 +13,44 @@ import 'package:drift/native.dart';
 import 'package:finwick/database/app_database.dart';
 import 'package:finwick/domain/sms_import/sms_entities.dart';
 import 'package:finwick/domain/sms_import/sms_parser.dart';
+import 'package:finwick/domain/sms_import/ports/ports.dart';
+import 'package:finwick/models/models.dart';
 import 'package:finwick/providers/app_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'helpers/fake_clock.dart';
 import 'helpers/sms_vm_test_harness.dart';
+
+class FakeSmsNotificationGateway implements SmsNotificationGateway {
+  final List<String> imported = [];
+  final List<String> verification = [];
+  final List<String> failures = [];
+
+  @override
+  Future<void> notifyImported({
+    required String inboxId,
+    required String description,
+  }) async {
+    imported.add(inboxId);
+  }
+
+  @override
+  Future<void> notifyVerificationRequired({
+    required String inboxId,
+    required String reason,
+  }) async {
+    verification.add(inboxId);
+  }
+
+  @override
+  Future<void> notifyImportFailed({
+    required String inboxId,
+    required String reason,
+  }) async {
+    failures.add(inboxId);
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -304,6 +336,72 @@ void main() {
       expect(harness.vm.smsAutoHideOtp, isFalse);
       await harness.vm.setSmsAutoHideOtp(true);
       expect(harness.vm.smsAutoHideOtp, isTrue);
+    });
+
+    test('old SMS scan reconciles and auto-imports a safe transaction',
+        () async {
+      await db.insertAccount(Account(
+        id: 'acc-old-sms',
+        name: 'Old SMS Account',
+        type: 'bank',
+        balance: 1000,
+        currency: 'NPR',
+        colorValue: 0xFF2196F3,
+      ));
+      await provider.load();
+
+      final notifications = FakeSmsNotificationGateway();
+      harness = SmsVmHarness(
+        provider,
+        FakeSmsSource(),
+        FakeClock(),
+        notificationGateway: notifications,
+      );
+      await harness.load();
+      harness.source.messages = [
+        const SmsMessage(
+          id: 'old-1',
+          sender: 'BANK',
+          body: 'Rs. 500 debited from account for Grocery. Ref: OLD123.',
+          timestamp: 1700000000000,
+        ),
+      ];
+
+      final inserted = await harness.vm.scanSmsInbox(limit: 5000);
+
+      expect(inserted, 1);
+      expect(notifications.imported, isNotEmpty);
+      final transactions = await db.getTransactions();
+      expect(
+        transactions.any((tx) =>
+            tx.description.toLowerCase().contains('grocery') ||
+            tx.amount == 500),
+        isTrue,
+      );
+    });
+
+    test('ambiguous old SMS asks for verification instead of guessing',
+        () async {
+      final notifications = FakeSmsNotificationGateway();
+      harness = SmsVmHarness(
+        provider,
+        FakeSmsSource(),
+        FakeClock(),
+        notificationGateway: notifications,
+      );
+      await harness.load();
+      harness.source.messages = [
+        const SmsMessage(
+          id: 'ambiguous-1',
+          sender: 'BANK',
+          body: 'Transaction update. Please review.',
+          timestamp: 1700000000000,
+        ),
+      ];
+
+      await harness.vm.scanSmsInbox(limit: 5000);
+
+      expect(notifications.verification, isNotEmpty);
     });
   });
 

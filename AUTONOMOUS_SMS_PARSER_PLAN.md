@@ -18,6 +18,16 @@ Status: proposed
   - app launched and remained running;
   - `SmsBackgroundReceiver` is merged and registered for `SMS_RECEIVED`;
   - READ_SMS, RECEIVE_SMS, and POST_NOTIFICATIONS are granted in the primary user.
+- Old and current SMS reconciliation:
+  - startup and manual inbox scans use a 5,000-SMS reconciliation limit;
+  - newly discovered high-confidence, fully-routed transaction candidates are auto-imported;
+  - ambiguous candidates remain pending and trigger verification notifications;
+  - import failures trigger actionable import-failed notifications.
+- Old-SMS implementation validation:
+  - focused old-SMS scan tests pass;
+  - safe candidate auto-import test passes;
+  - ambiguous candidate verification-notification test passes;
+  - latest APK build passed; final reinstall is pending USB reconnection.
 - Remaining implementation phases: broader country fixture expansion and full live SMS/notification behavior testing with real incoming messages.
 - Remaining implementation phases: true Android background receiver/WorkManager, notification deep-link routing, ledger bridge removal, parser breadth, event crash tests, parser fixture expansion, device testing, and migration hardening.
 

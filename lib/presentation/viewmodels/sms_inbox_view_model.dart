@@ -125,11 +125,12 @@ class SmsInboxViewModel extends ChangeNotifier {
   Future<List<SmsSender>> getSmsSenders() => _source.getSenders();
 
   // ── Scan ───────────────────────────────────────────────────────────────
-  Future<int> scanSmsInbox({int limit = 500}) async {
+  Future<int> scanSmsInbox({int limit = 5000}) async {
     if (_scanning) return 0;
     _scanning = true;
     notifyListeners();
     try {
+      final previousIds = _inbox.map((item) => item.id).toSet();
       final registry = _registry ?? await _registryProvider.load();
       final scan = ScanSmsInbox(
         source: _source,
@@ -146,7 +147,10 @@ class SmsInboxViewModel extends ChangeNotifier {
       );
       if (inserted > 0) {
         _inbox = await _inboxRepo.getAll();
-        await _autoImportSafeCandidates();
+        final newlyAdded = _inbox
+            .where((item) => !previousIds.contains(item.id))
+            .toList(growable: false);
+        await _autoImportSafeCandidates(candidates: newlyAdded);
       }
       return inserted;
     } finally {
@@ -155,12 +159,14 @@ class SmsInboxViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> _autoImportSafeCandidates() async {
+  Future<void> _autoImportSafeCandidates(
+      {List<SmsInboxItem>? candidates}) async {
     const policy = SmsImportPolicy();
-    final candidates = _inbox
-        .where((item) => item.status == 'pending')
-        .toList(growable: false);
-    for (final item in candidates) {
+    final selected = candidates ??
+        _inbox
+            .where((item) => item.status == 'pending')
+            .toList(growable: false);
+    for (final item in selected.where((item) => item.status == 'pending')) {
       final rule = _matcher.matchRule(item, _rules);
       final type =
           rule?.transactionType ?? _matcher.typeFromParsed(item.parsedType);
@@ -190,14 +196,26 @@ class SmsInboxViewModel extends ChangeNotifier {
         categoryId: categoryId,
         toAccountId: toAccountId,
       );
-      if (!decision.shouldAutoImport) continue;
-      await importSmsCandidate(
+      if (!decision.shouldAutoImport) {
+        await _notificationGateway?.notifyVerificationRequired(
+          inboxId: item.id,
+          reason: decision.reason,
+        );
+        continue;
+      }
+      final txId = await importSmsCandidate(
         item.id,
         type: type,
         accountId: accountId,
         toAccountId: toAccountId,
         categoryId: categoryId,
       );
+      if (txId == null) {
+        await _notificationGateway?.notifyImportFailed(
+          inboxId: item.id,
+          reason: 'The transaction was valid but could not be saved',
+        );
+      }
     }
   }
 
@@ -468,14 +486,7 @@ class SmsInboxViewModel extends ChangeNotifier {
       learningProposals: () => _learningProposals,
       onInserted: (item) async {
         _inbox = [item, ..._inbox];
-        if (item.confidence != 'high') {
-          _notificationGateway?.notifyVerificationRequired(
-            inboxId: item.id,
-            reason: item.reviewReason ?? 'The SMS could not be parsed safely',
-          );
-        } else {
-          await _autoImportSafeCandidates();
-        }
+        await _autoImportSafeCandidates(candidates: [item]);
         notifyListeners();
       },
     );

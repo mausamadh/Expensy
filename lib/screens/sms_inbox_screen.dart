@@ -83,7 +83,7 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
 
   Future<void> _scan() async {
     final vm = context.read<SmsInboxViewModel>();
-    final added = await vm.scanSmsInbox();
+    final added = await vm.scanSmsInbox(limit: 5000);
     if (!mounted) return;
     showAppSnackbar(
       context,

@@ -126,7 +126,7 @@ void main() async {
   await smsVm.load();
   final smsPermissions = await smsVm.checkSmsPermissions();
   if (smsPermissions.canScan) {
-    await smsVm.scanSmsInbox();
+    await smsVm.scanSmsInbox(limit: 5000);
   }
   if (smsVm.smsLiveCaptureEnabled &&
       smsPermissions.receive &&
