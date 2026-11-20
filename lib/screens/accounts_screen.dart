@@ -17,13 +17,26 @@ class AccountsScreen extends StatefulWidget {
   const AccountsScreen({super.key});
 
   static void openSheet(BuildContext context,
-      {Account? existing, bool isCard = false}) {
+      {Account? existing,
+      bool isCard = false,
+      String? initialName,
+      String? initialType}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (_) => isCard
-          ? _CardSheet(existing: existing, isCard: true)
-          : _AccountSheet(existing: existing, isCard: false),
+          ? _CardSheet(
+              existing: existing,
+              isCard: true,
+              initialName: initialName,
+              initialType: initialType,
+            )
+          : _AccountSheet(
+              existing: existing,
+              isCard: false,
+              initialName: initialName,
+              initialType: initialType,
+            ),
     );
   }
 
@@ -69,18 +82,15 @@ class _AccountsScreenState extends State<AccountsScreen> {
     final app = context.watch<AppProvider>();
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final tabOrange = isDark ? const Color(0xFFFFB74D) : const Color(0xFFF57C00);
+    final tabOrange =
+        isDark ? const Color(0xFFFFB74D) : const Color(0xFFF57C00);
 
     final hasMultiCurrency =
         app.accounts.any((a) => a.currency != app.settings.currency);
 
-    final regularAccounts = app.accounts
-        .where((a) => !a.isCard)
-        .toList();
+    final regularAccounts = app.accounts.where((a) => !a.isCard).toList();
 
-    final cardAccounts = app.accounts
-        .where((a) => a.isCard)
-        .toList();
+    final cardAccounts = app.accounts.where((a) => a.isCard).toList();
 
     return Scaffold(
       body: Column(
@@ -125,18 +135,22 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: tabOrange.withValues(alpha: isDark ? 0.25 : 0.12),
+                        color:
+                            tabOrange.withValues(alpha: isDark ? 0.25 : 0.12),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: tabOrange.withValues(alpha: isDark ? 0.4 : 0.25),
+                          color:
+                              tabOrange.withValues(alpha: isDark ? 0.4 : 0.25),
                         ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.account_balance_wallet_rounded, size: 12, color: tabOrange),
+                          Icon(Icons.account_balance_wallet_rounded,
+                              size: 12, color: tabOrange),
                           const SizedBox(width: 5),
                           Text(
                             l10n.accounts_totalBalance.toUpperCase(),
@@ -213,7 +227,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
                         )
                       : ListView.builder(
                           key: const ValueKey('accounts_list'),
-                          padding: EdgeInsets.fromLTRB(14, 4, 14, NavMetrics.scrollBottomPadding(context)),
+                          padding: EdgeInsets.fromLTRB(14, 4, 14,
+                              NavMetrics.scrollBottomPadding(context)),
                           itemCount: regularAccounts.length,
                           itemBuilder: (_, i) =>
                               _AccountCard(acc: regularAccounts[i]),
@@ -226,7 +241,8 @@ class _AccountsScreenState extends State<AccountsScreen> {
                         )
                       : ListView.builder(
                           key: const ValueKey('cards_list'),
-                          padding: EdgeInsets.fromLTRB(14, 4, 14, NavMetrics.scrollBottomPadding(context)),
+                          padding: EdgeInsets.fromLTRB(14, 4, 14,
+                              NavMetrics.scrollBottomPadding(context)),
                           itemCount: cardAccounts.length,
                           itemBuilder: (_, i) =>
                               _RealWorldCard(acc: cardAccounts[i]),
@@ -309,7 +325,9 @@ class _RatesBanner extends StatelessWidget {
         Expanded(
             child: Text(label,
                 style: TextStyle(
-                    fontSize: 11, fontWeight: FontWeight.w500, color: fgColor))),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: fgColor))),
       ]),
     );
   }
@@ -433,7 +451,9 @@ class _AccountCard extends StatelessWidget {
                         ),
                         child: Text(
                           isDueSoon
-                              ? (diff == 0 ? l10n.recurring_dueToday : l10n.recurring_dueInDays(diff))
+                              ? (diff == 0
+                                  ? l10n.recurring_dueToday
+                                  : l10n.recurring_dueInDays(diff))
                               : l10n.accounts_dueOnDay(acc.dueDay!),
                           style: TextStyle(
                             fontSize: 9,
@@ -478,8 +498,8 @@ class _AccountCard extends StatelessWidget {
             IconButton(
                 icon: const Icon(Icons.edit_outlined, size: 20),
                 color: color,
-                onPressed: () =>
-                    AccountsScreen.openSheet(context, existing: acc, isCard: acc.isCard)),
+                onPressed: () => AccountsScreen.openSheet(context,
+                    existing: acc, isCard: acc.isCard)),
             IconButton(
                 icon: const Icon(Icons.delete_outline_rounded, size: 20),
                 color: cs.error,
@@ -522,7 +542,8 @@ class _AccountCard extends StatelessWidget {
                       .read<AppProvider>()
                       .deleteAccountWithUndo(acc.id);
                   if (context.mounted) {
-                    showAppSnackbar(context, l10n.common_accountDeleted, onUndo: undo);
+                    showAppSnackbar(context, l10n.common_accountDeleted,
+                        onUndo: undo);
                   }
                 }),
           ]),
@@ -716,7 +737,14 @@ const List<int> _kColors = [
 class _AccountSheet extends StatefulWidget {
   final Account? existing;
   final bool isCard;
-  const _AccountSheet({this.existing, this.isCard = false});
+  final String? initialName;
+  final String? initialType;
+  const _AccountSheet({
+    this.existing,
+    this.isCard = false,
+    this.initialName,
+    this.initialType,
+  });
   @override
   State<_AccountSheet> createState() => _AccountSheetState();
 }
@@ -761,7 +789,7 @@ class _AccountSheetState extends State<_AccountSheet> {
     super.initState();
     final app = context.read<AppProvider>();
     _currency = app.settings.currency;
-    _type = widget.existing?.type ?? 'bank';
+    _type = widget.existing?.type ?? widget.initialType ?? 'bank';
 
     final e = widget.existing;
     if (e != null) {
@@ -797,12 +825,8 @@ class _AccountSheetState extends State<_AccountSheet> {
           );
         }
       }
-    } else {
-      _type = 'credit';
-      final banks = app.accounts.where((a) => a.type == 'bank').toList();
-      if (banks.isNotEmpty) {
-        _linkedAccountId = banks.first.id;
-      }
+    } else if (widget.initialName != null) {
+      _nameCtrl.text = widget.initialName!;
     }
     // (Live preview now updated via ValueListenableBuilder)
   }
@@ -896,7 +920,12 @@ class _AccountSheetState extends State<_AccountSheet> {
       if (isDebit) {
         balance = isEdit ? widget.existing!.balance : 0.0;
       } else if (isCredit) {
-        final owed = rawAmount?.abs() ?? (isEdit ? (widget.existing!.balance < 0 ? -widget.existing!.balance : 0.0) : 0.0);
+        final owed = rawAmount?.abs() ??
+            (isEdit
+                ? (widget.existing!.balance < 0
+                    ? -widget.existing!.balance
+                    : 0.0)
+                : 0.0);
         balance = owed > 0 ? -owed : 0.0;
       } else {
         balance = rawAmount ?? (isEdit ? widget.existing!.balance : 0.0);
@@ -944,7 +973,8 @@ class _AccountSheetState extends State<_AccountSheet> {
           dueDay: dueDay,
           minPaymentAmount: minPaymentAmount,
           creditReminderEnabled: isCredit ? _creditReminderEnabled : false,
-          creditEarlyReminderEnabled: isCredit ? _creditEarlyReminderEnabled : false,
+          creditEarlyReminderEnabled:
+              isCredit ? _creditEarlyReminderEnabled : false,
           creditReminderTime: reminderTimeStr,
           linkedAccountId: linkedAccountId,
           clearLinkedAccount: _linkedAccountId == null,
@@ -1010,408 +1040,423 @@ class _AccountSheetState extends State<_AccountSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-          Text(
-              isEdit
-                  ? (isCard ? l10n.accounts_editCard : l10n.accounts_editAccount)
-                  : (isCard ? l10n.accounts_addCardBtn : l10n.accounts_addAccount),
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 16),
+            Text(
+                isEdit
+                    ? (isCard
+                        ? l10n.accounts_editCard
+                        : l10n.accounts_editAccount)
+                    : (isCard
+                        ? l10n.accounts_addCardBtn
+                        : l10n.accounts_addAccount),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 16),
 
-          TextField(
-            textInputAction: TextInputAction.next,
-            controller: _nameCtrl,
-            decoration: InputDecoration(
-              labelText: isCard
-                  ? l10n.accounts_cardNameHint
-                  : l10n.accounts_accountName,
-              prefixIcon: const Icon(Icons.label_outline),
-              errorText: _submitted && _nameCtrl.text.trim().isEmpty
-                  ? l10n.error_required
-                  : null,
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // ── Type cards ──────────────────────────────────────────────
-          Text(l10n.accounts_accountType,
-              style: Theme.of(context)
-                  .textTheme
-                  .labelMedium
-                  ?.copyWith(letterSpacing: 1)),
-          const SizedBox(height: 8),
-          Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: typeOptions.map((opt) {
-                final val = opt[0];
-                final lbl = opt[1];
-                final sel = _type == val;
-                return GestureDetector(
-                  onTap: () => setState(() {
-                    _type = val;
-                    // When switching to gold, default currency to main currency.
-                    if (val == 'gold') {
-                      _currency = app.settings.currency;
-                    }
-                  }),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 140),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                    decoration: BoxDecoration(
-                      color: sel
-                          ? (val == 'gold'
-                              ? kGoldColor
-                              : cs.primary)
-                          : cs.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(_typeIcon(val),
-                          size: 16, color: sel ? Colors.white : cs.onSurface),
-                      const SizedBox(width: 6),
-                      Text(lbl,
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: sel ? Colors.white : cs.onSurface)),
-                    ]),
-                  ),
-                );
-              }).toList()),
-          const SizedBox(height: 14),
-
-          // ── Currency picker ─────────────────────────────────────────
-          Text(l10n.accounts_currency,
-              style: Theme.of(context)
-                  .textTheme
-                  .labelMedium
-                  ?.copyWith(letterSpacing: 1)),
-          const SizedBox(height: 8),
-          GestureDetector(
-            onTap: () async {
-              final picked =
-                  await showCurrencyPicker(context, current: _currency);
-              if (picked != null) setState(() => _currency = picked);
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: cs.primary.withValues(alpha: 0.5)),
+            TextField(
+              textInputAction: TextInputAction.next,
+              controller: _nameCtrl,
+              decoration: InputDecoration(
+                labelText: isCard
+                    ? l10n.accounts_cardNameHint
+                    : l10n.accounts_accountName,
+                prefixIcon: const Icon(Icons.label_outline),
+                errorText: _submitted && _nameCtrl.text.trim().isEmpty
+                    ? l10n.error_required
+                    : null,
               ),
-              child: Row(children: [
-                Icon(Icons.monetization_on_outlined,
-                    size: 18, color: cs.primary),
-                const SizedBox(width: 10),
-                Expanded(
-                    child: Text(
-                        '$_currency  ${currencyInfo(_currency).symbol}  —  ${currencyInfo(_currency).name}',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 14))),
-                const Icon(Icons.arrow_drop_down_rounded),
-              ]),
             ),
-          ),
-          const SizedBox(height: 14),
+            const SizedBox(height: 14),
 
-          // ── Gold-specific fields ────────────────────────────────────
-          if (isGold) ...[
-            // Karat selector
-            Text(l10n.accounts_goldPurityKarat,
+            // ── Type cards ──────────────────────────────────────────────
+            Text(l10n.accounts_accountType,
                 style: Theme.of(context)
                     .textTheme
                     .labelMedium
                     ?.copyWith(letterSpacing: 1)),
             const SizedBox(height: 8),
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _kKarats.map((k) {
-                final sel = _goldKarat == k;
-                return GestureDetector(
-                  onTap: () => setState(() => _goldKarat = k),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 140),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                    decoration: BoxDecoration(
-                      color: sel
-                          ? kGoldColor
-                          : kGoldColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: sel
-                            ? kGoldColor
-                            : kGoldColor.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      Text('${k}k',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
-                              color: sel
-                                  ? Colors.white
-                                  : kGoldColor)),
-                      Text('${(k / 24 * 100).toStringAsFixed(0)}%',
-                          style: TextStyle(
-                              fontSize: 9,
-                              color: sel
-                                  ? Colors.white.withValues(alpha: 0.8)
-                                  : kGoldColor
-                                      .withValues(alpha: 0.7))),
-                    ]),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 14),
-
-            // Weight field
-            Text(l10n.accounts_weight,
-                style: Theme.of(context)
-                    .textTheme
-                    .labelMedium
-                    ?.copyWith(letterSpacing: 1)),
-            const SizedBox(height: 8),
-            TextField(textInputAction: TextInputAction.done, onSubmitted: (_) => _submit(), 
-              controller: _gramsCtrl,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                labelText: l10n.accounts_weightInGrams,
-                prefixIcon: const Icon(Icons.scale_outlined),
-                suffixText: 'g',
-                errorText:
-                    _submitted && (double.tryParse(_gramsCtrl.text) ?? 0) <= 0
-                        ? l10n.error_required
-                        : null,
-              ),
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 12),
-
-            // Live value preview card
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              child: app.goldRatesAvailable
-                  ? _GoldPreviewCard(
-                      key: ValueKey(preview?.toStringAsFixed(0) ?? 'no'),
-                      preview: preview,
-                      currency: _currency,
-                      karat: _goldKarat,
-                      grams: double.tryParse(_gramsCtrl.text),
-                      app: app,
-                    )
-                  : _GoldRatesUnavailableBanner(
-                      key: ValueKey(app.ratesFetching),
-                      fetching: app.ratesFetching,
-                    ),
-            ),
-            const SizedBox(height: 14),
-          ] else ...[
-            // ── Regular balance field ─────────────────────────────────
-            TextField(textInputAction: TextInputAction.done, onSubmitted: (_) => _submit(), 
-              controller: _balCtrl,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                  labelText: isCredit
-                      ? (isEdit
-                          ? l10n.accounts_amountCurrentlyOwed
-                          : l10n.accounts_initialAmountOwed)
-                      : (isEdit ? l10n.accounts_balance : l10n.accounts_initialBalance),
-                  helperText: isCredit
-                      ? l10n.accounts_cardDebtHint
-                      : null,
-                  prefixText: '${currencyInfo(_currency).symbol} '),
-            ),
-          ],
-          if (_type != 'gold') const SizedBox(height: 6),
-
-          if (isCard) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(textInputAction: TextInputAction.next, 
-                    controller: _cardHolderNameCtrl,
-                    decoration: InputDecoration(
-                      labelText: l10n.accounts_cardHolderOptional,
-                      prefixIcon: const Icon(Icons.person_outline),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(textInputAction: TextInputAction.next, 
-                    controller: _cardNumberLast4Ctrl,
-                    keyboardType: TextInputType.number,
-                    maxLength: 4,
-                    decoration: InputDecoration(
-                      labelText: l10n.accounts_last4Digits,
-                      prefixIcon: const Icon(Icons.numbers),
-                      counterText: '',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            TextField(textInputAction: TextInputAction.done, onSubmitted: (_) => _submit(), 
-              controller: _cardExpiryCtrl,
-              keyboardType: TextInputType.datetime,
-              maxLength: 5,
-              inputFormatters: [CardExpiryInputFormatter()],
-              decoration: InputDecoration(
-                labelText: l10n.accounts_expiryDate,
-                prefixIcon: const Icon(Icons.calendar_month),
-                counterText: '',
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-
-          if (isCredit) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(textInputAction: TextInputAction.next, 
-                    controller: _creditLimitCtrl,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText: l10n.accounts_creditLimitOptional,
-                      prefixText: '${currencyInfo(_currency).symbol} ',
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(textInputAction: TextInputAction.next, 
-                    controller: _minPaymentAmountCtrl,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText: l10n.accounts_minPaymentOptional,
-                      prefixText: '${currencyInfo(_currency).symbol} ',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(textInputAction: TextInputAction.next, 
-                    controller: _statementDayCtrl,
-                    keyboardType: TextInputType.number,
-                    maxLength: 2,
-                    decoration: InputDecoration(
-                      labelText: l10n.accounts_statementDayOptional,
-                      hintText: l10n.accounts_statementDayExample,
-                      counterText: '',
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(textInputAction: TextInputAction.done, onSubmitted: (_) => _submit(), 
-                    controller: _dueDayCtrl,
-                    keyboardType: TextInputType.number,
-                    maxLength: 2,
-                    decoration: InputDecoration(
-                      labelText: l10n.accounts_dueDayOptional,
-                      hintText: l10n.accounts_dueDayExample,
-                      counterText: '',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-
-          if (isCard) ...[
-            const SizedBox(height: 16),
-            Text(l10n.accounts_linkedAccountOptional,
-                style: Theme.of(context)
-                    .textTheme
-                    .labelMedium
-                    ?.copyWith(letterSpacing: 1)),
-            const SizedBox(height: 8),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => setState(() => _linkedAccountId = null),
+                spacing: 8,
+                runSpacing: 8,
+                children: typeOptions.map((opt) {
+                  final val = opt[0];
+                  final lbl = opt[1];
+                  final sel = _type == val;
+                  return GestureDetector(
+                    onTap: () => setState(() {
+                      _type = val;
+                      // When switching to gold, default currency to main currency.
+                      if (val == 'gold') {
+                        _currency = app.settings.currency;
+                      }
+                    }),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 140),
-                      margin: const EdgeInsets.only(right: 10),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 14),
+                          horizontal: 14, vertical: 9),
                       decoration: BoxDecoration(
-                        color: _linkedAccountId == null
-                            ? cs.primary
+                        color: sel
+                            ? (val == 'gold' ? kGoldColor : cs.primary)
                             : cs.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(l10n.shared_widgets_none,
-                          style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: _linkedAccountId == null
-                                  ? Colors.white
-                                  : cs.onSurface)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(_typeIcon(val),
+                            size: 16, color: sel ? Colors.white : cs.onSurface),
+                        const SizedBox(width: 6),
+                        Text(lbl,
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                color: sel ? Colors.white : cs.onSurface)),
+                      ]),
+                    ),
+                  );
+                }).toList()),
+            const SizedBox(height: 14),
+
+            // ── Currency picker ─────────────────────────────────────────
+            Text(l10n.accounts_currency,
+                style: Theme.of(context)
+                    .textTheme
+                    .labelMedium
+                    ?.copyWith(letterSpacing: 1)),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: () async {
+                final picked =
+                    await showCurrencyPicker(context, current: _currency);
+                if (picked != null) setState(() => _currency = picked);
+              },
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: cs.primary.withValues(alpha: 0.5)),
+                ),
+                child: Row(children: [
+                  Icon(Icons.monetization_on_outlined,
+                      size: 18, color: cs.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                      child: Text(
+                          '$_currency  ${currencyInfo(_currency).symbol}  —  ${currencyInfo(_currency).name}',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 14))),
+                  const Icon(Icons.arrow_drop_down_rounded),
+                ]),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // ── Gold-specific fields ────────────────────────────────────
+            if (isGold) ...[
+              // Karat selector
+              Text(l10n.accounts_goldPurityKarat,
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelMedium
+                      ?.copyWith(letterSpacing: 1)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _kKarats.map((k) {
+                  final sel = _goldKarat == k;
+                  return GestureDetector(
+                    onTap: () => setState(() => _goldKarat = k),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 140),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 9),
+                      decoration: BoxDecoration(
+                        color: sel
+                            ? kGoldColor
+                            : kGoldColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: sel
+                              ? kGoldColor
+                              : kGoldColor.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Text('${k}k',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                                color: sel ? Colors.white : kGoldColor)),
+                        Text('${(k / 24 * 100).toStringAsFixed(0)}%',
+                            style: TextStyle(
+                                fontSize: 9,
+                                color: sel
+                                    ? Colors.white.withValues(alpha: 0.8)
+                                    : kGoldColor.withValues(alpha: 0.7))),
+                      ]),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+
+              // Weight field
+              Text(l10n.accounts_weight,
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelMedium
+                      ?.copyWith(letterSpacing: 1)),
+              const SizedBox(height: 8),
+              TextField(
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _submit(),
+                controller: _gramsCtrl,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: l10n.accounts_weightInGrams,
+                  prefixIcon: const Icon(Icons.scale_outlined),
+                  suffixText: 'g',
+                  errorText:
+                      _submitted && (double.tryParse(_gramsCtrl.text) ?? 0) <= 0
+                          ? l10n.error_required
+                          : null,
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 12),
+
+              // Live value preview card
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                child: app.goldRatesAvailable
+                    ? _GoldPreviewCard(
+                        key: ValueKey(preview?.toStringAsFixed(0) ?? 'no'),
+                        preview: preview,
+                        currency: _currency,
+                        karat: _goldKarat,
+                        grams: double.tryParse(_gramsCtrl.text),
+                        app: app,
+                      )
+                    : _GoldRatesUnavailableBanner(
+                        key: ValueKey(app.ratesFetching),
+                        fetching: app.ratesFetching,
+                      ),
+              ),
+              const SizedBox(height: 14),
+            ] else ...[
+              // ── Regular balance field ─────────────────────────────────
+              TextField(
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _submit(),
+                controller: _balCtrl,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                    labelText: isCredit
+                        ? (isEdit
+                            ? l10n.accounts_amountCurrentlyOwed
+                            : l10n.accounts_initialAmountOwed)
+                        : (isEdit
+                            ? l10n.accounts_balance
+                            : l10n.accounts_initialBalance),
+                    helperText: isCredit ? l10n.accounts_cardDebtHint : null,
+                    prefixText: '${currencyInfo(_currency).symbol} '),
+              ),
+            ],
+            if (_type != 'gold') const SizedBox(height: 6),
+
+            if (isCard) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      textInputAction: TextInputAction.next,
+                      controller: _cardHolderNameCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.accounts_cardHolderOptional,
+                        prefixIcon: const Icon(Icons.person_outline),
+                      ),
                     ),
                   ),
-                  ...app.accounts.where((a) => a.type == 'bank').map((a) {
-                    final sel = _linkedAccountId == a.id;
-                    return GestureDetector(
-                      onTap: () => setState(() => _linkedAccountId = a.id),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      textInputAction: TextInputAction.next,
+                      controller: _cardNumberLast4Ctrl,
+                      keyboardType: TextInputType.number,
+                      maxLength: 4,
+                      decoration: InputDecoration(
+                        labelText: l10n.accounts_last4Digits,
+                        prefixIcon: const Icon(Icons.numbers),
+                        counterText: '',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _submit(),
+                controller: _cardExpiryCtrl,
+                keyboardType: TextInputType.datetime,
+                maxLength: 5,
+                inputFormatters: [CardExpiryInputFormatter()],
+                decoration: InputDecoration(
+                  labelText: l10n.accounts_expiryDate,
+                  prefixIcon: const Icon(Icons.calendar_month),
+                  counterText: '',
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            if (isCredit) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      textInputAction: TextInputAction.next,
+                      controller: _creditLimitCtrl,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: l10n.accounts_creditLimitOptional,
+                        prefixText: '${currencyInfo(_currency).symbol} ',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      textInputAction: TextInputAction.next,
+                      controller: _minPaymentAmountCtrl,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: l10n.accounts_minPaymentOptional,
+                        prefixText: '${currencyInfo(_currency).symbol} ',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      textInputAction: TextInputAction.next,
+                      controller: _statementDayCtrl,
+                      keyboardType: TextInputType.number,
+                      maxLength: 2,
+                      decoration: InputDecoration(
+                        labelText: l10n.accounts_statementDayOptional,
+                        hintText: l10n.accounts_statementDayExample,
+                        counterText: '',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _submit(),
+                      controller: _dueDayCtrl,
+                      keyboardType: TextInputType.number,
+                      maxLength: 2,
+                      decoration: InputDecoration(
+                        labelText: l10n.accounts_dueDayOptional,
+                        hintText: l10n.accounts_dueDayExample,
+                        counterText: '',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+
+            if (isCard) ...[
+              const SizedBox(height: 16),
+              Text(l10n.accounts_linkedAccountOptional,
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelMedium
+                      ?.copyWith(letterSpacing: 1)),
+              const SizedBox(height: 8),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => setState(() => _linkedAccountId = null),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 140),
                         margin: const EdgeInsets.only(right: 10),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 20, vertical: 14),
                         decoration: BoxDecoration(
-                          color: sel ? cs.primary : cs.surfaceContainerHigh,
+                          color: _linkedAccountId == null
+                              ? cs.primary
+                              : cs.surfaceContainerHigh,
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Text(a.name,
+                        child: Text(l10n.shared_widgets_none,
                             style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: sel ? Colors.white : cs.onSurface)),
+                                color: _linkedAccountId == null
+                                    ? Colors.white
+                                    : cs.onSurface)),
                       ),
-                    );
-                  }),
-                ],
+                    ),
+                    ...app.accounts.where((a) => a.type == 'bank').map((a) {
+                      final sel = _linkedAccountId == a.id;
+                      return GestureDetector(
+                        onTap: () => setState(() => _linkedAccountId = a.id),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 140),
+                          margin: const EdgeInsets.only(right: 10),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: sel ? cs.primary : cs.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(a.name,
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: sel ? Colors.white : cs.onSurface)),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-          ],
+              const SizedBox(height: 4),
+            ],
 
-          if (isCredit) ...[
-            const SizedBox(height: 16),
-            _CreditReminderSection(
-              enabled: _creditReminderEnabled,
-              earlyEnabled: _creditEarlyReminderEnabled,
-              time: _creditReminderTime,
-              onEnabledChanged: (v) => setState(() => _creditReminderEnabled = v),
-              onEarlyEnabledChanged: (v) => setState(() => _creditEarlyReminderEnabled = v),
-              onPickTime: _pickTime,
-            ),
-          ],
+            if (isCredit) ...[
+              const SizedBox(height: 16),
+              _CreditReminderSection(
+                enabled: _creditReminderEnabled,
+                earlyEnabled: _creditEarlyReminderEnabled,
+                time: _creditReminderTime,
+                onEnabledChanged: (v) =>
+                    setState(() => _creditReminderEnabled = v),
+                onEarlyEnabledChanged: (v) =>
+                    setState(() => _creditEarlyReminderEnabled = v),
+                onPickTime: _pickTime,
+              ),
+            ],
 
-          // ── Exclude from total ──────────────────────────────────────
-          SwitchListTile.adaptive(
+            // ── Exclude from total ──────────────────────────────────────
+            SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
               title: Text(l10n.accounts_excludeFromTotalBala,
                   style: const TextStyle(
@@ -1423,79 +1468,78 @@ class _AccountSheetState extends State<_AccountSheet> {
               value: _excludeFromTotal,
               onChanged: (v) => setState(() => _excludeFromTotal = v),
             ),
-          const SizedBox(height: 14),
+            const SizedBox(height: 14),
 
-          // ── Color picker ────────────────────────────────────────────
-          Text(l10n.accounts_color,
-              style: Theme.of(context)
-                  .textTheme
-                  .labelMedium
-                  ?.copyWith(letterSpacing: 1)),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 44,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _kColors.map((c) {
-                  final sel = _color == c;
-                  return GestureDetector(
-                    onTap: () => setState(() => _color = c),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      width: 36,
-                      height: 36,
-                      margin: const EdgeInsets.only(right: 8),
-                      decoration: BoxDecoration(
-                        color: Color(c),
-                        shape: BoxShape.circle,
-                        border: sel
-                            ? Border.all(color: cs.onSurface, width: 2)
+            // ── Color picker ────────────────────────────────────────────
+            Text(l10n.accounts_color,
+                style: Theme.of(context)
+                    .textTheme
+                    .labelMedium
+                    ?.copyWith(letterSpacing: 1)),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 44,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _kColors.map((c) {
+                    final sel = _color == c;
+                    return GestureDetector(
+                      onTap: () => setState(() => _color = c),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: 36,
+                        height: 36,
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          color: Color(c),
+                          shape: BoxShape.circle,
+                          border: sel
+                              ? Border.all(color: cs.onSurface, width: 2)
+                              : null,
+                          boxShadow: sel
+                              ? [
+                                  BoxShadow(
+                                      color: Color(c).withValues(alpha: 0.4),
+                                      blurRadius: 8)
+                                ]
+                              : [],
+                        ),
+                        child: sel
+                            ? const Icon(Icons.check,
+                                color: Colors.white, size: 18)
                             : null,
-                        boxShadow: sel
-                            ? [
-                                BoxShadow(
-                                    color: Color(c).withValues(alpha: 0.4),
-                                    blurRadius: 8)
-                              ]
-                            : [],
                       ),
-                      child: sel
-                          ? const Icon(Icons.check,
-                              color: Colors.white, size: 18)
-                          : null,
-                    ),
-                  );
-                }).toList(),
+                    );
+                  }).toList(),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
+            const SizedBox(height: 16),
 
-          const SizedBox(height: 16),
-
-          // ── Actions ─────────────────────────────────────────────────
-          Row(children: [
-            Expanded(
-                child: OutlinedButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(l10n.shared_widgets_cancel),
-            )),
-            const SizedBox(width: 12),
-            Expanded(
-                child: FilledButton(
-              onPressed: () {
-                AppHaptics.tap(context, HapticStrength.light);
-                _submit();
-              },
-              child: Text(isEdit
-                  ? l10n.accounts_saveChanges
-                  : l10n.accounts_addAccount),
-            )),
-          ]),
-        ],
-      )),
+            // ── Actions ─────────────────────────────────────────────────
+            Row(children: [
+              Expanded(
+                  child: OutlinedButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(l10n.shared_widgets_cancel),
+              )),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: FilledButton(
+                onPressed: () {
+                  AppHaptics.tap(context, HapticStrength.light);
+                  _submit();
+                },
+                child: Text(isEdit
+                    ? l10n.accounts_saveChanges
+                    : l10n.accounts_addAccount),
+              )),
+            ]),
+          ],
+        )),
       ),
     );
   }
@@ -1505,7 +1549,14 @@ class _AccountSheetState extends State<_AccountSheet> {
 class _CardSheet extends StatefulWidget {
   final Account? existing;
   final bool isCard;
-  const _CardSheet({this.existing, this.isCard = false});
+  final String? initialName;
+  final String? initialType;
+  const _CardSheet({
+    this.existing,
+    this.isCard = false,
+    this.initialName,
+    this.initialType,
+  });
   @override
   State<_CardSheet> createState() => _CardSheetState();
 }
@@ -1550,7 +1601,7 @@ class _CardSheetState extends State<_CardSheet> {
     super.initState();
     final app = context.read<AppProvider>();
     _currency = app.settings.currency;
-    _type = widget.existing?.type ?? 'credit';
+    _type = widget.existing?.type ?? widget.initialType ?? 'credit';
 
     final e = widget.existing;
     if (e != null) {
@@ -1587,7 +1638,9 @@ class _CardSheetState extends State<_CardSheet> {
         }
       }
     } else {
-      _type = 'credit';
+      if (widget.initialName != null) {
+        _nameCtrl.text = widget.initialName!;
+      }
       final banks = app.accounts.where((a) => a.type == 'bank').toList();
       if (banks.isNotEmpty) {
         _linkedAccountId = banks.first.id;
@@ -1691,7 +1744,12 @@ class _CardSheetState extends State<_CardSheet> {
       if (isDebit) {
         balance = isEdit ? widget.existing!.balance : 0.0;
       } else if (isCredit) {
-        final owed = rawAmount?.abs() ?? (isEdit ? (widget.existing!.balance < 0 ? -widget.existing!.balance : 0.0) : 0.0);
+        final owed = rawAmount?.abs() ??
+            (isEdit
+                ? (widget.existing!.balance < 0
+                    ? -widget.existing!.balance
+                    : 0.0)
+                : 0.0);
         balance = owed > 0 ? -owed : 0.0;
       } else {
         balance = rawAmount ?? (isEdit ? widget.existing!.balance : 0.0);
@@ -1799,516 +1857,535 @@ class _CardSheetState extends State<_CardSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-          Text(
-              isEdit
-                  ? (isCard ? l10n.accounts_editCard : l10n.accounts_editAccount)
-                  : (isCard ? l10n.accounts_addCardBtn : l10n.accounts_addAccount),
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 16),
+            Text(
+                isEdit
+                    ? (isCard
+                        ? l10n.accounts_editCard
+                        : l10n.accounts_editAccount)
+                    : (isCard
+                        ? l10n.accounts_addCardBtn
+                        : l10n.accounts_addAccount),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 16),
 
-          TextField(textInputAction: TextInputAction.next, 
-            controller: _nameCtrl,
-            decoration: InputDecoration(
-              labelText: isCard
-                  ? l10n.accounts_cardNameHint
-                  : l10n.accounts_accountName,
-              prefixIcon: const Icon(Icons.label_outline),
-              errorText: _submitted && _nameCtrl.text.trim().isEmpty
-                  ? l10n.error_required
-                  : null,
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // ── Type cards ──────────────────────────────────────────────
-          Text(l10n.accounts_accountType,
-              style: Theme.of(context)
-                  .textTheme
-                  .labelMedium
-                  ?.copyWith(letterSpacing: 1)),
-          const SizedBox(height: 8),
-          Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: typeOptions.map((opt) {
-                final val = opt[0];
-                final lbl = opt[1];
-                final sel = _type == val;
-                return GestureDetector(
-                  onTap: () => setState(() {
-                    _type = val;
-                    // When switching to gold, default currency to main currency.
-                    if (val == 'gold') {
-                      _currency = app.settings.currency;
-                    }
-                  }),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 140),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                    decoration: BoxDecoration(
-                      color: sel
-                          ? (val == 'gold'
-                              ? kGoldColor
-                              : cs.primary)
-                          : cs.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(_typeIcon(val),
-                          size: 16, color: sel ? Colors.white : cs.onSurface),
-                      const SizedBox(width: 6),
-                      Text(lbl,
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: sel ? Colors.white : cs.onSurface)),
-                    ]),
-                  ),
-                );
-              }).toList()),
-          const SizedBox(height: 14),
-
-          // ── Currency picker ─────────────────────────────────────────
-          Text(l10n.accounts_currency,
-              style: Theme.of(context)
-                  .textTheme
-                  .labelMedium
-                  ?.copyWith(letterSpacing: 1)),
-          const SizedBox(height: 8),
-          GestureDetector(
-            onTap: () async {
-              final picked =
-                  await showCurrencyPicker(context, current: _currency);
-              if (picked != null) setState(() => _currency = picked);
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: cs.primary.withValues(alpha: 0.5)),
+            TextField(
+              textInputAction: TextInputAction.next,
+              controller: _nameCtrl,
+              decoration: InputDecoration(
+                labelText: isCard
+                    ? l10n.accounts_cardNameHint
+                    : l10n.accounts_accountName,
+                prefixIcon: const Icon(Icons.label_outline),
+                errorText: _submitted && _nameCtrl.text.trim().isEmpty
+                    ? l10n.error_required
+                    : null,
               ),
-              child: Row(children: [
-                Icon(Icons.monetization_on_outlined,
-                    size: 18, color: cs.primary),
-                const SizedBox(width: 10),
-                Expanded(
-                    child: Text(
-                        '$_currency  ${currencyInfo(_currency).symbol}  —  ${currencyInfo(_currency).name}',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 14))),
-                const Icon(Icons.arrow_drop_down_rounded),
-              ]),
             ),
-          ),
-          const SizedBox(height: 14),
+            const SizedBox(height: 14),
 
-          // ── Gold-specific fields ────────────────────────────────────
-          if (isGold) ...[
-            // Karat selector
-            Text(l10n.accounts_goldPurityKarat,
+            // ── Type cards ──────────────────────────────────────────────
+            Text(l10n.accounts_accountType,
                 style: Theme.of(context)
                     .textTheme
                     .labelMedium
                     ?.copyWith(letterSpacing: 1)),
             const SizedBox(height: 8),
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _kKarats.map((k) {
-                final sel = _goldKarat == k;
-                return GestureDetector(
-                  onTap: () => setState(() => _goldKarat = k),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 140),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                    decoration: BoxDecoration(
-                      color: sel
-                          ? kGoldColor
-                          : kGoldColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
+                spacing: 8,
+                runSpacing: 8,
+                children: typeOptions.map((opt) {
+                  final val = opt[0];
+                  final lbl = opt[1];
+                  final sel = _type == val;
+                  return GestureDetector(
+                    onTap: () => setState(() {
+                      _type = val;
+                      // When switching to gold, default currency to main currency.
+                      if (val == 'gold') {
+                        _currency = app.settings.currency;
+                      }
+                    }),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 140),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 9),
+                      decoration: BoxDecoration(
                         color: sel
-                            ? kGoldColor
-                            : kGoldColor.withValues(alpha: 0.3),
+                            ? (val == 'gold' ? kGoldColor : cs.primary)
+                            : cs.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(12),
                       ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(_typeIcon(val),
+                            size: 16, color: sel ? Colors.white : cs.onSurface),
+                        const SizedBox(width: 6),
+                        Text(lbl,
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                color: sel ? Colors.white : cs.onSurface)),
+                      ]),
                     ),
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      Text('${k}k',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
-                              color: sel
-                                  ? Colors.white
-                                  : kGoldColor)),
-                      Text('${(k / 24 * 100).toStringAsFixed(0)}%',
-                          style: TextStyle(
-                              fontSize: 9,
-                              color: sel
-                                  ? Colors.white.withValues(alpha: 0.8)
-                                  : kGoldColor
-                                      .withValues(alpha: 0.7))),
-                    ]),
-                  ),
-                );
-              }).toList(),
-            ),
+                  );
+                }).toList()),
             const SizedBox(height: 14),
 
-            // Weight field
-            Text(l10n.accounts_weight,
+            // ── Currency picker ─────────────────────────────────────────
+            Text(l10n.accounts_currency,
                 style: Theme.of(context)
                     .textTheme
                     .labelMedium
                     ?.copyWith(letterSpacing: 1)),
             const SizedBox(height: 8),
-            TextField(textInputAction: TextInputAction.next, 
-              controller: _gramsCtrl,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                labelText: l10n.accounts_weightInGrams,
-                prefixIcon: const Icon(Icons.scale_outlined),
-                suffixText: 'g',
-                errorText:
-                    _submitted && (double.tryParse(_gramsCtrl.text) ?? 0) <= 0
-                        ? l10n.error_required
-                        : null,
-              ),
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 12),
-
-            // Live value preview card
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              child: app.goldRatesAvailable
-                  ? _GoldPreviewCard(
-                      key: ValueKey(preview?.toStringAsFixed(0) ?? 'no'),
-                      preview: preview,
-                      currency: _currency,
-                      karat: _goldKarat,
-                      grams: double.tryParse(_gramsCtrl.text),
-                      app: app,
-                    )
-                  : _GoldRatesUnavailableBanner(
-                      key: ValueKey(app.ratesFetching),
-                      fetching: app.ratesFetching,
-                    ),
-            ),
-            const SizedBox(height: 14),
-          ] else if (isDebit) ...[
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: cs.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline_rounded, size: 20, color: cs.primary),
+            GestureDetector(
+              onTap: () async {
+                final picked =
+                    await showCurrencyPicker(context, current: _currency);
+                if (picked != null) setState(() => _currency = picked);
+              },
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: cs.primary.withValues(alpha: 0.5)),
+                ),
+                child: Row(children: [
+                  Icon(Icons.monetization_on_outlined,
+                      size: 18, color: cs.primary),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      l10n.accounts_debitSharesBalance,
-                      style: TextStyle(fontSize: 13, color: cs.onSurface),
-                    ),
-                  ),
-                ],
+                      child: Text(
+                          '$_currency  ${currencyInfo(_currency).symbol}  —  ${currencyInfo(_currency).name}',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 14))),
+                  const Icon(Icons.arrow_drop_down_rounded),
+                ]),
               ),
             ),
-          ] else ...[
-            // ── Regular balance field ─────────────────────────────────
-            TextField(textInputAction: TextInputAction.next, 
-              controller: _balCtrl,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                  labelText: isCredit
-                      ? (isEdit
-                          ? l10n.accounts_amountCurrentlyOwed
-                          : l10n.accounts_initialAmountOwed)
-                      : (isEdit ? l10n.accounts_balance : l10n.accounts_initialBalance),
-                  helperText: isCredit
-                      ? l10n.accounts_cardDebtHint
-                      : null,
-                  prefixText: '${currencyInfo(_currency).symbol} '),
-            ),
-          ],
-          if (_type != 'gold') const SizedBox(height: 6),
+            const SizedBox(height: 14),
 
-          if (isCard) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(textInputAction: TextInputAction.next, 
-                    controller: _cardHolderNameCtrl,
-                    decoration: InputDecoration(
-                      labelText: l10n.accounts_cardHolderOptional,
-                      prefixIcon: const Icon(Icons.person_outline),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(textInputAction: TextInputAction.next, 
-                    controller: _cardNumberLast4Ctrl,
-                    keyboardType: TextInputType.number,
-                    maxLength: 4,
-                    decoration: InputDecoration(
-                      labelText: l10n.accounts_last4Digits,
-                      prefixIcon: const Icon(Icons.numbers),
-                      counterText: '',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            TextField(textInputAction: isCredit ? TextInputAction.next : TextInputAction.done, onSubmitted: (_) { if (!isCredit) _submit(); },
-              controller: _cardExpiryCtrl,
-              keyboardType: TextInputType.datetime,
-              maxLength: 5,
-              inputFormatters: [CardExpiryInputFormatter()],
-              decoration: InputDecoration(
-                labelText: l10n.accounts_expiryDate,
-                prefixIcon: const Icon(Icons.calendar_month),
-                counterText: '',
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-
-          if (isCredit) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(textInputAction: TextInputAction.next, 
-                    controller: _creditLimitCtrl,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText: l10n.accounts_creditLimitOptional,
-                      prefixText: '${currencyInfo(_currency).symbol} ',
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(textInputAction: TextInputAction.next, 
-                    controller: _minPaymentAmountCtrl,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText: l10n.accounts_minPaymentOptional,
-                      prefixText: '${currencyInfo(_currency).symbol} ',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(textInputAction: TextInputAction.next, 
-                    controller: _statementDayCtrl,
-                    keyboardType: TextInputType.number,
-                    maxLength: 2,
-                    decoration: InputDecoration(
-                      labelText: l10n.accounts_statementDayOptional,
-                      hintText: l10n.accounts_statementDayExample,
-                      counterText: '',
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(textInputAction: TextInputAction.done, onSubmitted: (_) => _submit(), 
-                    controller: _dueDayCtrl,
-                    keyboardType: TextInputType.number,
-                    maxLength: 2,
-                    decoration: InputDecoration(
-                      labelText: l10n.accounts_dueDayOptional,
-                      hintText: l10n.accounts_dueDayExample,
-                      counterText: '',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-
-          if (!isPrepaid) ...[
-            const SizedBox(height: 16),
-            Text(
-                isDebit
-                    ? l10n.accounts_linkedBankRequired
-                    : l10n.accounts_linkedAccountOptional,
-                style: Theme.of(context)
-                    .textTheme
-                    .labelMedium
-                    ?.copyWith(letterSpacing: 1)),
-            const SizedBox(height: 8),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  if (!isDebit)
-                    GestureDetector(
-                      onTap: () => setState(() => _linkedAccountId = null),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 140),
-                        margin: const EdgeInsets.only(right: 10),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: _linkedAccountId == null
-                              ? cs.primary
-                              : cs.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(l10n.shared_widgets_none,
-                            style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: _linkedAccountId == null
-                                    ? Colors.white
-                                    : cs.onSurface)),
-                      ),
-                    ),
-                  ...app.accounts.where((a) => a.type == 'bank').map((a) {
-                    final sel = _linkedAccountId == a.id;
-                    return GestureDetector(
-                      onTap: () => setState(() => _linkedAccountId = a.id),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 140),
-                        margin: const EdgeInsets.only(right: 10),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: sel ? cs.primary : cs.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(a.name,
-                            style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: sel ? Colors.white : cs.onSurface)),
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            ),
-            const SizedBox(height: 4),
-          ],
-
-          if (isCredit) ...[
-            const SizedBox(height: 8),
-            _CreditReminderSection(
-              enabled: _creditReminderEnabled,
-              earlyEnabled: _creditEarlyReminderEnabled,
-              time: _creditReminderTime,
-              onEnabledChanged: (v) => setState(() => _creditReminderEnabled = v),
-              onEarlyEnabledChanged: (v) => setState(() => _creditEarlyReminderEnabled = v),
-              onPickTime: _pickTime,
-            ),
-          ],
-
-          // ── Exclude from total ──────────────────────────────────────
-          if (!isDebit)
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: Text(l10n.accounts_excludeFromTotalBala,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 14)),
-              subtitle: Text(l10n.accounts_wontCountTowardYourHome,
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: cs.onSurface.withValues(alpha: 0.5))),
-              value: _excludeFromTotal,
-              onChanged: (v) => setState(() => _excludeFromTotal = v),
-            ),
-          const SizedBox(height: 14),
-
-          // ── Color picker ────────────────────────────────────────────
-          Text(l10n.accounts_color,
-              style: Theme.of(context)
-                  .textTheme
-                  .labelMedium
-                  ?.copyWith(letterSpacing: 1)),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 44,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _kColors.map((c) {
-                  final sel = _color == c;
+            // ── Gold-specific fields ────────────────────────────────────
+            if (isGold) ...[
+              // Karat selector
+              Text(l10n.accounts_goldPurityKarat,
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelMedium
+                      ?.copyWith(letterSpacing: 1)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _kKarats.map((k) {
+                  final sel = _goldKarat == k;
                   return GestureDetector(
-                    onTap: () => setState(() => _color = c),
+                    onTap: () => setState(() => _goldKarat = k),
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      width: 36,
-                      height: 36,
-                      margin: const EdgeInsets.only(right: 8),
+                      duration: const Duration(milliseconds: 140),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 9),
                       decoration: BoxDecoration(
-                        color: Color(c),
-                        shape: BoxShape.circle,
-                        border: sel
-                            ? Border.all(color: cs.onSurface, width: 2)
-                            : null,
-                        boxShadow: sel
-                            ? [
-                                BoxShadow(
-                                    color: Color(c).withValues(alpha: 0.4),
-                                    blurRadius: 8)
-                              ]
-                            : [],
+                        color: sel
+                            ? kGoldColor
+                            : kGoldColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: sel
+                              ? kGoldColor
+                              : kGoldColor.withValues(alpha: 0.3),
+                        ),
                       ),
-                      child: sel
-                          ? const Icon(Icons.check,
-                              color: Colors.white, size: 18)
-                          : null,
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Text('${k}k',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                                color: sel ? Colors.white : kGoldColor)),
+                        Text('${(k / 24 * 100).toStringAsFixed(0)}%',
+                            style: TextStyle(
+                                fontSize: 9,
+                                color: sel
+                                    ? Colors.white.withValues(alpha: 0.8)
+                                    : kGoldColor.withValues(alpha: 0.7))),
+                      ]),
                     ),
                   );
                 }).toList(),
               ),
+              const SizedBox(height: 14),
+
+              // Weight field
+              Text(l10n.accounts_weight,
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelMedium
+                      ?.copyWith(letterSpacing: 1)),
+              const SizedBox(height: 8),
+              TextField(
+                textInputAction: TextInputAction.next,
+                controller: _gramsCtrl,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: l10n.accounts_weightInGrams,
+                  prefixIcon: const Icon(Icons.scale_outlined),
+                  suffixText: 'g',
+                  errorText:
+                      _submitted && (double.tryParse(_gramsCtrl.text) ?? 0) <= 0
+                          ? l10n.error_required
+                          : null,
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 12),
+
+              // Live value preview card
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                child: app.goldRatesAvailable
+                    ? _GoldPreviewCard(
+                        key: ValueKey(preview?.toStringAsFixed(0) ?? 'no'),
+                        preview: preview,
+                        currency: _currency,
+                        karat: _goldKarat,
+                        grams: double.tryParse(_gramsCtrl.text),
+                        app: app,
+                      )
+                    : _GoldRatesUnavailableBanner(
+                        key: ValueKey(app.ratesFetching),
+                        fetching: app.ratesFetching,
+                      ),
+              ),
+              const SizedBox(height: 14),
+            ] else if (isDebit) ...[
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: cs.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline_rounded,
+                        size: 20, color: cs.primary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        l10n.accounts_debitSharesBalance,
+                        style: TextStyle(fontSize: 13, color: cs.onSurface),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              // ── Regular balance field ─────────────────────────────────
+              TextField(
+                textInputAction: TextInputAction.next,
+                controller: _balCtrl,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                    labelText: isCredit
+                        ? (isEdit
+                            ? l10n.accounts_amountCurrentlyOwed
+                            : l10n.accounts_initialAmountOwed)
+                        : (isEdit
+                            ? l10n.accounts_balance
+                            : l10n.accounts_initialBalance),
+                    helperText: isCredit ? l10n.accounts_cardDebtHint : null,
+                    prefixText: '${currencyInfo(_currency).symbol} '),
+              ),
+            ],
+            if (_type != 'gold') const SizedBox(height: 6),
+
+            if (isCard) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      textInputAction: TextInputAction.next,
+                      controller: _cardHolderNameCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.accounts_cardHolderOptional,
+                        prefixIcon: const Icon(Icons.person_outline),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      textInputAction: TextInputAction.next,
+                      controller: _cardNumberLast4Ctrl,
+                      keyboardType: TextInputType.number,
+                      maxLength: 4,
+                      decoration: InputDecoration(
+                        labelText: l10n.accounts_last4Digits,
+                        prefixIcon: const Icon(Icons.numbers),
+                        counterText: '',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                textInputAction:
+                    isCredit ? TextInputAction.next : TextInputAction.done,
+                onSubmitted: (_) {
+                  if (!isCredit) _submit();
+                },
+                controller: _cardExpiryCtrl,
+                keyboardType: TextInputType.datetime,
+                maxLength: 5,
+                inputFormatters: [CardExpiryInputFormatter()],
+                decoration: InputDecoration(
+                  labelText: l10n.accounts_expiryDate,
+                  prefixIcon: const Icon(Icons.calendar_month),
+                  counterText: '',
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            if (isCredit) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      textInputAction: TextInputAction.next,
+                      controller: _creditLimitCtrl,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: l10n.accounts_creditLimitOptional,
+                        prefixText: '${currencyInfo(_currency).symbol} ',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      textInputAction: TextInputAction.next,
+                      controller: _minPaymentAmountCtrl,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: l10n.accounts_minPaymentOptional,
+                        prefixText: '${currencyInfo(_currency).symbol} ',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      textInputAction: TextInputAction.next,
+                      controller: _statementDayCtrl,
+                      keyboardType: TextInputType.number,
+                      maxLength: 2,
+                      decoration: InputDecoration(
+                        labelText: l10n.accounts_statementDayOptional,
+                        hintText: l10n.accounts_statementDayExample,
+                        counterText: '',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _submit(),
+                      controller: _dueDayCtrl,
+                      keyboardType: TextInputType.number,
+                      maxLength: 2,
+                      decoration: InputDecoration(
+                        labelText: l10n.accounts_dueDayOptional,
+                        hintText: l10n.accounts_dueDayExample,
+                        counterText: '',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+
+            if (!isPrepaid) ...[
+              const SizedBox(height: 16),
+              Text(
+                  isDebit
+                      ? l10n.accounts_linkedBankRequired
+                      : l10n.accounts_linkedAccountOptional,
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelMedium
+                      ?.copyWith(letterSpacing: 1)),
+              const SizedBox(height: 8),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    if (!isDebit)
+                      GestureDetector(
+                        onTap: () => setState(() => _linkedAccountId = null),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 140),
+                          margin: const EdgeInsets.only(right: 10),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: _linkedAccountId == null
+                                ? cs.primary
+                                : cs.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(l10n.shared_widgets_none,
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: _linkedAccountId == null
+                                      ? Colors.white
+                                      : cs.onSurface)),
+                        ),
+                      ),
+                    ...app.accounts.where((a) => a.type == 'bank').map((a) {
+                      final sel = _linkedAccountId == a.id;
+                      return GestureDetector(
+                        onTap: () => setState(() => _linkedAccountId = a.id),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 140),
+                          margin: const EdgeInsets.only(right: 10),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: sel ? cs.primary : cs.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(a.name,
+                              style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: sel ? Colors.white : cs.onSurface)),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+            ],
+
+            if (isCredit) ...[
+              const SizedBox(height: 8),
+              _CreditReminderSection(
+                enabled: _creditReminderEnabled,
+                earlyEnabled: _creditEarlyReminderEnabled,
+                time: _creditReminderTime,
+                onEnabledChanged: (v) =>
+                    setState(() => _creditReminderEnabled = v),
+                onEarlyEnabledChanged: (v) =>
+                    setState(() => _creditEarlyReminderEnabled = v),
+                onPickTime: _pickTime,
+              ),
+            ],
+
+            // ── Exclude from total ──────────────────────────────────────
+            if (!isDebit)
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: Text(l10n.accounts_excludeFromTotalBala,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 14)),
+                subtitle: Text(l10n.accounts_wontCountTowardYourHome,
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onSurface.withValues(alpha: 0.5))),
+                value: _excludeFromTotal,
+                onChanged: (v) => setState(() => _excludeFromTotal = v),
+              ),
+            const SizedBox(height: 14),
+
+            // ── Color picker ────────────────────────────────────────────
+            Text(l10n.accounts_color,
+                style: Theme.of(context)
+                    .textTheme
+                    .labelMedium
+                    ?.copyWith(letterSpacing: 1)),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 44,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _kColors.map((c) {
+                    final sel = _color == c;
+                    return GestureDetector(
+                      onTap: () => setState(() => _color = c),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: 36,
+                        height: 36,
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          color: Color(c),
+                          shape: BoxShape.circle,
+                          border: sel
+                              ? Border.all(color: cs.onSurface, width: 2)
+                              : null,
+                          boxShadow: sel
+                              ? [
+                                  BoxShadow(
+                                      color: Color(c).withValues(alpha: 0.4),
+                                      blurRadius: 8)
+                                ]
+                              : [],
+                        ),
+                        child: sel
+                            ? const Icon(Icons.check,
+                                color: Colors.white, size: 18)
+                            : null,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
+            const SizedBox(height: 16),
 
-          const SizedBox(height: 16),
-
-          // ── Actions ─────────────────────────────────────────────────
-          Row(children: [
-            Expanded(
-                child: OutlinedButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(l10n.shared_widgets_cancel),
-            )),
-            const SizedBox(width: 12),
-            Expanded(
-                child: FilledButton(
-              onPressed: () {
-                AppHaptics.tap(context, HapticStrength.light);
-                _submit();
-              },
-              child: Text(isEdit ? l10n.accounts_saveChanges : l10n.accounts_addNewCardBtn),
-            )),
-          ]),
-        ],
-      )),
+            // ── Actions ─────────────────────────────────────────────────
+            Row(children: [
+              Expanded(
+                  child: OutlinedButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(l10n.shared_widgets_cancel),
+              )),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: FilledButton(
+                onPressed: () {
+                  AppHaptics.tap(context, HapticStrength.light);
+                  _submit();
+                },
+                child: Text(isEdit
+                    ? l10n.accounts_saveChanges
+                    : l10n.accounts_addNewCardBtn),
+              )),
+            ]),
+          ],
+        )),
       ),
     );
   }
@@ -2427,7 +2504,8 @@ class _RealWorldCard extends StatelessWidget {
                         .read<AppProvider>()
                         .deleteAccountWithUndo(acc.id);
                     if (context.mounted) {
-                      showAppSnackbar(context, l10n.common_cardDeleted, onUndo: undo);
+                      showAppSnackbar(context, l10n.common_cardDeleted,
+                          onUndo: undo);
                     }
                   }
                 },
@@ -2557,7 +2635,9 @@ class _RealWorldCard extends StatelessWidget {
                                   fontSize: 9,
                                   letterSpacing: 1)),
                           const SizedBox(height: 2),
-                          Text(formatAmount(app.getEffectiveBalance(acc), acc.currency),
+                          Text(
+                              formatAmount(
+                                  app.getEffectiveBalance(acc), acc.currency),
                               style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 16,
@@ -2660,8 +2740,8 @@ class _RealWorldCard extends StatelessWidget {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(6),
                   child: LinearProgressIndicator(
-                    value: (statement.utilizationPercent / 100.0)
-                        .clamp(0.0, 1.0),
+                    value:
+                        (statement.utilizationPercent / 100.0).clamp(0.0, 1.0),
                     minHeight: 7,
                     backgroundColor: cs.surfaceContainerHighest,
                     valueColor: AlwaysStoppedAnimation<Color>(tierColor),
@@ -2713,8 +2793,8 @@ class _RealWorldCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            formatAmount(statement.statementBalance,
-                                acc.currency),
+                            formatAmount(
+                                statement.statementBalance, acc.currency),
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
@@ -2751,7 +2831,8 @@ class _RealWorldCard extends StatelessWidget {
                                     ? '${l10n.recurring_overdue} (${-statement.daysUntilDue!}d)'
                                     : statement.daysUntilDue == 0
                                         ? l10n.recurring_dueToday
-                                        : l10n.recurring_dueInDays(statement.daysUntilDue!),
+                                        : l10n.recurring_dueInDays(
+                                            statement.daysUntilDue!),
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
@@ -2812,8 +2893,7 @@ class _RealWorldCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color:
-                              kSuccessColor.withValues(alpha: 0.15),
+                          color: kSuccessColor.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -3038,7 +3118,8 @@ class _CreditReminderSection extends StatelessWidget {
         color: enabled ? cs.primaryContainer.withValues(alpha: 0.2) : null,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: enabled ? cs.primary.withValues(alpha: 0.3) : Colors.transparent,
+          color:
+              enabled ? cs.primary.withValues(alpha: 0.3) : Colors.transparent,
         ),
       ),
       child: Column(
@@ -3046,7 +3127,9 @@ class _CreditReminderSection extends StatelessWidget {
           SwitchListTile.adaptive(
             contentPadding: const EdgeInsets.symmetric(horizontal: 12),
             secondary: Icon(
-              enabled ? Icons.notifications_active_rounded : Icons.notifications_none_rounded,
+              enabled
+                  ? Icons.notifications_active_rounded
+                  : Icons.notifications_none_rounded,
               color: enabled ? cs.primary : null,
             ),
             title: Text(l10n.recurring_paymentReminder,
@@ -3058,8 +3141,7 @@ class _CreditReminderSection extends StatelessWidget {
                   ? l10n.accounts_notifyOnDueDate
                   : l10n.accounts_notifyWhenDue,
               style: TextStyle(
-                  fontSize: 12,
-                  color: cs.onSurface.withValues(alpha: 0.5)),
+                  fontSize: 12, color: cs.onSurface.withValues(alpha: 0.5)),
             ),
             value: enabled,
             onChanged: onEnabledChanged,
@@ -3072,14 +3154,17 @@ class _CreditReminderSection extends StatelessWidget {
                 onTap: onPickTime,
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
                     color: cs.primaryContainer.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: cs.primary.withValues(alpha: 0.35)),
+                    border:
+                        Border.all(color: cs.primary.withValues(alpha: 0.35)),
                   ),
                   child: Row(children: [
-                    Icon(Icons.access_time_rounded, size: 20, color: cs.primary),
+                    Icon(Icons.access_time_rounded,
+                        size: 20, color: cs.primary),
                     const SizedBox(width: 12),
                     Expanded(
                         child: Column(
@@ -3131,6 +3216,3 @@ class _CreditReminderSection extends StatelessWidget {
 }
 
 // â”€â”€ Gold value live preview card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-
-

@@ -13,7 +13,11 @@ class SmsBatchResult {
   /// Items that passed every filter and should be persisted.
   final List<SmsInboxItem> toInsert;
 
-  const SmsBatchResult(this.toInsert);
+  /// Changed parses for existing pending items; imported/dismissed items
+  /// stay unchanged.
+  final List<SmsInboxItem> toUpdate;
+
+  const SmsBatchResult(this.toInsert, this.toUpdate);
 }
 
 /// Pure parsing + filtering pipeline for a batch of raw SMS messages.
@@ -40,6 +44,8 @@ class SmsInboxPipeline {
   ///
   /// [senderPrefs] maps sender id → preference. [seen] is the set of raw
   /// hashes already in the inbox (mutated: newly-accepted hashes are added).
+  /// [existingItems] maps hashes to persisted candidates; only pending
+  /// candidates are refreshed when their parse changes.
   /// [autoHideOtp] (global, default on) skips classifier-labelled OTPs
   /// without per-sender acknowledgement. [defaultCurrency] resolves
   /// ambiguous rupee abbreviations in fallback-matched rows.
@@ -50,8 +56,11 @@ class SmsInboxPipeline {
     bool autoHideOtp = true,
     String? defaultCurrency,
     List<SmsLearningProposal> learningProposals = const [],
+    Map<String, SmsInboxItem> existingItems = const {},
   }) async {
     final out = <SmsInboxItem>[];
+    final updates = <SmsInboxItem>[];
+    final updatedHashes = <String>{};
     for (final msg in messages) {
       final pref = senderPrefs[msg.sender];
       if (pref != null && !pref.parseAllowed) continue; // hard deny
@@ -60,6 +69,15 @@ class SmsInboxPipeline {
         defaultCurrency: defaultCurrency,
         learningProposals: learningProposals,
       );
+      final existing = existingItems[item.rawHash];
+      if (existing != null) {
+        if (existing.status == 'pending' &&
+            updatedHashes.add(item.rawHash) &&
+            _parseFieldsDiffer(existing, item)) {
+          updates.add(_withExistingIdentity(existing, item));
+        }
+        continue;
+      }
       if (seen.contains(item.rawHash)) continue; // already processed
       if (item.parsedType == null) {
         final kind = SmsKindClassifier.classify(msg.body).name;
@@ -73,8 +91,43 @@ class SmsInboxPipeline {
       seen.add(item.rawHash);
       out.add(item);
     }
-    return SmsBatchResult(out);
+    return SmsBatchResult(out, updates);
   }
+
+  bool _parseFieldsDiffer(SmsInboxItem existing, SmsInboxItem parsed) =>
+      existing.parsedType != parsed.parsedType ||
+      existing.parsedAmountMinorUnits != parsed.parsedAmountMinorUnits ||
+      existing.parsedCurrency != parsed.parsedCurrency ||
+      existing.parsedMerchant != parsed.parsedMerchant ||
+      existing.parsedReference != parsed.parsedReference ||
+      existing.parsedDate != parsed.parsedDate ||
+      existing.confidence != parsed.confidence ||
+      existing.reviewReason != parsed.reviewReason ||
+      existing.templateId != parsed.templateId;
+
+  SmsInboxItem _withExistingIdentity(
+    SmsInboxItem existing,
+    SmsInboxItem parsed,
+  ) =>
+      SmsInboxItem(
+        id: existing.id,
+        senderId: existing.senderId,
+        body: existing.body,
+        rawHash: existing.rawHash,
+        smsTimestamp: existing.smsTimestamp,
+        parsedType: parsed.parsedType,
+        parsedAmountMinorUnits: parsed.parsedAmountMinorUnits,
+        parsedCurrency: parsed.parsedCurrency,
+        parsedMerchant: parsed.parsedMerchant,
+        parsedReference: parsed.parsedReference,
+        parsedDate: parsed.parsedDate,
+        confidence: parsed.confidence,
+        reviewReason: parsed.reviewReason,
+        templateId: parsed.templateId,
+        status: existing.status,
+        importedTxId: existing.importedTxId,
+        createdAt: existing.createdAt,
+      );
 
   /// Parses a single message (used by live capture). Returns the candidate
   /// (not yet persisted); unclassified messages come back as low-confidence

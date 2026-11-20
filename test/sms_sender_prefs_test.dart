@@ -466,6 +466,34 @@ void main() {
       expect(harness.vm.smsInbox, hasLength(1));
       expect(harness.vm.smsStatusMessage, contains('Processed 1 new messages'));
     });
+
+    test('permission can be requested without scanning during onboarding',
+        () async {
+      harness.source.permissions = const SmsPermissions(
+        read: false,
+        receive: false,
+        isDefaultSmsApp: false,
+      );
+      harness.source.requestedPermissions = const SmsPermissions(
+        read: true,
+        receive: true,
+        isDefaultSmsApp: false,
+      );
+      harness.source.messages = [
+        const SmsMessage(
+          id: 'onboarding-permission-1',
+          sender: 'BANK',
+          body: 'Rs. 500 debited from account for Grocery. Ref: ONBOARD123.',
+          timestamp: 1700000000000,
+        ),
+      ];
+
+      final permissions =
+          await harness.vm.requestSmsPermissions(scanOnGrant: false);
+
+      expect(permissions.canScan, isTrue);
+      expect(harness.vm.smsInbox, isEmpty);
+    });
   });
 
   group('v34 migration (blocked senders -> sender prefs)', () {

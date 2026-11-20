@@ -8,15 +8,34 @@ import 'iso4217.dart';
 // Fund and special drawing codes scale amounts in Iso4217 but never name a
 // user's money, so detection excludes them.
 const _fundSpecialCodes = {
-  'BOV', 'CHE', 'CHW', 'CLF', 'COU', 'MXV', 'UYI', 'UYW', 'XDR',
+  'BOV',
+  'CHE',
+  'CHW',
+  'CLF',
+  'COU',
+  'MXV',
+  'UYI',
+  'UYW',
+  'XDR',
 };
 
 // ISO codes whose lowercase form is a common English word ("top", "rub"):
 // they count only written in uppercase, or ordinary message words would read
 // as currency.
 const _uppercaseOnlyCodes = {
-  'ALL', 'BOB', 'COP', 'CRC', 'CUP', 'GEL', 'MAD', 'MOP',
-  'PEN', 'RUB', 'SOS', 'TOP', 'TRY',
+  'ALL',
+  'BOB',
+  'COP',
+  'CRC',
+  'CUP',
+  'GEL',
+  'MAD',
+  'MOP',
+  'PEN',
+  'RUB',
+  'SOS',
+  'TOP',
+  'TRY',
 };
 
 // Codes need a left word boundary ("POKES" never reads as KES) and a right
@@ -44,7 +63,8 @@ const currencyWordAlternation =
 final allCurrencyTokens =
     'KShs?|$_currencyCodeAlternation|$_currencySymbolAlternation|$currencyWordAlternation';
 
-final currencyTokens = RegExp('($allCurrencyTokens)\\.?\\s*', caseSensitive: false);
+final currencyTokens =
+    RegExp('($allCurrencyTokens)\\.?\\s*', caseSensitive: false);
 
 // Collision codes ("top", "rub") are money only in their exact uppercase
 // spelling; any other casing is an ordinary word. Symbols and word forms
@@ -57,6 +77,7 @@ bool isRecognizedCurrencyToken(String token) {
 // "Space" covers the visible space plus the Unicode spaces phones render for
 // one another: no-break, thin, and narrow no-break.
 const _spaceClass = ' \u00A0\u2009\u202F';
+final _amountSeparators = RegExp(r'^[ \u00A0\u2009\u202F\t\n\r:=-]*$');
 
 // A number run keeps the separators digits carry, including dangling ones,
 // so shapes matching no grammar row (",5", "1,") classify as invalid.
@@ -67,7 +88,8 @@ final _spaceGrouped =
 final _dotGroupedCommaDecimal = RegExp(r'^\d{1,3}(?:\.\d{3})*,\d+$');
 final _commaGroupedDotDecimal = RegExp(r'^\d{1,3}(?:,\d{3})+\.\d+$');
 final _lakhGroupedDotDecimal = RegExp(r'^\d{1,2}(?:,\d{2})*,\d{3}\.\d+$');
-final _commaGrouped = RegExp(r'^\d{1,2}(?:,\d{2})*,\d{3}$|^\d{1,3}(?:,\d{3})+$');
+final _commaGrouped =
+    RegExp(r'^\d{1,2}(?:,\d{2})*,\d{3}$|^\d{1,3}(?:,\d{3})+$');
 final _commaDecimal = RegExp(r'^\d+,\d{1,2}$');
 final _dotGrouped = RegExp(r'^\d{1,3}(?:\.\d{3}){2,}$');
 final _dotDecimal = RegExp(r'^\d+(?:\.\d+)?$');
@@ -87,16 +109,11 @@ String? detectCurrencyCode(String value) {
 }
 
 // Parses the amount text into minor units scaled to the currency exponent.
-// The amount is the number following the LAST currency token in the value;
-// values matching no locale shape return null.
+// A currency token is treated as adjacent to its amount, regardless of which
+// side it appears on; later dates and references must not replace that value.
 int? parseAmountToMinorUnits(String value, int exponent) {
   if (value.trim().isEmpty) return null;
-  String? afterToken;
-  for (final m in currencyTokens.allMatches(value)) {
-    afterToken = value.substring(m.end);
-  }
-  afterToken ??= value;
-  final trimmed = afterToken
+  final trimmed = value
       .replaceFirst(RegExp('^[ \u00A0\u2009\u202F\t\n\r]+'), '')
       .replaceFirst(RegExp('[ \u00A0\u2009\u202F\t\n\r]+\$'), '');
   if (_spaceGrouped.hasMatch(trimmed)) {
@@ -107,12 +124,40 @@ int? parseAmountToMinorUnits(String value, int exponent) {
     final decimalPart = body.contains(',') ? body.split(',').last : '';
     return scaleToMinorUnits(integerPart, decimalPart, exponent, negative);
   }
-  String? number;
-  for (final m in _numberRun.allMatches(afterToken)) {
-    number = m.group(0);
+
+  final tokens = currencyTokens.allMatches(value).toList(growable: false);
+  final RegExpMatch? numberMatch;
+  if (tokens.isEmpty) {
+    numberMatch = _numberRun.firstMatch(value);
+  } else {
+    final token = tokens.last;
+    final beforeMatches =
+        _numberRun.allMatches(value.substring(0, token.start)).toList();
+    final before = beforeMatches.isEmpty ? null : beforeMatches.last;
+    final afterText = value.substring(token.end);
+    final after = _numberRun.firstMatch(afterText);
+    if (before == null) {
+      numberMatch = after;
+    } else if (after == null) {
+      numberMatch = before;
+    } else {
+      final beforeGap = value.substring(before.end, token.start);
+      final afterGap = afterText.substring(0, after.start);
+      final beforeIsAdjacent = _amountSeparators.hasMatch(beforeGap);
+      final afterIsAdjacent = _amountSeparators.hasMatch(afterGap);
+      if (beforeIsAdjacent && !afterIsAdjacent) {
+        numberMatch = before;
+      } else if (afterIsAdjacent) {
+        numberMatch = after;
+      } else if (beforeIsAdjacent) {
+        numberMatch = before;
+      } else {
+        numberMatch = after.start <= beforeGap.length ? after : before;
+      }
+    }
   }
-  if (number == null) return null;
-  return numberToMinorUnits(number, exponent);
+  if (numberMatch == null) return null;
+  return numberToMinorUnits(numberMatch.group(0)!, exponent);
 }
 
 // ISO code for a recognized currency token; unknown tokens pass through
@@ -221,13 +266,16 @@ int? scaleToMinorUnits(
     scaled = digits + '0' * (exponent - places);
   } else {
     final drop = places - exponent;
-    final kept = drop >= digits.length ? '0' : digits.substring(0, digits.length - drop);
-    final removed = drop >= digits.length ? digits : digits.substring(digits.length - drop);
+    final kept =
+        drop >= digits.length ? '0' : digits.substring(0, digits.length - drop);
+    final removed =
+        drop >= digits.length ? digits : digits.substring(digits.length - drop);
     final base = int.tryParse(kept);
     if (base == null) return null;
     // Removed fraction rounds up at exactly half of the kept scale.
     final half = '5' + '0' * (drop - 1);
-    scaled = (removed.padLeft(drop, '0').compareTo(half) >= 0 ? base + 1 : base).toString();
+    scaled = (removed.padLeft(drop, '0').compareTo(half) >= 0 ? base + 1 : base)
+        .toString();
   }
   final magnitude = int.tryParse(scaled);
   if (magnitude == null) return null;

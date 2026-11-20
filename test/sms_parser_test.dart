@@ -251,6 +251,65 @@ void main() {
   });
 
   group('Fallback matcher', () {
+    test(
+        'amount extraction does not replace transaction amount with trailing date or reference',
+        () {
+      expect(
+        parseAmountToMinorUnits(
+          'NPR 315.25 withdrawn on 11/10/2026; Ref 1284',
+          2,
+        ),
+        31525,
+      );
+      expect(
+        parseAmountToMinorUnits(
+          'Rs. 1,23,456.78 credited on 11/10/2026; Ref 1284',
+          2,
+        ),
+        12345678,
+      );
+      expect(
+        parseAmountToMinorUnits(
+          '315.25 NPR withdrawn on 11/10/2026; Ref 1284',
+          2,
+        ),
+        31525,
+      );
+    });
+
+    test('template amount ignores dates and references in the captured field',
+        () async {
+      final reg = TemplateRegistry.fromTemplateJson([
+        '''
+        {
+          "id": "test_nabil_amount_tail",
+          "senderId": "NABIL_ALERT",
+          "serviceName": "Nabil amount with trailing metadata",
+          "anchors": [{ "textBefore": "NPR ", "textAfter": " settled" }],
+          "fields": [
+            {
+              "name": "AMOUNT",
+              "anchor": { "textBefore": "NPR ", "textAfter": " settled" },
+              "type": "CURRENCY"
+            }
+          ],
+          "transactionDirection": "EXPENSE",
+          "revision": 1,
+          "isBuiltIn": true,
+          "isActive": true
+        }
+        '''
+      ]);
+      final result = await reg.parse(
+        'NABIL_ALERT',
+        'NPR 315.25 withdrawn on 11/10/2026; Ref 1284 settled',
+        _ts,
+      );
+
+      expect(result, isA<ParseSuccess>());
+      expect((result as ParseSuccess).transaction.amountMinorUnits, 31525);
+    });
+
     test('credit card due notices are not booked as expenses', () async {
       final r = await registry.parse(
         'NABIL_ALERT',

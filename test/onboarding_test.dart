@@ -9,7 +9,8 @@ import 'package:finwick/l10n/app_localizations.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('Onboarding skip button appears on Add Card and Account screens, but not Currency',
+  testWidgets(
+      'Onboarding skip button appears on Add Card and Account screens, but not Currency',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.0;
@@ -67,14 +68,19 @@ void main() {
     // Page 5: Add a Debit Card screen
     expect(find.text('Add a Debit Card'), findsOneWidget);
     expect(
-        find.text('Link a debit card to your new bank account for effortless expense tracking.'),
+        find.text(
+            'Link a debit card to your new bank account for effortless expense tracking.'),
         findsOneWidget);
     // Verify "Skip for now" button is present on the Debit Card screen!
     final skipBtn = find.text('Skip for now');
     expect(skipBtn, findsOneWidget);
 
-    // Tapping "Skip for now" advances to Notification Access Request page
+    // Tapping "Skip for now" advances to SMS consent.
     await tester.tap(skipBtn);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Parse SMS transactions?'), findsOneWidget);
+    await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
     expect(find.text('Stay on Top of Your Finances'), findsOneWidget);
@@ -82,7 +88,8 @@ void main() {
     expect(find.text('Maybe Later'), findsOneWidget);
   });
 
-  testWidgets('Onboarding name validation highlights red when empty and continue is clicked',
+  testWidgets(
+      'Onboarding name validation highlights red when empty and continue is clicked',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.0;
@@ -133,7 +140,8 @@ void main() {
     expect(find.text('Default Currency'), findsOneWidget);
   });
 
-  testWidgets('Onboarding non-bank account bypasses debit card page directly to notifications',
+  testWidgets(
+      'Onboarding non-bank account bypasses debit card page directly to notifications',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.0;
@@ -179,15 +187,19 @@ void main() {
     await tester.tap(find.text('Cash'));
     await tester.pumpAndSettle();
 
-    // Continue -> Should bypass debit card page and go directly to notifications
+    // Continue -> bypass debit card setup but show SMS consent.
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
     expect(find.text('Add a Debit Card'), findsNothing);
+    expect(find.text('Parse SMS transactions?'), findsOneWidget);
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
     expect(find.text('Stay on Top of Your Finances'), findsOneWidget);
   });
 
-  testWidgets('Onboarding bank account displays balance field directly without unlinking toggle',
+  testWidgets(
+      'Onboarding bank account displays balance field directly without unlinking toggle',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.0;
@@ -246,7 +258,9 @@ void main() {
     expect(find.text('Exclude from Total Balance'), findsOneWidget);
   });
 
-  test('Debit card dynamically inherits effective balance from linked bank account', () {
+  test(
+      'Debit card dynamically inherits effective balance from linked bank account',
+      () {
     final provider = AppProvider();
     final bank = Account(
       id: 'acc_bank_1',

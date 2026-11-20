@@ -16,6 +16,16 @@ import 'package:finwick/domain/sms_import/sms_entities.dart';
 import 'package:finwick/domain/sms_import/sms_inbox_pipeline.dart';
 import 'package:finwick/domain/sms_import/sms_parser.dart';
 
+class SmsScanResult {
+  const SmsScanResult({
+    required this.insertedCount,
+    required this.refreshedItemIds,
+  });
+
+  final int insertedCount;
+  final List<String> refreshedItemIds;
+}
+
 /// Runs the pure [SmsInboxPipeline] over a batch of messages.
 Future<SmsBatchResult> _runPipeline(
   List<SmsMessage> messages,
@@ -25,6 +35,7 @@ Future<SmsBatchResult> _runPipeline(
   bool autoHideOtp,
   String defaultCurrency,
   List<SmsLearningProposal> learningProposals,
+  Map<String, SmsInboxItem> existingItems,
 ) async {
   final pipeline = SmsInboxPipeline(registry);
   return pipeline.processBatch(
@@ -34,6 +45,7 @@ Future<SmsBatchResult> _runPipeline(
     autoHideOtp: autoHideOtp,
     defaultCurrency: defaultCurrency,
     learningProposals: learningProposals,
+    existingItems: existingItems,
   );
 }
 
@@ -52,6 +64,7 @@ Future<SmsBatchResult> _runPipelineIsolate(
   bool autoHideOtp,
   String defaultCurrency,
   List<SmsLearningProposal> learningProposals,
+  Map<String, SmsInboxItem> existingItems,
 ) {
   return Isolate.run(
     () => _runPipeline(
@@ -62,6 +75,7 @@ Future<SmsBatchResult> _runPipelineIsolate(
       autoHideOtp,
       defaultCurrency,
       learningProposals,
+      existingItems,
     ),
   );
 }
@@ -84,8 +98,8 @@ class ScanSmsInbox {
   final TemplateRegistry registry;
   final MutationGate gate;
 
-  /// Returns the number of newly-inserted inbox items.
-  Future<int> call({
+  /// Returns new-item count and IDs of pending candidates refreshed.
+  Future<SmsScanResult> call({
     int limit = 500,
     required Map<String, SmsSenderPref> senderPrefs,
     required bool autoHideOtp,
@@ -97,6 +111,7 @@ class ScanSmsInbox {
     onMessagesLoaded?.call(messages.length);
     final existing = await inboxRepo.getAll();
     final seen = existing.map((e) => e.rawHash).toSet();
+    final existingByHash = {for (final item in existing) item.rawHash: item};
 
     // The pipeline is pure; run it off the UI thread via the top-level
     // [_runPipelineIsolate], whose closure captures only sendable data — never
@@ -109,15 +124,24 @@ class ScanSmsInbox {
       autoHideOtp,
       defaultCurrency,
       learningProposals,
+      existingByHash,
     );
 
-    if (result.toInsert.isEmpty) return 0;
+    if (result.toInsert.isEmpty && result.toUpdate.isEmpty) {
+      return const SmsScanResult(insertedCount: 0, refreshedItemIds: []);
+    }
 
     await gate.run(() async {
+      for (final item in result.toUpdate) {
+        await inboxRepo.update(item);
+      }
       for (final item in result.toInsert) {
         await inboxRepo.insert(item);
       }
     });
-    return result.toInsert.length;
+    return SmsScanResult(
+      insertedCount: result.toInsert.length,
+      refreshedItemIds: result.toUpdate.map((item) => item.id).toList(),
+    );
   }
 }

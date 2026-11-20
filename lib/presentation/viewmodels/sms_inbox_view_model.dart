@@ -239,13 +239,15 @@ class SmsInboxViewModel extends ChangeNotifier {
     return perms;
   }
 
-  Future<SmsPermissions> requestSmsPermissions() async {
+  Future<SmsPermissions> requestSmsPermissions({
+    bool scanOnGrant = true,
+  }) async {
     final perms = await _source.requestPermissions();
     _permissions = perms;
     notifyListeners();
-    if (perms.canScan) {
+    if (perms.canScan && scanOnGrant) {
       await scanSmsInbox(limit: 5000);
-    } else {
+    } else if (!perms.canScan) {
       _setSmsStatus(
         'SMS access was not granted. Enable SMS access to parse messages.',
         isError: true,
@@ -275,7 +277,7 @@ class SmsInboxViewModel extends ChangeNotifier {
         registry: registry,
         gate: _gate,
       );
-      final inserted = await scan(
+      final result = await scan(
         limit: limit,
         senderPrefs: {for (final p in _prefs) p.senderId: p},
         autoHideOtp: _autoHideOtp,
@@ -286,21 +288,25 @@ class SmsInboxViewModel extends ChangeNotifier {
           notifyListeners();
         },
       );
-      if (inserted > 0) {
-        _inbox = await _inboxRepo.getAll();
-        final newlyAdded = _inbox
-            .where((item) => !previousIds.contains(item.id))
-            .toList(growable: false);
-        await _autoImportSafeCandidates(candidates: newlyAdded);
+      _inbox = await _inboxRepo.getAll();
+      final refreshedIds = result.refreshedItemIds.toSet();
+      final affectedCandidates = _inbox
+          .where((item) =>
+              !previousIds.contains(item.id) || refreshedIds.contains(item.id))
+          .toList(growable: false);
+      if (affectedCandidates.isNotEmpty) {
+        await _autoImportSafeCandidates(candidates: affectedCandidates);
       }
       _setSmsStatus(
-        inserted == 0
-            ? 'SMS scan complete. No new messages were found; existing candidates remain in SMS Inbox.'
+        result.insertedCount == 0
+            ? result.refreshedItemIds.isEmpty
+                ? 'SMS scan complete. No new messages were found; existing candidates remain in SMS Inbox.'
+                : 'SMS scan complete. Refreshed ${result.refreshedItemIds.length} existing candidates.'
             : _smsConsentResolved && _smsAutoImportEnabled
-                ? 'SMS scan complete. Processed $inserted new messages.'
-                : 'SMS scan complete. Processed $inserted new messages; review them in SMS Inbox.',
+                ? 'SMS scan complete. Processed ${result.insertedCount} new messages.'
+                : 'SMS scan complete. Processed ${result.insertedCount} new messages; review them in SMS Inbox.',
       );
-      return inserted;
+      return result.insertedCount;
     } catch (error, stackTrace) {
       debugPrint('SMS scan failed: $error\n$stackTrace');
       _setSmsStatus(

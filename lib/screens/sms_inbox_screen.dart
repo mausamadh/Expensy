@@ -76,7 +76,19 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
   Future<void> _bootstrap() async {
     final vm = context.read<SmsInboxViewModel>();
     await vm.load();
-    await vm.checkSmsPermissions();
+    final permissions = await vm.checkSmsPermissions();
+    if (!permissions.canScan) {
+      try {
+        await vm.requestSmsPermissions();
+      } catch (_) {
+        if (mounted) {
+          showAppSnackbar(
+            context,
+            'Could not request SMS access. Use the permission banner to try again.',
+          );
+        }
+      }
+    }
     _live = vm.smsLiveCaptureEnabled;
     if (mounted) setState(() {});
   }
@@ -327,10 +339,19 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: OutlinedButton.icon(
-                          onPressed: () => AccountsScreen.openSheet(
-                            context,
-                            isCard: suggestion.type == 'credit',
-                          ),
+                          onPressed: () {
+                            final isCard = const {
+                              'credit',
+                              'debit',
+                              'prepaid',
+                            }.contains(suggestion.type);
+                            AccountsScreen.openSheet(
+                              context,
+                              isCard: isCard,
+                              initialName: suggestion.name,
+                              initialType: suggestion.type,
+                            );
+                          },
                           icon: Icon(
                             suggestion.type == 'credit'
                                 ? Icons.credit_card_rounded

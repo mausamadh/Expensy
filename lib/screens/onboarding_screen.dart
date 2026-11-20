@@ -2,9 +2,9 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/app_provider.dart';
 import '../models/models.dart';
+import '../presentation/viewmodels/sms_inbox_view_model.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
 import '../widgets/app_numeric_keypad.dart';
@@ -243,7 +243,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // 6: SMS auto-import consent
   // 7: Notifications Access Request
   static const int _totalPages = 8;
-  bool _smsAutoImport = true;
+  bool _smsAutoImport = false;
+  String? _smsPermissionMessage;
 
   bool _restoring = false;
   String? _restoreError;
@@ -339,7 +340,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
 
     if (_page == 4) {
-      // Branching: If bank, advance to Debit Card (page 5). Else, jump to Notifications (page 6).
+      // Branching: only bank accounts need the linked debit-card step.
       if (_accType == 'bank') {
         _goTo(5);
       } else {
@@ -373,10 +374,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (_page == 4) {
       _accNameCtrl.clear();
       _accBalCtrl.clear();
-      _goTo(6); // Skip account setup entirely, go to notifications
+      _goTo(6); // Skip account setup and continue to SMS consent.
     } else if (_page == 5) {
       _cardNameCtrl.clear();
-      _goTo(6); // Skip debit card setup, go to notifications
+      _goTo(6); // Skip debit-card setup and continue to SMS consent.
     }
   }
 
@@ -468,9 +469,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _finish() async {
     final l10n = AppLocalizations.of(context)!;
     final app = context.read<AppProvider>();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('sms_first_run_consent_resolved', true);
-    await prefs.setBool('sms_auto_import_enabled', _smsAutoImport);
+    final smsVm = context.read<SmsInboxViewModel>();
     if (!app.settings.onboarded) {
       await app.completeOnboarding(
         name: _nameCtrl.text.trim().isEmpty
@@ -512,6 +511,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ? _cardDigitsCtrl.text.trim()
             : '1234',
       ));
+    }
+
+    await smsVm.setFirstRunSmsImportConsent(
+      resolved: true,
+      autoImportEnabled: _smsAutoImport,
+    );
+    if (_smsAutoImport) {
+      final permissions = await smsVm.checkSmsPermissions();
+      if (permissions.canScan) {
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          try {
+            await smsVm.scanSmsInbox(limit: 5000);
+          } catch (error, stackTrace) {
+            debugPrint('SMS onboarding scan failed: $error\n$stackTrace');
+          }
+        });
+      }
     }
 
     if (mounted) {
@@ -621,7 +637,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
                 _PageSmsConsent(
                   enabled: _smsAutoImport,
-                  onChanged: (v) => setState(() => _smsAutoImport = v),
+                  permissionMessage: _smsPermissionMessage,
+                  onChanged: (enabled) async {
+                    setState(() {
+                      _smsAutoImport = enabled;
+                      _smsPermissionMessage = null;
+                    });
+                    if (!enabled) return;
+                    try {
+                      final permissions = await context
+                          .read<SmsInboxViewModel>()
+                          .requestSmsPermissions(scanOnGrant: false);
+                      if (!mounted) return;
+                      setState(() {
+                        if (!permissions.canScan) {
+                          _smsPermissionMessage =
+                              'SMS access was not granted. You can allow it later when you open SMS Inbox.';
+                        }
+                      });
+                    } catch (_) {
+                      if (!mounted) return;
+                      setState(() {
+                        _smsPermissionMessage =
+                            'Could not request SMS access. You can try again from SMS Inbox.';
+                      });
+                    }
+                  },
                 ),
                 _PageNotification(
                   onAllow: () async {
@@ -2009,10 +2050,12 @@ class _PageDebitCardState extends State<_PageDebitCard> {
 // ── Page 6: SMS import consent ───────────────────────────────────────────────
 class _PageSmsConsent extends StatelessWidget {
   final bool enabled;
+  final String? permissionMessage;
   final ValueChanged<bool> onChanged;
 
   const _PageSmsConsent({
     required this.enabled,
+    required this.permissionMessage,
     required this.onChanged,
   });
 
@@ -2080,6 +2123,16 @@ class _PageSmsConsent extends StatelessWidget {
               fontSize: 12,
             ),
           ),
+          if (permissionMessage != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              permissionMessage!,
+              style: TextStyle(
+                color: cs.error,
+                fontSize: 12,
+              ),
+            ),
+          ],
         ],
       ),
     );

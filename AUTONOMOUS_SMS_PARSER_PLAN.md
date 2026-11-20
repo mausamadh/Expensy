@@ -55,9 +55,15 @@ Status: proposed
 - Startup parsing reliability:
   - provider/account data now loads before SMS reconciliation, preventing auto-import from racing with an empty ledger context;
   - permission grants immediately trigger historical reconciliation;
+  - onboarding requests SMS access when the user explicitly enables auto-import, then starts reconciliation only after initial account setup is saved;
+  - users who skip SMS auto-import are not prompted during startup; opening SMS Inbox requests access and scans after a grant;
+  - denied permission can be retried from the SMS Inbox permission banner;
   - startup permission, scan completion, and scan failure are visible in the app instead of being silently skipped;
   - existing installs are told when messages are parsed but auto-import consent is still off.
   - loading UI now reports the actual SMS rows returned by the device query, not the configured scan limit.
+- Amount extraction reliability:
+  - amount parsing now associates the amount with a currency token on either side and ignores trailing date/reference digits;
+  - historical scans refresh changed pending candidates, while imported and dismissed candidates are not rewritten.
 - Remaining implementation phases: broader country fixture expansion and full live SMS/notification behavior testing with real incoming messages.
 - Remaining implementation phases: true Android background receiver/WorkManager, notification deep-link routing, ledger bridge removal, parser breadth, event crash tests, parser fixture expansion, device testing, and migration hardening.
 
