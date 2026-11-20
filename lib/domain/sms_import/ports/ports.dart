@@ -93,6 +93,12 @@ abstract interface class SmsSettings {
 
   Future<bool> getLiveCaptureEnabled();
   Future<void> setLiveCaptureEnabled(bool value);
+
+  Future<bool> getFirstRunSmsConsentResolved();
+  Future<void> setFirstRunSmsConsentResolved(bool value);
+
+  Future<bool> getSmsAutoImportEnabled();
+  Future<void> setSmsAutoImportEnabled(bool value);
 }
 
 /// Writes ledger transactions from the SMS import context.

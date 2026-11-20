@@ -193,7 +193,7 @@ final _cases = <_Case>[
   ),
   _Case(
     'Dear MAUSAM, AC ###505652256, NPR 315.25 withdrawn on 11/10/2026 21:11:39 for Fund Trf to NABIL BANK LTD. Siddhartha Bank',
-    TransactionType.expense,
+    TransactionType.transfer,
     31525,
     null,
     _d(2026, 10, 11),

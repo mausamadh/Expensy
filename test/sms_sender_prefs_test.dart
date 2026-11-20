@@ -358,6 +358,10 @@ void main() {
         notificationGateway: notifications,
       );
       await harness.load();
+      await harness.vm.setFirstRunSmsImportConsent(
+        resolved: true,
+        autoImportEnabled: true,
+      );
       harness.source.messages = [
         const SmsMessage(
           id: 'old-1',

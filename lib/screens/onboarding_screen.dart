@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/app_provider.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
@@ -187,7 +188,8 @@ class _FintechSecondaryButton extends StatelessWidget {
         child: Container(
           height: 52,
           decoration: BoxDecoration(
-            color: cs.surfaceContainerHigh.withValues(alpha: isDark ? 0.4 : 0.6),
+            color:
+                cs.surfaceContainerHigh.withValues(alpha: isDark ? 0.4 : 0.6),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isDark
@@ -238,8 +240,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // 3: Currency
   // 4: First Account
   // 5: Debit Card (if Bank selected)
-  // 6: Notifications Access Request
-  static const int _totalPages = 7;
+  // 6: SMS auto-import consent
+  // 7: Notifications Access Request
+  static const int _totalPages = 8;
+  bool _smsAutoImport = true;
 
   bool _restoring = false;
   String? _restoreError;
@@ -254,8 +258,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   // Step 4 — First account
   String _defaultBankNameSeed =
       ServiceLocalizations.current.onboarding_defaultBankName;
-  late final _accNameCtrl =
-      TextEditingController(text: _defaultBankNameSeed);
+  late final _accNameCtrl = TextEditingController(text: _defaultBankNameSeed);
   final _accBalCtrl = TextEditingController(text: '0');
   String _accType = 'bank';
   String _accCur = 'USD';
@@ -263,12 +266,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   bool _accExcludeFromTotal = false;
 
   // Step 5 — Debit Card
-  String _defaultCardNameSeed =
-      ServiceLocalizations.current.accounts_debitCard;
+  String _defaultCardNameSeed = ServiceLocalizations.current.accounts_debitCard;
   String _defaultCardholderSeed =
       ServiceLocalizations.current.onboarding_defaultCardholder;
-  late final _cardNameCtrl =
-      TextEditingController(text: _defaultCardNameSeed);
+  late final _cardNameCtrl = TextEditingController(text: _defaultCardNameSeed);
   final _cardHolderCtrl = TextEditingController();
   final _cardDigitsCtrl = TextEditingController(text: '1234');
   int _cardColor = kAssetsColorValue;
@@ -331,7 +332,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     AppHaptics.tap(context, HapticStrength.light);
     if (_page == 2) {
       if (_nameCtrl.text.trim().isEmpty) {
-        setState(() => _nameError = AppLocalizations.of(context)!.onboarding_nameRequired);
+        setState(() =>
+            _nameError = AppLocalizations.of(context)!.onboarding_nameRequired);
         return;
       }
     }
@@ -348,6 +350,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     if (_page == 5) {
       _goTo(6);
+      return;
+    }
+
+    if (_page == 6) {
+      _goTo(7);
       return;
     }
 
@@ -396,7 +403,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       }
       if (mounted) {
         setState(() => _restoring = false);
-        // Direct to notification request page instead of immediately pushing MainShell
+        // Direct to SMS consent before notification setup
         _goTo(6);
       }
     } on FormatException catch (e) {
@@ -461,6 +468,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _finish() async {
     final l10n = AppLocalizations.of(context)!;
     final app = context.read<AppProvider>();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('sms_first_run_consent_resolved', true);
+    await prefs.setBool('sms_auto_import_enabled', _smsAutoImport);
     if (!app.settings.onboarded) {
       await app.completeOnboarding(
         name: _nameCtrl.text.trim().isEmpty
@@ -518,8 +528,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final cs = Theme.of(context).colorScheme;
 
     // Show progress bar only on setup steps (hide on Page 1: Welcome and Page 6: Notification)
-    final showProgress = _page != 1 && _page != 6;
-    final showNavButtons = _page != 1 && _page != 6;
+    final showProgress = _page != 1 && _page != 7;
+    final showNavButtons = _page != 1 && _page != 7;
 
     return Scaffold(
       body: SafeArea(
@@ -561,7 +571,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
           ),
-
           Expanded(
             child: PageView(
               key: const PageStorageKey('onboarding_pageview'),
@@ -610,6 +619,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   bankName: _accNameCtrl.text.trim(),
                   onColor: (c) => setState(() => _cardColor = c),
                 ),
+                _PageSmsConsent(
+                  enabled: _smsAutoImport,
+                  onChanged: (v) => setState(() => _smsAutoImport = v),
+                ),
                 _PageNotification(
                   onAllow: () async {
                     AppHaptics.tap(context, HapticStrength.light);
@@ -626,7 +639,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ],
             ),
           ),
-
           if (showNavButtons)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
@@ -644,6 +656,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                   _goTo(4);
                                 } else if (_page == 6) {
                                   _goTo(_accType == 'bank' ? 5 : 4);
+                                } else if (_page == 7) {
+                                  _goTo(6);
                                 } else {
                                   _pageCtrl.previousPage(
                                     duration: const Duration(milliseconds: 300),
@@ -847,7 +861,8 @@ class _PageWelcome extends StatelessWidget {
             ),
           ),
           padding: const EdgeInsets.all(20),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Container(
                 width: 44,
@@ -910,8 +925,8 @@ class _PageWelcome extends StatelessWidget {
                     Expanded(
                       child: Text(
                         error!,
-                        style: TextStyle(
-                            fontSize: 12, color: cs.onErrorContainer),
+                        style:
+                            TextStyle(fontSize: 12, color: cs.onErrorContainer),
                       ),
                     ),
                   ],
@@ -1025,8 +1040,8 @@ class _PageName extends StatelessWidget {
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                  color: cs.outlineVariant.withValues(alpha: 0.6)),
+              borderSide:
+                  BorderSide(color: cs.outlineVariant.withValues(alpha: 0.6)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
@@ -1202,18 +1217,16 @@ class _PageCurrency extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: () async {
             AppHaptics.tap(context, HapticStrength.light);
-            final picked =
-                await showCurrencyPicker(context, current: currency);
+            final picked = await showCurrencyPicker(context, current: currency);
             if (picked != null) onChanged(picked);
           },
           icon: const Icon(Icons.search_rounded, size: 18),
           label: Text(l10n.onboarding_searchAllCurrencies),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(48),
-            side: BorderSide(
-                color: cs.outlineVariant.withValues(alpha: 0.6)),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16)),
+            side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.6)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             textStyle:
                 const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
           ),
@@ -1304,8 +1317,8 @@ class _PageAccountState extends State<_PageAccount> {
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                  color: cs.outlineVariant.withValues(alpha: 0.6)),
+              borderSide:
+                  BorderSide(color: cs.outlineVariant.withValues(alpha: 0.6)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
@@ -1333,7 +1346,11 @@ class _PageAccountState extends State<_PageAccount> {
               ('bank', l10n.onboarding_bank, Icons.account_balance_rounded),
               ('cash', l10n.onboarding_cash, Icons.payments_rounded),
               ('savings', l10n.onboarding_savings, Icons.savings_rounded),
-              ('wallet', l10n.onboarding_wallet, Icons.account_balance_wallet_rounded),
+              (
+                'wallet',
+                l10n.onboarding_wallet,
+                Icons.account_balance_wallet_rounded
+              ),
             ])
               Padding(
                 padding: const EdgeInsets.only(right: 8),
@@ -1453,8 +1470,7 @@ class _PageAccountState extends State<_PageAccount> {
               if (picked != null) widget.onCurrency(picked);
             },
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
@@ -1500,8 +1516,8 @@ class _PageAccountState extends State<_PageAccount> {
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                  color: cs.outlineVariant.withValues(alpha: 0.6)),
+              borderSide:
+                  BorderSide(color: cs.outlineVariant.withValues(alpha: 0.6)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
@@ -1509,9 +1525,7 @@ class _PageAccountState extends State<_PageAccount> {
             ),
             suffixIcon: IconButton(
               icon: Icon(
-                showPad
-                    ? Icons.keyboard_hide_outlined
-                    : Icons.dialpad_outlined,
+                showPad ? Icons.keyboard_hide_outlined : Icons.dialpad_outlined,
                 size: 20,
                 color: cs.primary,
               ),
@@ -1541,14 +1555,12 @@ class _PageAccountState extends State<_PageAccount> {
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             title: Text(
               l10n.accounts_excludeFromTotalBala,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w600, fontSize: 14),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
             ),
             subtitle: Text(
               l10n.accounts_wontCountTowardYourHome,
               style: TextStyle(
-                  fontSize: 12,
-                  color: cs.onSurface.withValues(alpha: 0.5)),
+                  fontSize: 12, color: cs.onSurface.withValues(alpha: 0.5)),
             ),
             value: widget.excludeFromTotal,
             onChanged: (v) {
@@ -1598,8 +1610,7 @@ class _PageAccountState extends State<_PageAccount> {
                             boxShadow: widget.color == col
                                 ? [
                                     BoxShadow(
-                                      color:
-                                          Color(col).withValues(alpha: 0.5),
+                                      color: Color(col).withValues(alpha: 0.5),
                                       blurRadius: 8,
                                       spreadRadius: 1,
                                     )
@@ -1878,8 +1889,8 @@ class _PageDebitCardState extends State<_PageDebitCard> {
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                  color: cs.outlineVariant.withValues(alpha: 0.6)),
+              borderSide:
+                  BorderSide(color: cs.outlineVariant.withValues(alpha: 0.6)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
@@ -1900,8 +1911,8 @@ class _PageDebitCardState extends State<_PageDebitCard> {
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                  color: cs.outlineVariant.withValues(alpha: 0.6)),
+              borderSide:
+                  BorderSide(color: cs.outlineVariant.withValues(alpha: 0.6)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
@@ -1926,8 +1937,8 @@ class _PageDebitCardState extends State<_PageDebitCard> {
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                  color: cs.outlineVariant.withValues(alpha: 0.6)),
+              borderSide:
+                  BorderSide(color: cs.outlineVariant.withValues(alpha: 0.6)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
@@ -1976,8 +1987,7 @@ class _PageDebitCardState extends State<_PageDebitCard> {
                             boxShadow: widget.color == col
                                 ? [
                                     BoxShadow(
-                                      color:
-                                          Color(col).withValues(alpha: 0.5),
+                                      color: Color(col).withValues(alpha: 0.5),
                                       blurRadius: 8,
                                       spreadRadius: 1,
                                     )
@@ -1996,7 +2006,87 @@ class _PageDebitCardState extends State<_PageDebitCard> {
   }
 }
 
-// ── Page 6: Notification Access Request ───────────────────────────────────────
+// ── Page 6: SMS import consent ───────────────────────────────────────────────
+class _PageSmsConsent extends StatelessWidget {
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  const _PageSmsConsent({
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: kSuccessColor.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child:
+                const Icon(Icons.sms_rounded, size: 32, color: kSuccessColor),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Parse SMS transactions?',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Expensy can scan old and new bank, card, wallet, and credit-card messages.',
+            style: TextStyle(
+              color: cs.onSurfaceVariant,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: hairlineBorderColor(cs),
+              ),
+            ),
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                'Auto-import clear transactions',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: const Text(
+                'Ambiguous messages stay pending for verification.',
+              ),
+              value: enabled,
+              onChanged: onChanged,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'If you turn this off, SMS messages will only appear for manual review.',
+            style: TextStyle(
+              color: cs.onSurfaceVariant,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Page 7: Notification Access Request ───────────────────────────────────────
 class _PageNotification extends StatelessWidget {
   final VoidCallback onAllow;
   final VoidCallback onSkip;

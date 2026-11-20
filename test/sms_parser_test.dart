@@ -273,6 +273,32 @@ void main() {
       expect(s.transaction.type, TransactionType.expense);
       expect(s.transaction.amountMinorUnits, 32900);
     });
+
+    test('CIT retirement credit stays low-confidence for review', () async {
+      final r = await registry.parse(
+        'CIT_Alert',
+        "Dear sir/ma'am Your CIT No ****** OF KBB has been CR Rs 10000.00.",
+        _ts,
+        defaultCurrency: 'NPR',
+      );
+      expect(r, isA<ParseSuccess>());
+      final s = r as ParseSuccess;
+      expect(s.transaction.type, TransactionType.income);
+      expect(s.transaction.confidence, ParseConfidence.low);
+      expect(s.transaction.reviewReason, 'investment');
+    });
+
+    test('fund transfer shape parses as transfer for verification', () async {
+      final r = await registry.parse(
+        'SBL_Alert',
+        'Dear MAUSAM, AC ###505652256, NPR 315.25 withdrawn on 11/10/2026 for Fund Trf to NABIL BANK LTD.',
+        _ts,
+        defaultCurrency: 'NPR',
+      );
+      expect(r, isA<ParseSuccess>());
+      final s = r as ParseSuccess;
+      expect(s.transaction.type, TransactionType.transfer);
+    });
     test('labeled amount without a token is not declared', () async {
       final body =
           'Acct: 0123456789\nAmt: 2,500.00\nDesc: MARKET PURCHASE\nDate: 15/08/2026\nDebit: 2,500.00';

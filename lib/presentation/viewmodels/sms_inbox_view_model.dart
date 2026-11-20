@@ -76,6 +76,10 @@ class SmsInboxViewModel extends ChangeNotifier {
   bool _scanning = false;
   bool _autoHideOtp = true;
   bool _liveCaptureEnabled = false;
+  bool _smsConsentResolved = false;
+  bool _smsAutoImportEnabled = false;
+  int _smsLoadingTotal = 0;
+  int _smsLoadingLoaded = 0;
   List<SmsLearningProposal> _learningProposals = [];
   SmsPermissions? _permissions;
   TemplateRegistry? _registry;
@@ -88,7 +92,85 @@ class SmsInboxViewModel extends ChangeNotifier {
   bool get smsScanning => _scanning;
   bool get smsAutoHideOtp => _autoHideOtp;
   bool get smsLiveCaptureEnabled => _liveCaptureEnabled;
+  bool get smsConsentResolved => _smsConsentResolved;
+  bool get smsAutoImportEnabled => _smsAutoImportEnabled;
+  int get smsLoadingTotal => _smsLoadingTotal;
+  int get smsLoadingLoaded => _smsLoadingLoaded;
   List<SmsLearningProposal> get smsLearningProposals => _learningProposals;
+  List<SmsAccountSuggestion> get smsAccountSuggestions {
+    final grouped = <String, _SmsSuggestionAccumulator>{};
+    for (final item in _inbox.where((item) => item.status == 'pending')) {
+      final body = item.body.toLowerCase();
+      final sender = item.senderId.trim();
+      if (sender.isEmpty) continue;
+      final key = sender.toUpperCase();
+      final acc = grouped.putIfAbsent(
+        key,
+        () => _SmsSuggestionAccumulator(
+          name: _suggestedAccountName(sender),
+          type: _suggestedAccountType(sender, body),
+          senderId: sender,
+        ),
+      );
+      acc.evidenceCount++;
+    }
+    return grouped.values
+        .map((acc) => SmsAccountSuggestion(
+              name: acc.name,
+              type: acc.type,
+              senderId: acc.senderId,
+              evidenceCount: acc.evidenceCount,
+            ))
+        .toList()
+      ..sort((a, b) => b.evidenceCount.compareTo(a.evidenceCount));
+  }
+
+  String _suggestedAccountName(String sender) {
+    final upper = sender.toUpperCase();
+    const known = <String, String>{
+      'CTZN_ALERT': 'Citizens Bank',
+      'CTZNS_ALERT': 'Citizens Bank',
+      'NABIL_ALERT': 'Nabil Bank',
+      'NBL_ALERT': 'Nepal Bank',
+      'NBLALERT': 'Nepal Bank',
+      'LAXMI_ALERT': 'Laxmi Sunrise',
+      'LAXMIALERT': 'Laxmi Sunrise',
+      'SBL_ALERT': 'Siddhartha Bank',
+      'SSF': 'Social Security Fund',
+      'CIT': 'CIT Retirement Fund',
+      'CIT_ALERT': 'CIT Retirement Fund',
+      'KHALTI': 'Khalti Wallet',
+      'ESEWA_ALERT': 'eSewa Wallet',
+      'IME_ALERT': 'IME Pay',
+    };
+    return known[upper] ?? sender;
+  }
+
+  String _suggestedAccountType(String sender, String body) {
+    final lowerSender = sender.toLowerCase();
+    if (lowerSender.contains('cit') ||
+        body.contains('cit no') ||
+        body.contains('citizens investment') ||
+        body.contains('retirement fund')) {
+      return 'savings';
+    }
+    if (body.contains('credit card') ||
+        body.contains('card payment') ||
+        body.contains('card was used') ||
+        body.contains('card ending')) {
+      return 'credit';
+    }
+    if (lowerSender.contains('khalti') ||
+        lowerSender.contains('esewa') ||
+        lowerSender.contains('ime') ||
+        lowerSender.contains('fonepay') ||
+        lowerSender.contains('namastepay')) {
+      return 'wallet';
+    }
+    if (body.contains('debit card') || body.contains('atm')) return 'debit';
+    return 'bank';
+  }
+
   SmsPermissions? get smsPermissions => _permissions;
 
   // ── Load ───────────────────────────────────────────────────────────────
@@ -99,6 +181,8 @@ class SmsInboxViewModel extends ChangeNotifier {
     _prefs = await _prefRepo.getAll();
     _autoHideOtp = await _settings.getAutoHideOtp();
     _liveCaptureEnabled = await _settings.getLiveCaptureEnabled();
+    _smsConsentResolved = await _settings.getFirstRunSmsConsentResolved();
+    _smsAutoImportEnabled = await _settings.getSmsAutoImportEnabled();
     _learningProposals =
         await (_verificationRepo?.getLearningProposals(status: 'active') ??
             Future<List<SmsLearningProposal>>.value(const []));
@@ -128,6 +212,8 @@ class SmsInboxViewModel extends ChangeNotifier {
   Future<int> scanSmsInbox({int limit = 5000}) async {
     if (_scanning) return 0;
     _scanning = true;
+    _smsLoadingTotal = limit;
+    _smsLoadingLoaded = 0;
     notifyListeners();
     try {
       final previousIds = _inbox.map((item) => item.id).toSet();
@@ -155,12 +241,23 @@ class SmsInboxViewModel extends ChangeNotifier {
       return inserted;
     } finally {
       _scanning = false;
+      _smsLoadingLoaded = _smsLoadingTotal;
       notifyListeners();
     }
   }
 
   Future<void> _autoImportSafeCandidates(
       {List<SmsInboxItem>? candidates}) async {
+    if (!_smsConsentResolved || !_smsAutoImportEnabled) {
+      for (final item
+          in (candidates ?? _inbox.where((item) => item.status == 'pending'))) {
+        await _notificationGateway?.notifyVerificationRequired(
+          inboxId: item.id,
+          reason: 'First-run SMS import consent is required',
+        );
+      }
+      return;
+    }
     const policy = SmsImportPolicy();
     final selected = candidates ??
         _inbox
@@ -468,6 +565,17 @@ class SmsInboxViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setFirstRunSmsImportConsent({
+    required bool resolved,
+    required bool autoImportEnabled,
+  }) async {
+    await _settings.setFirstRunSmsConsentResolved(resolved);
+    await _settings.setSmsAutoImportEnabled(autoImportEnabled);
+    _smsConsentResolved = resolved;
+    _smsAutoImportEnabled = autoImportEnabled;
+    notifyListeners();
+  }
+
   // ── Live capture ───────────────────────────────────────────────────────
   Future<void> startSmsLiveCapture() async {
     if (_live != null) return;
@@ -507,4 +615,17 @@ class SmsInboxViewModel extends ChangeNotifier {
     _live?.stop();
     super.dispose();
   }
+}
+
+class _SmsSuggestionAccumulator {
+  _SmsSuggestionAccumulator({
+    required this.name,
+    required this.type,
+    required this.senderId,
+  });
+
+  final String name;
+  final String type;
+  final String senderId;
+  int evidenceCount = 0;
 }

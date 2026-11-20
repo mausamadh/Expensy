@@ -28,6 +28,19 @@ Status: proposed
   - safe candidate auto-import test passes;
   - ambiguous candidate verification-notification test passes;
   - latest APK build passed; final reinstall is pending USB reconnection.
+- First-run clean-entry and account reconciliation:
+  - ask for SMS auto-import consent before historical SMS is auto-imported;
+  - show live "Loading SMS transactions: N messages" UI while reconciliation runs;
+  - suggest bank, debit-card, credit-card, wallet, and CIT retirement accounts after parsing;
+  - open account/card sheets so the user enters the current balance and linked funding account;
+  - keep CIT retirement contributions low-confidence and require verification;
+  - detect fund-transfer/card-payment patterns as transfers or transfer candidates, never unverified expense/income guesses;
+  - auto-close SMS outcome notifications after five seconds.
+- Transfer and retirement-account handling:
+  - CIT/National investment/retirement SMS are suggested as savings/investment accounts and kept under verification;
+  - outgoing fund transfers and credit-card payments are marked as transfer candidates;
+  - incoming fund transfers remain income candidates rather than guessed transfers;
+  - auto-imported transfers still require distinct source/destination accounts and `sys_transfer`.
 - Device fixture learning:
   - exported 7,479 device inbox rows and 3,954 app inbox candidates privately;
   - app state currently contains 1,445 imported, 138 dismissed, and 2,371 pending candidates;

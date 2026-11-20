@@ -277,3 +277,18 @@ class SmsRule {
             : DateTime.now(),
       );
 }
+
+/// A first-parsed account suggestion derived from SMS senders and content.
+class SmsAccountSuggestion {
+  final String name;
+  final String type; // bank | debit | credit | wallet
+  final String senderId;
+  final int evidenceCount;
+
+  const SmsAccountSuggestion({
+    required this.name,
+    required this.type,
+    required this.senderId,
+    required this.evidenceCount,
+  });
+}

@@ -283,6 +283,10 @@ class NotificationService {
       ),
       payload: 'sms:$inboxId',
     );
+    final id = _notifId('sms_$inboxId');
+    Future<void>.delayed(const Duration(seconds: 5), () async {
+      await _plugin.cancel(id: id);
+    });
   }
 
   /// Builds the shared [NotificationDetails] for recurring payment reminders.

@@ -185,6 +185,90 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
                   ],
                 ),
               ),
+            if (vm.smsScanning)
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                color: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withValues(alpha: isDark ? 0.16 : 0.10),
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        vm.smsLoadingTotal > 0
+                            ? 'Loading SMS transactions: ${vm.smsLoadingTotal} messages'
+                            : 'Loading SMS transactions...',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (vm.smsAccountSuggestions.isNotEmpty)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: kWarningColor.withValues(alpha: isDark ? 0.16 : 0.10),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: kWarningColor.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Accounts detected from SMS',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Create or reconcile these accounts and enter their current balances.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    for (final suggestion in vm.smsAccountSuggestions.take(4))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: OutlinedButton.icon(
+                          onPressed: () => AccountsScreen.openSheet(
+                            context,
+                            isCard: suggestion.type == 'credit',
+                          ),
+                          icon: Icon(
+                            suggestion.type == 'credit'
+                                ? Icons.credit_card_rounded
+                                : suggestion.type == 'wallet'
+                                    ? Icons.account_balance_wallet_rounded
+                                    : Icons.account_balance_rounded,
+                            size: 18,
+                          ),
+                          label: Text(
+                            'Set up ${suggestion.name} (${suggestion.type})',
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             if (pending.isNotEmpty)
               _FilterBar(
                 senders: senders,

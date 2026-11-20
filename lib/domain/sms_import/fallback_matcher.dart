@@ -36,6 +36,12 @@ class FallbackMatcher {
   static const _incomeCues = {'received', 'credited', 'deposit', 'deposited'};
   static final _incomePhrases =
       RegExp(r'\bcredit\s+posted\b', caseSensitive: false);
+  static final _transferPhrases = RegExp(
+      r'\b(?:fund\s*trf\s+to|credit.?card.?payment|card[_ ]payment|towards\s+(?:your\s+)?credit\s+card)\b',
+      caseSensitive: false);
+  static final _investmentPhrases = RegExp(
+      r'\b(?:cit\s+no|c\.?i\.?t\.?\s+|retirement\s+fund|national\s+civic|investment\s+account)\b',
+      caseSensitive: false);
 
   // "payment of X ... has been received" is a provider confirming money it
   // received from you; the income word must not book it as money in.
@@ -211,7 +217,9 @@ class FallbackMatcher {
     final hasWasCharged = _wasCharged.hasMatch(body);
     final leadingCrDr = _leadingCrDr.firstMatch(body);
     final TransactionType type;
-    if (hit.directionSuffix != null &&
+    if (_transferPhrases.hasMatch(body)) {
+      type = TransactionType.transfer;
+    } else if (hit.directionSuffix != null &&
         hit.directionSuffix!.toUpperCase() == 'DR') {
       type = TransactionType.expense;
     } else if (hit.directionSuffix != null &&
@@ -280,9 +288,12 @@ class FallbackMatcher {
         rawHash: await rawHashFor(senderId, body),
         body: body,
         parserRevision: 1,
-        confidence: bookable ? ParseConfidence.high : ParseConfidence.low,
-        reviewReason:
-            bookable ? null : (!hasDirection ? 'direction' : 'amount'),
+        confidence: (_investmentPhrases.hasMatch(body))
+            ? ParseConfidence.low
+            : (bookable ? ParseConfidence.high : ParseConfidence.low),
+        reviewReason: _investmentPhrases.hasMatch(body)
+            ? 'investment'
+            : (bookable ? null : (!hasDirection ? 'direction' : 'amount')),
       ),
       templateId: null,
     );
