@@ -113,17 +113,11 @@ void main() async {
   // which need the VM in place.
   CompositionRoot.initTransactions(provider);
   final transactionsVm = CompositionRoot.getIt<TransactionsViewModel>();
-  try {
-    await provider.load(); // DB reads finish before Flutter draws anything
-  } catch (e, stack) {
-    debugPrint('Startup provider load warning: $e\n$stack');
-  }
 
   // SMS import context: adapters bridge to the provider until the ledger
   // context is migrated (Phase 2).
   CompositionRoot.initSms(provider);
   final smsVm = CompositionRoot.getIt<SmsInboxViewModel>();
-  await smsVm.load();
 
   runApp(
     MultiProvider(
@@ -158,6 +152,10 @@ void main() async {
     }
   });
   WidgetsBinding.instance.addPostFrameCallback((_) async {
+    unawaited(provider.load().catchError((Object error, StackTrace stack) {
+      debugPrint('Startup provider load warning: $error\n$stack');
+    }));
+    await smsVm.load();
     final permissions = await smsVm.checkSmsPermissions();
     if (permissions.canScan) {
       unawaited(smsVm.scanSmsInbox(limit: 5000));

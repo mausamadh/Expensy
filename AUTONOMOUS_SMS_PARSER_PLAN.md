@@ -36,6 +36,7 @@ Status: proposed
 - Launch-time optimization:
   - 5,000-SMS startup reconciliation runs only after the first Flutter frame;
   - live capture startup is deferred until the app frame is visible;
+  - SMS inbox/rule/preference database loading is deferred until after the first frame;
   - startup no longer awaits the SMS scan before calling `runApp`.
   - latest startup-optimized APK build passed; cold-start timing is pending stable USB reconnection.
 - Remaining implementation phases: broader country fixture expansion and full live SMS/notification behavior testing with real incoming messages.
