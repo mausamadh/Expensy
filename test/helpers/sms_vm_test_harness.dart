@@ -39,8 +39,24 @@ class FakeSmsSource implements SmsSource {
   SmsPermissions? requestedPermissions;
 
   @override
-  Future<List<SmsMessage>> scanSms({int limit = 500}) async =>
-      messages.take(limit).toList();
+  Future<List<SmsMessage>> scanSms({
+    int limit = 500,
+    int? beforeTimestamp,
+    String? beforeId,
+  }) async {
+    final beforeNumericId = beforeId == null ? null : int.tryParse(beforeId);
+    final candidates = messages.where((message) {
+      if (beforeTimestamp == null || message.timestamp < beforeTimestamp) {
+        return true;
+      }
+      if (message.timestamp > beforeTimestamp || beforeNumericId == null) {
+        return false;
+      }
+      final numericId = int.tryParse(message.id);
+      return numericId != null && numericId < beforeNumericId;
+    });
+    return candidates.take(limit).toList();
+  }
 
   @override
   Future<List<SmsSender>> getSenders() async => const [];

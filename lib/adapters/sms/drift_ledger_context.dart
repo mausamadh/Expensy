@@ -17,12 +17,20 @@ class DriftLedgerContext implements LedgerContext {
       _provider.accounts.map((a) => a.type).toList();
 
   @override
+  List<String> get accountNames =>
+      _provider.accounts.map((a) => a.name).toList();
+
+  @override
   List<String> get categoryIds =>
       _provider.categories.map((c) => c.id).toList();
 
   @override
   List<String> get categoryTypes =>
       _provider.categories.map((c) => c.type).toList();
+
+  @override
+  List<String> get categoryNames =>
+      _provider.categories.map((c) => c.name).toList();
 
   @override
   List<bool> get categoryIsSystem =>

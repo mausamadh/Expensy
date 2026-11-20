@@ -88,6 +88,17 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
           );
         }
       }
+    } else if (permissions.receive && vm.smsLiveCaptureEnabled) {
+      try {
+        await vm.startSmsLiveCapture();
+      } catch (_) {
+        if (mounted) {
+          showAppSnackbar(
+            context,
+            'Live SMS capture could not start. You can scan the inbox manually.',
+          );
+        }
+      }
     }
     _live = vm.smsLiveCaptureEnabled;
     if (mounted) setState(() {});
@@ -97,7 +108,7 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
     final vm = context.read<SmsInboxViewModel>();
     int added;
     try {
-      added = await vm.scanSmsInbox(limit: 5000);
+      added = await vm.scanSmsInbox(limit: 5000, scanAllPages: true);
     } catch (_) {
       if (mounted) {
         showAppSnackbar(
@@ -295,7 +306,7 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
                     Expanded(
                       child: Text(
                         vm.smsLoadingTotal > 0
-                            ? 'Loading SMS transactions: ${vm.smsLoadingTotal} messages'
+                            ? 'Loading SMS transactions: ${vm.smsLoadingTotal} messages scanned'
                             : 'Loading SMS transactions...',
                         style: TextStyle(
                           fontSize: 12,

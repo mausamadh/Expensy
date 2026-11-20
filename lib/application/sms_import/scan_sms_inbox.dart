@@ -101,14 +101,36 @@ class ScanSmsInbox {
   /// Returns new-item count and IDs of pending candidates refreshed.
   Future<SmsScanResult> call({
     int limit = 500,
+    bool scanAllPages = false,
     required Map<String, SmsSenderPref> senderPrefs,
     required bool autoHideOtp,
     required String defaultCurrency,
     List<SmsLearningProposal> learningProposals = const [],
     void Function(int total)? onMessagesLoaded,
   }) async {
-    final messages = await source.scanSms(limit: limit);
-    onMessagesLoaded?.call(messages.length);
+    final messages = <SmsMessage>[];
+    int? beforeTimestamp;
+    String? beforeId;
+    String? previousCursor;
+    do {
+      final page = await source.scanSms(
+        limit: limit,
+        beforeTimestamp: scanAllPages ? beforeTimestamp : null,
+        beforeId: scanAllPages ? beforeId : null,
+      );
+      if (page.isEmpty) break;
+      messages.addAll(page);
+      onMessagesLoaded?.call(messages.length);
+      if (!scanAllPages) break;
+
+      final oldest = page.last;
+      final cursor = '${oldest.timestamp}:${oldest.id}';
+      if (cursor == previousCursor) break;
+      previousCursor = cursor;
+      beforeTimestamp = oldest.timestamp;
+      beforeId = oldest.id;
+    } while (scanAllPages);
+
     final existing = await inboxRepo.getAll();
     final seen = existing.map((e) => e.rawHash).toSet();
     final existingByHash = {for (final item in existing) item.rawHash: item};

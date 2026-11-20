@@ -84,4 +84,25 @@ void main() {
         .setMockMethodCallHandler(channel, (call) async => <Object?>[]);
     expect(await ExpensySms.scanSms(), isEmpty);
   });
+
+  test('scanSms forwards pagination cursors to the native reader', () async {
+    Map<Object?, Object?>? arguments;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'scanSms') {
+        arguments = (call.arguments as Map).cast<Object?, Object?>();
+      }
+      return <Object?>[];
+    });
+
+    await ExpensySms.scanSms(
+      limit: 250,
+      beforeTimestamp: 1793520000000,
+      beforeId: 8421,
+    );
+
+    expect(arguments?['limit'], 250);
+    expect(arguments?['beforeTimestamp'], 1793520000000);
+    expect(arguments?['beforeId'], 8421);
+  });
 }

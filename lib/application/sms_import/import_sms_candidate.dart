@@ -56,6 +56,7 @@ class ImportSmsCandidate {
     required List<String> categoryIds,
     required List<String> categoryTypes,
     required List<bool> categoryIsSystem,
+    List<String> categoryNames = const [],
     String? type,
     double? amount,
     String? accountId,
@@ -69,22 +70,34 @@ class ImportSmsCandidate {
       if (item == null || item.status != 'pending') return null;
 
       final rule = _matcher.matchRule(item, rules);
-      final effType =
-          type ?? rule?.transactionType ?? _matcher.typeFromParsed(item.parsedType);
-      final effAccountId =
-          accountId ?? rule?.accountId ?? _matcher.defaultAccountId(accountIds, accountTypes);
+      final effType = type ??
+          rule?.transactionType ??
+          _matcher.typeFromParsed(item.parsedType);
+      final effAccountId = accountId ??
+          rule?.accountId ??
+          _matcher.defaultAccountId(accountIds, accountTypes);
       final effCategoryId = categoryId ??
           rule?.categoryId ??
-          _matcher.defaultCategoryId(effType, categoryIds, categoryTypes, categoryIsSystem);
+          _matcher.defaultCategoryId(
+            effType,
+            categoryIds,
+            categoryTypes,
+            categoryIsSystem,
+            categoryNames: categoryNames,
+            description: item.body,
+          );
       if (effAccountId.isEmpty || effCategoryId.isEmpty) return null;
 
-      final effAmount =
-          amount ?? _matcher.amountMajor(item.parsedAmountMinorUnits, item.parsedCurrency);
+      final effAmount = amount ??
+          _matcher.amountMajor(
+              item.parsedAmountMinorUnits, item.parsedCurrency);
       if (effAmount <= 0) return null;
 
       final effDate = date ?? item.parsedDate ?? clock.now();
       final trimmedDesc = (description ?? '').trim();
-      final effDesc = trimmedDesc.isNotEmpty ? trimmedDesc : (item.parsedMerchant ?? item.senderId);
+      final effDesc = trimmedDesc.isNotEmpty
+          ? trimmedDesc
+          : (item.parsedMerchant ?? item.senderId);
 
       String? txId;
       if (effType == 'transfer') {
@@ -109,9 +122,10 @@ class ImportSmsCandidate {
           accountId: effAccountId,
           categoryId: effCategoryId,
           date: effDate,
-          note: (item.parsedReference != null && item.parsedReference!.isNotEmpty)
-              ? 'Ref: ${item.parsedReference}'
-              : '',
+          note:
+              (item.parsedReference != null && item.parsedReference!.isNotEmpty)
+                  ? 'Ref: ${item.parsedReference}'
+                  : '',
         );
       }
       if (txId == null) return null;

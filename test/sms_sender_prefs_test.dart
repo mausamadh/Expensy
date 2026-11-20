@@ -494,6 +494,126 @@ void main() {
       expect(permissions.canScan, isTrue);
       expect(harness.vm.smsInbox, isEmpty);
     });
+
+    test('Kartik salary SMS imports into the salary income category', () async {
+      await provider.addAccount(Account(
+        id: 'acc-salary-test',
+        name: 'Main Bank',
+        type: 'bank',
+        balance: 0,
+        currency: 'NPR',
+        colorValue: 0xFF6750A4,
+      ));
+      var salaryCategory = provider.categories.where(
+        (category) =>
+            category.type == 'income' &&
+            category.name.toLowerCase().contains('salary'),
+      );
+      if (salaryCategory.isEmpty) {
+        await provider.addCategory(AppCategory(
+          id: 'cat-sms-salary-test',
+          name: 'Salary',
+          type: 'income',
+          colorValue: 0xFF6750A4,
+        ));
+        salaryCategory = provider.categories.where(
+          (category) => category.id == 'cat-sms-salary-test',
+        );
+      }
+
+      await harness.vm.setFirstRunSmsImportConsent(
+        resolved: true,
+        autoImportEnabled: true,
+      );
+      harness.source.messages = [
+        const SmsMessage(
+          id: 'salary-kartik',
+          sender: 'LAXMI_ALERT',
+          body:
+              'Your a/c ##533 is credited by NPR 45,000.00 on 01/11/2026. Remarks: SALARY KARTIK.',
+          timestamp: 1793520000000,
+        ),
+      ];
+
+      await harness.vm.scanSmsInbox(limit: 5000);
+
+      expect(salaryCategory, isNotEmpty);
+      expect(provider.transactions, hasLength(1));
+      expect(provider.transactions.single.type, 'income');
+      expect(
+        provider.transactions.single.categoryId,
+        salaryCategory.first.id,
+      );
+    });
+
+    test('account suggestions skip an existing bank but preserve card setup',
+        () async {
+      await provider.addAccount(Account(
+        id: 'acc-nabil-existing',
+        name: 'Nabil Bank - Main',
+        type: 'bank',
+        balance: 0,
+        currency: 'NPR',
+        colorValue: 0xFF6750A4,
+      ));
+      harness.source.messages = [
+        const SmsMessage(
+          id: 'nabil-bank-alert',
+          sender: 'NABIL_ALERT',
+          body: 'Your account is credited NPR 2,000.00. Ref: NABIL0001.',
+          timestamp: 1793520000000,
+        ),
+        const SmsMessage(
+          id: 'nabil-card-alert',
+          sender: 'NABIL_ALERT',
+          body: 'Credit card purchase of NPR 500.00 successful. Ref: CARD0001.',
+          timestamp: 1793520001000,
+        ),
+      ];
+
+      await harness.vm.scanSmsInbox(limit: 5000);
+
+      expect(
+        harness.vm.smsAccountSuggestions
+            .where((suggestion) => suggestion.type == 'bank'),
+        isEmpty,
+      );
+      expect(
+        harness.vm.smsAccountSuggestions
+            .where((suggestion) => suggestion.type == 'credit')
+            .map((suggestion) => suggestion.name),
+        contains('Nabil Bank'),
+      );
+    });
+
+    test('historical reconciliation reads pages beyond the first batch',
+        () async {
+      harness.source.messages = [
+        const SmsMessage(
+          id: '3',
+          sender: 'BANK',
+          body: 'NPR 300.00 credited. Ref: PAGE3.',
+          timestamp: 3000,
+        ),
+        const SmsMessage(
+          id: '2',
+          sender: 'BANK',
+          body: 'NPR 200.00 credited. Ref: PAGE2.',
+          timestamp: 2000,
+        ),
+        const SmsMessage(
+          id: '1',
+          sender: 'BANK',
+          body: 'NPR 100.00 credited. Ref: PAGE1.',
+          timestamp: 1000,
+        ),
+      ];
+
+      await harness.vm.scanSmsInbox(limit: 2, scanAllPages: true);
+
+      expect(harness.vm.smsInbox, hasLength(3));
+      expect(harness.vm.smsLoadingTotal, 3);
+    });
   });
 
   group('v34 migration (blocked senders -> sender prefs)', () {

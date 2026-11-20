@@ -517,17 +517,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       resolved: true,
       autoImportEnabled: _smsAutoImport,
     );
-    if (_smsAutoImport) {
-      final permissions = await smsVm.checkSmsPermissions();
-      if (permissions.canScan) {
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
+    final permissions = await smsVm.checkSmsPermissions();
+    if (permissions.canScan) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (permissions.receive) {
           try {
-            await smsVm.scanSmsInbox(limit: 5000);
+            await smsVm.startSmsLiveCapture();
           } catch (error, stackTrace) {
-            debugPrint('SMS onboarding scan failed: $error\n$stackTrace');
+            debugPrint('SMS live capture start failed: $error\n$stackTrace');
           }
-        });
-      }
+        }
+        try {
+          await smsVm.scanSmsInbox(limit: 5000, scanAllPages: true);
+        } catch (error, stackTrace) {
+          debugPrint('SMS onboarding scan failed: $error\n$stackTrace');
+        }
+      });
     }
 
     if (mounted) {
@@ -647,7 +652,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     try {
                       final permissions = await context
                           .read<SmsInboxViewModel>()
-                          .requestSmsPermissions(scanOnGrant: false);
+                          .requestSmsPermissions(
+                            scanOnGrant: false,
+                            startLiveCaptureOnGrant: false,
+                          );
                       if (!mounted) return;
                       setState(() {
                         if (!permissions.canScan) {

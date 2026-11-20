@@ -27,7 +27,7 @@ class SharedPreferencesSmsSettings implements SmsSettings {
   @override
   Future<bool> getLiveCaptureEnabled() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_liveCaptureKey) ?? false;
+    return prefs.getBool(_liveCaptureKey) ?? true;
   }
 
   @override

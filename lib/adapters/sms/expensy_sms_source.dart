@@ -11,8 +11,16 @@ class ExpensySmsSource implements SmsSource {
   const ExpensySmsSource();
 
   @override
-  Future<List<SmsMessage>> scanSms({int limit = 500}) async {
-    final msgs = await plugin.ExpensySms.scanSms(limit: limit);
+  Future<List<SmsMessage>> scanSms({
+    int limit = 500,
+    int? beforeTimestamp,
+    String? beforeId,
+  }) async {
+    final msgs = await plugin.ExpensySms.scanSms(
+      limit: limit,
+      beforeTimestamp: beforeTimestamp,
+      beforeId: beforeId == null ? null : int.tryParse(beforeId),
+    );
     return msgs.map(_toDomain).toList();
   }
 

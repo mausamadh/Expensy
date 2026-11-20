@@ -281,7 +281,7 @@ class SmsRule {
 /// A first-parsed account suggestion derived from SMS senders and content.
 class SmsAccountSuggestion {
   final String name;
-  final String type; // bank | debit | credit | wallet
+  final String type; // bank | savings | debit | credit | wallet
   final String senderId;
   final int evidenceCount;
 

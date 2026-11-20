@@ -62,28 +62,34 @@ class SmsPermissions {
 /// Dart API for the native `expensy_sms` plugin.
 class ExpensySms {
   static const MethodChannel _channel = MethodChannel('com.ma.finwick/sms');
-  static const EventChannel _events =
-      EventChannel('com.ma.finwick/sms/events');
+  static const EventChannel _events = EventChannel('com.ma.finwick/sms/events');
 
   /// Current permission state.
   static Future<SmsPermissions> checkPermissions() async {
-    final res = await _channel.invokeMapMethod<String, dynamic>(
-        'checkPermissions');
+    final res =
+        await _channel.invokeMapMethod<String, dynamic>('checkPermissions');
     return SmsPermissions.fromMap(res ?? const {});
   }
 
   /// Prompts the user for READ_SMS + RECEIVE_SMS. Resolves with the new
   /// state after the user answers.
   static Future<SmsPermissions> requestPermissions() async {
-    final res = await _channel.invokeMapMethod<String, dynamic>(
-        'requestPermissions');
+    final res =
+        await _channel.invokeMapMethod<String, dynamic>('requestPermissions');
     return SmsPermissions.fromMap(res ?? const {});
   }
 
-  /// Reads the most recent [limit] inbox messages, newest first.
-  static Future<List<SmsMessage>> scanSms({int limit = 500}) async {
-    final res = await _channel.invokeListMethod<dynamic>('scanSms',
-        {'limit': limit});
+  /// Reads inbox messages newest first, optionally continuing before a cursor.
+  static Future<List<SmsMessage>> scanSms({
+    int limit = 500,
+    int? beforeTimestamp,
+    int? beforeId,
+  }) async {
+    final res = await _channel.invokeListMethod<dynamic>('scanSms', {
+      'limit': limit,
+      if (beforeTimestamp != null) 'beforeTimestamp': beforeTimestamp,
+      if (beforeId != null) 'beforeId': beforeId,
+    });
     if (res == null) return const [];
     return res
         .map((e) => (e as Map).cast<String, dynamic>())

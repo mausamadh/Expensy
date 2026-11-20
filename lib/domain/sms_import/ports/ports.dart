@@ -24,8 +24,13 @@ abstract interface class TemplateRegistryProvider {
 /// Implemented by [ExpensySmsSource] (lib/adapters/sms/) which wraps the
 /// `expensy_sms` plugin and maps plugin types into domain types.
 abstract interface class SmsSource {
-  /// Scans up to [limit] recent inbox messages, newest first.
-  Future<List<SmsMessage>> scanSms({int limit = 500});
+  /// Reads one inbox page, newest first. The cursor continues before the
+  /// provided timestamp and message id without skipping same-time messages.
+  Future<List<SmsMessage>> scanSms({
+    int limit = 500,
+    int? beforeTimestamp,
+    String? beforeId,
+  });
 
   /// Distinct senders with message counts (for the sender picker).
   Future<List<SmsSender>> getSenders();
@@ -147,11 +152,17 @@ abstract interface class LedgerContext {
   /// Types of all accounts, parallel to [accountIds].
   List<String> get accountTypes;
 
+  /// Names of all accounts, parallel to [accountIds].
+  List<String> get accountNames;
+
   /// Ids of all categories (including system ones), in display order.
   List<String> get categoryIds;
 
   /// Types of all categories, parallel to [categoryIds].
   List<String> get categoryTypes;
+
+  /// Names of all categories, parallel to [categoryIds].
+  List<String> get categoryNames;
 
   /// Whether each category is a system category, parallel to [categoryIds].
   List<bool> get categoryIsSystem;

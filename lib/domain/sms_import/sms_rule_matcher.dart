@@ -9,6 +9,9 @@ import 'sms_parser.dart';
 class SmsRuleMatcher {
   const SmsRuleMatcher();
 
+  static final _salaryIncomeCue =
+      RegExp(r'\b(?:salary|payroll|wages?)\b', caseSensitive: false);
+
   /// Finds the first rule for [item]'s sender. A rule with no merchant
   /// pattern matches any message from that sender; a rule with a pattern
   /// matches when the parsed merchant contains the pattern (case-insensitive).
@@ -63,10 +66,24 @@ class SmsRuleMatcher {
     String type,
     List<String> categoryIds,
     List<String> categoryTypes,
-    List<bool> categoryIsSystem,
-  ) {
+    List<bool> categoryIsSystem, {
+    List<String> categoryNames = const [],
+    String? description,
+  }) {
     if (type == 'transfer') return 'sys_transfer';
     final want = type == 'income' ? 'income' : 'expense';
+    if (type == 'income' &&
+        description != null &&
+        _salaryIncomeCue.hasMatch(description)) {
+      for (var i = 0; i < categoryIds.length; i++) {
+        if (!categoryIsSystem[i] &&
+            categoryTypes[i] == 'income' &&
+            i < categoryNames.length &&
+            _salaryIncomeCue.hasMatch(categoryNames[i])) {
+          return categoryIds[i];
+        }
+      }
+    }
     for (var i = 0; i < categoryIds.length; i++) {
       if (!categoryIsSystem[i] && categoryTypes[i] == want) {
         return categoryIds[i];

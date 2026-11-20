@@ -143,9 +143,12 @@ class ExpensySmsPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventCh
                     return
                 }
                 val limit = (call.argument<Int>("limit") ?: 500).coerceIn(1, 5000)
+                val beforeTimestamp =
+                    call.argument<Number>("beforeTimestamp")?.toLong()
+                val beforeId = call.argument<Number>("beforeId")?.toLong()
                 executor.execute {
                     try {
-                        result.success(scanSms(limit))
+                        result.success(scanSms(limit, beforeTimestamp, beforeId))
                     } catch (e: Exception) {
                         result.error("SCAN_FAILED", e.message ?: "Failed to read SMS", null)
                     }
@@ -206,7 +209,11 @@ class ExpensySmsPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventCh
 
     private fun canReadSms(): Boolean = hasPermission(Manifest.permission.READ_SMS) || isDefaultSmsApp()
 
-    private fun scanSms(limit: Int): List<Map<String, Any?>> {
+    private fun scanSms(
+        limit: Int,
+        beforeTimestamp: Long?,
+        beforeId: Long?
+    ): List<Map<String, Any?>> {
         val out = mutableListOf<Map<String, Any?>>()
         val projection = arrayOf(
             Inbox._ID,
@@ -214,12 +221,24 @@ class ExpensySmsPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventCh
             Inbox.BODY,
             Inbox.DATE
         )
+        val selection = when {
+            beforeTimestamp != null && beforeId != null ->
+                "(${Inbox.DATE} < ? OR (${Inbox.DATE} = ? AND ${Inbox._ID} < ?))"
+            beforeTimestamp != null -> "${Inbox.DATE} < ?"
+            else -> null
+        }
+        val selectionArgs = when {
+            beforeTimestamp != null && beforeId != null ->
+                arrayOf(beforeTimestamp.toString(), beforeTimestamp.toString(), beforeId.toString())
+            beforeTimestamp != null -> arrayOf(beforeTimestamp.toString())
+            else -> null
+        }
         val cursor: Cursor = context.contentResolver.query(
             Inbox.CONTENT_URI,
             projection,
-            null,
-            null,
-            "${Inbox.DATE} DESC LIMIT $limit"
+            selection,
+            selectionArgs,
+            "${Inbox.DATE} DESC, ${Inbox._ID} DESC LIMIT $limit"
         ) ?: return out
         cursor.use { c ->
             val idCol = c.getColumnIndexOrThrow(Inbox._ID)

@@ -107,12 +107,16 @@ class SmsInboxViewModel extends ChangeNotifier {
       final body = item.body.toLowerCase();
       final sender = item.senderId.trim();
       if (sender.isEmpty) continue;
-      final key = sender.toUpperCase();
+      final name = _suggestedAccountName(sender);
+      final type = _suggestedAccountType(sender, body);
+      if (_accountAlreadyExists(name, type)) continue;
+      final identity = _accountSuggestionIdentity(name);
+      final key = '$type:${identity.isEmpty ? sender.toUpperCase() : identity}';
       final acc = grouped.putIfAbsent(
         key,
         () => _SmsSuggestionAccumulator(
-          name: _suggestedAccountName(sender),
-          type: _suggestedAccountType(sender, body),
+          name: name,
+          type: type,
           senderId: sender,
         ),
       );
@@ -127,6 +131,60 @@ class SmsInboxViewModel extends ChangeNotifier {
             ))
         .toList()
       ..sort((a, b) => b.evidenceCount.compareTo(a.evidenceCount));
+  }
+
+  bool _accountAlreadyExists(String suggestedName, String suggestedType) {
+    final suggestedIdentity = _accountSuggestionIdentity(suggestedName);
+    if (suggestedIdentity.isEmpty) return false;
+    final names = _ledgerContext.accountNames;
+    final types = _ledgerContext.accountTypes;
+    for (var i = 0; i < names.length && i < types.length; i++) {
+      if (!_compatibleAccountTypes(suggestedType, types[i])) continue;
+      final existingIdentity = _accountSuggestionIdentity(names[i]);
+      if (existingIdentity.isEmpty) continue;
+      final shorter = suggestedIdentity.length < existingIdentity.length
+          ? suggestedIdentity
+          : existingIdentity;
+      if (shorter.length >= 4 &&
+          (suggestedIdentity.contains(existingIdentity) ||
+              existingIdentity.contains(suggestedIdentity))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _compatibleAccountTypes(String suggested, String existing) {
+    if (suggested == existing) return true;
+    const depositTypes = {'bank', 'savings'};
+    return depositTypes.contains(suggested) && depositTypes.contains(existing);
+  }
+
+  String _accountSuggestionIdentity(String name) {
+    const genericTerms = {
+      'account',
+      'accounts',
+      'bank',
+      'card',
+      'credit',
+      'current',
+      'debit',
+      'finance',
+      'financial',
+      'fund',
+      'limited',
+      'ltd',
+      'prepaid',
+      'retirement',
+      'saving',
+      'savings',
+      'wallet',
+    };
+    final terms = name
+        .toLowerCase()
+        .split(RegExp(r'[^a-z0-9]+'))
+        .where((term) => term.isNotEmpty && !genericTerms.contains(term));
+    return terms.join();
   }
 
   String _suggestedAccountName(String sender) {
@@ -206,9 +264,14 @@ class SmsInboxViewModel extends ChangeNotifier {
         return;
       }
 
-      await scanSmsInbox(limit: 5000);
-      if (_liveCaptureEnabled && permissions.receive) {
-        await startSmsLiveCapture();
+      final liveCaptureStarted = !_liveCaptureEnabled ||
+          (permissions.receive && await _tryStartLiveCapture());
+      await scanSmsInbox(limit: 5000, scanAllPages: true);
+      if (!liveCaptureStarted) {
+        _setSmsStatus(
+          'SMS history was scanned, but live capture could not start.',
+          isError: true,
+        );
       }
     } catch (error, stackTrace) {
       debugPrint('SMS startup processing failed: $error\n$stackTrace');
@@ -241,12 +304,23 @@ class SmsInboxViewModel extends ChangeNotifier {
 
   Future<SmsPermissions> requestSmsPermissions({
     bool scanOnGrant = true,
+    bool startLiveCaptureOnGrant = true,
   }) async {
     final perms = await _source.requestPermissions();
     _permissions = perms;
     notifyListeners();
-    if (perms.canScan && scanOnGrant) {
-      await scanSmsInbox(limit: 5000);
+    if (perms.canScan) {
+      final liveCaptureStarted = !startLiveCaptureOnGrant ||
+          (perms.receive && await _tryStartLiveCapture());
+      if (scanOnGrant) {
+        await scanSmsInbox(limit: 5000, scanAllPages: true);
+      }
+      if (!liveCaptureStarted) {
+        _setSmsStatus(
+          'SMS history was scanned, but live capture could not start.',
+          isError: true,
+        );
+      }
     } else if (!perms.canScan) {
       _setSmsStatus(
         'SMS access was not granted. Enable SMS access to parse messages.',
@@ -260,7 +334,10 @@ class SmsInboxViewModel extends ChangeNotifier {
   Future<List<SmsSender>> getSmsSenders() => _source.getSenders();
 
   // ── Scan ───────────────────────────────────────────────────────────────
-  Future<int> scanSmsInbox({int limit = 5000}) async {
+  Future<int> scanSmsInbox({
+    int limit = 5000,
+    bool scanAllPages = false,
+  }) async {
     if (_scanning) return 0;
     _scanning = true;
     _smsLoadingTotal = 0;
@@ -279,12 +356,14 @@ class SmsInboxViewModel extends ChangeNotifier {
       );
       final result = await scan(
         limit: limit,
+        scanAllPages: scanAllPages,
         senderPrefs: {for (final p in _prefs) p.senderId: p},
         autoHideOtp: _autoHideOtp,
         defaultCurrency: _ledgerContext.defaultCurrency,
         learningProposals: _learningProposals,
         onMessagesLoaded: (total) {
           _smsLoadingTotal = total;
+          _smsLoadingLoaded = total;
           notifyListeners();
         },
       );
@@ -351,6 +430,8 @@ class SmsInboxViewModel extends ChangeNotifier {
             _ledgerContext.categoryIds,
             _ledgerContext.categoryTypes,
             _ledgerContext.categoryIsSystem,
+            categoryNames: _ledgerContext.categoryNames,
+            description: item.body,
           );
       final toAccountId = type == 'transfer'
           ? _matcher.transferToAccount(
@@ -422,6 +503,7 @@ class SmsInboxViewModel extends ChangeNotifier {
       categoryIds: _ledgerContext.categoryIds,
       categoryTypes: _ledgerContext.categoryTypes,
       categoryIsSystem: _ledgerContext.categoryIsSystem,
+      categoryNames: _ledgerContext.categoryNames,
       type: type,
       amount: amount,
       accountId: accountId,
@@ -676,8 +758,29 @@ class SmsInboxViewModel extends ChangeNotifier {
         notifyListeners();
       },
     );
-    await _live!.start();
+    try {
+      await _live!.start();
+    } catch (_) {
+      _live = null;
+      _liveCaptureEnabled = false;
+      await _settings.setLiveCaptureEnabled(false);
+      _setSmsStatus(
+        'Live SMS capture could not start. You can scan the inbox manually.',
+        isError: true,
+      );
+      rethrow;
+    }
     notifyListeners();
+  }
+
+  Future<bool> _tryStartLiveCapture() async {
+    try {
+      await startSmsLiveCapture();
+      return true;
+    } catch (error, stackTrace) {
+      debugPrint('SMS live capture failed to start: $error\n$stackTrace');
+      return false;
+    }
   }
 
   Future<void> stopSmsLiveCapture() async {

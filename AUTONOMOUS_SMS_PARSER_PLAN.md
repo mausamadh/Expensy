@@ -14,12 +14,12 @@ Status: proposed
 - Direct Drift ledger gateway: SMS writes no longer use `AppProvider` mutation methods.
 - SMS event/outbox, verification, policy, live preference, notification, and backup table foundations: implemented.
 - Connected-device smoke validation: passed on Samsung SM-E225F (device RZ8T3207LAR).
-  - latest debug APK installed successfully;
+  - an earlier debug APK installed successfully;
   - app launched and remained running;
   - `SmsBackgroundReceiver` is merged and registered for `SMS_RECEIVED`;
   - READ_SMS, RECEIVE_SMS, and POST_NOTIFICATIONS are granted in the primary user.
 - Old and current SMS reconciliation:
-  - startup and manual inbox scans use a 5,000-SMS reconciliation limit;
+  - startup, permission-grant, and manual scans read the inbox in cursor-paged batches of up to 5,000 messages and continue through the full device history;
   - newly discovered high-confidence, fully-routed transaction candidates are auto-imported;
   - ambiguous candidates remain pending and trigger verification notifications;
   - import failures trigger actionable import-failed notifications.
@@ -27,11 +27,14 @@ Status: proposed
   - focused old-SMS scan tests pass;
   - safe candidate auto-import test passes;
   - ambiguous candidate verification-notification test passes;
-  - latest APK build passed; final reinstall is pending USB reconnection.
+  - the cursor-paged full-history implementation passes focused regression tests and the latest debug APK builds;
+  - the rebuilt debug APK is installed on the connected device; it has not been launched against the live SMS inbox to avoid causing an unreviewed historical auto-import during validation.
 - First-run clean-entry and account reconciliation:
   - ask for SMS auto-import consent before historical SMS is auto-imported;
   - show live "Loading SMS transactions: N messages" UI while reconciliation runs;
   - suggest bank, debit-card, credit-card, wallet, and CIT retirement accounts after parsing;
+  - suppress account suggestions when a similarly named account of the same financial type already exists, while preserving distinct card-account suggestions;
+  - route salary/payroll income to an existing salary income category when available;
   - open account/card sheets so the user enters the current balance and linked funding account;
   - keep CIT retirement contributions low-confidence and require verification;
   - detect fund-transfer/card-payment patterns as transfers or transfer candidates, never unverified expense/income guesses;
@@ -47,14 +50,15 @@ Status: proposed
   - added redacted Nepalese fixtures for NT Rupee deductions/credits, Siddhartha withdrawals/deposits, and credit-card due blocking;
   - parser fixtures for these device-derived cases pass.
 - Launch-time optimization:
-  - 5,000-SMS startup reconciliation runs only after the first Flutter frame;
+  - full-history reconciliation runs only after the first Flutter frame, in paged reads;
   - live capture startup is deferred until the app frame is visible;
   - SMS inbox/rule/preference database loading is deferred until after the first frame;
   - startup no longer awaits the SMS scan before calling `runApp`.
-  - latest startup-optimized APK build passed; cold-start timing is pending stable USB reconnection.
+  - latest startup-optimized APK build passed; cold-start timing has not been measured on the device.
 - Startup parsing reliability:
   - provider/account data now loads before SMS reconciliation, preventing auto-import from racing with an empty ledger context;
-  - permission grants immediately trigger historical reconciliation;
+  - permission grants immediately trigger full-history reconciliation and start live capture when RECEIVE_SMS is granted;
+  - fresh installs enable live capture by default after SMS access is granted; an explicit user-off setting is preserved;
   - onboarding requests SMS access when the user explicitly enables auto-import, then starts reconciliation only after initial account setup is saved;
   - users who skip SMS auto-import are not prompted during startup; opening SMS Inbox requests access and scans after a grant;
   - denied permission can be retried from the SMS Inbox permission banner;
@@ -64,6 +68,9 @@ Status: proposed
 - Amount extraction reliability:
   - amount parsing now associates the amount with a currency token on either side and ignores trailing date/reference digits;
   - historical scans refresh changed pending candidates, while imported and dismissed candidates are not rewritten.
+- Remaining background-ingestion gap:
+  - live SMS is parsed automatically while the app's Flutter process is running;
+  - the manifest receiver currently records a pending-reconcile marker and posts a notification only; a durable headless worker that parses/imports after Android kills the app process is still not implemented.
 - Remaining implementation phases: broader country fixture expansion and full live SMS/notification behavior testing with real incoming messages.
 - Remaining implementation phases: true Android background receiver/WorkManager, notification deep-link routing, ledger bridge removal, parser breadth, event crash tests, parser fixture expansion, device testing, and migration hardening.
 
@@ -94,16 +101,16 @@ The SMS context already has:
 - a presentation `SmsInboxViewModel`;
 - targeted parser and SMS tests.
 
-The current implementation is not yet autonomous:
+The current implementation is partially autonomous:
 
-- live capture starts only from the SMS screen;
-- no verification-learning aggregate or parser template-learning workflow exists;
-- SMS reception is not a background process;
-- no persisted event/outbox or crash-recovery pipeline exists;
-- there is no parsed/imported SMS notification and deep-link workflow;
-- the SMS ledger gateway still bridges to `AppProvider`;
+- full inbox history is scanned on startup and live capture starts after permission is granted, while the Flutter process is running;
+- verification and learning-proposal foundations exist, but generalized parser-template learning remains incomplete;
+- the manifest receiver does not yet run the parser or import use case after Android kills the app process;
+- event/outbox storage exists, but scan/live/background processing is not yet one durable replayable workflow;
+- import outcome notifications exist, but SMS notification deep-link routing remains incomplete;
+- the SMS ledger gateway writes through the Drift ledger adapter;
 - the built-in registry currently includes a Kenya-only template pack;
-- app restarts, missed SMS, multipart SMS, and duplicate event delivery need explicit handling.
+- restart reconciliation handles messages available in the inbox, but multipart SMS and process-death replay still need explicit handling.
 
 ## Target Architecture
 
