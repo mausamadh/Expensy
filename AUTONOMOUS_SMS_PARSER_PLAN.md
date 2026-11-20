@@ -449,6 +449,23 @@ Add or expand tests for:
 - require Android permission prompts and show clear privacy rationale;
 - preserve existing export and backup safety behavior.
 
+## Optimization and Play Compliance
+
+### Size (measured)
+- Release APK (arm64): **29.5 MB**; AAB (all ABIs): **79.6 MB** — well under Play's 200 MB limit.
+- Debug APK is ~217 MB but that is normal (127 MB JIT `kernel_blob.bin`, 3 ABIs, 15 MB Vulkan validation layer) — not a shipping concern.
+- Release config already lean: `minifyEnabled` + `shrinkResources` on, ProGuard keep rules, `dependenciesInfo` off, MaterialIcons tree-shaken 97.5%.
+- No font assets are bundled (only tree-shaken MaterialIcons); Google Fonts are fetched on demand and cached on-device.
+
+### Fixes applied
+- **Font config bug**: `GoogleFonts.config.allowRuntimeFetching = false` was set but no fonts were bundled, so every non-default font in the picker silently failed to load. Removed the override so fonts fetch on demand and cache on-device (default "System" font never fetches; offline first-use degrades to system font).
+- **Exact-alarm fallback (Android 14+)**: all reminder services scheduled `exactAllowWhileIdle` with no fallback, so a denied `SCHEDULE_EXACT_ALARM` would throw and drop the reminder. Added shared `reminderScheduleMode()` in `lib/services/schedule_mode.dart` that checks `canScheduleExactNotifications()` and degrades to `inexactAllowWhileIdle`. Wired into `notification_service`, `certificate_reminder_service`, `loan_reminder_service`, `credit_reminder_service`, and `lended_notification_service`.
+
+### Play compliance status
+- targetSdk 36, minSdk 24, runtime permissions, no analytics/ads/crash SDKs — all good.
+- `SmsBackgroundReceiver` correctly exported with `BROADCAST_SMS` protection.
+- Remaining (non-code) items: Data Safety form (SMS access justification, "no data shared", `allowBackup=false`), a privacy policy URL for the listing, and the in-app SMS-permission rationale (already present in the consent flow).
+
 ## Sequence and Milestones
 
 1. Persisted outbox, idempotency, and domain events.

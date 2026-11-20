@@ -4,6 +4,7 @@ import 'package:timezone/data/latest_all.dart' as tz_data;
 import '../models/models.dart';
 import '../utils/service_localizations.dart';
 import 'date_scheduling.dart';
+import 'schedule_mode.dart';
 
 class CreditReminderService {
   static final CreditReminderService _instance = CreditReminderService._();
@@ -115,7 +116,7 @@ class CreditReminderService {
           body: loc.notif_creditBillDueTodayBody(acc.name),
           scheduledDate: tzDate,
           notificationDetails: _buildDetails(),
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          androidScheduleMode: await reminderScheduleMode(_plugin),
           payload: acc.id,
         );
       }
@@ -135,7 +136,7 @@ class CreditReminderService {
             body: loc.notif_creditBillDueSoonBody(acc.name),
             scheduledDate: advTzDate,
             notificationDetails: _buildDetails(),
-            androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+            androidScheduleMode: await reminderScheduleMode(_plugin),
             payload: acc.id,
           );
         }

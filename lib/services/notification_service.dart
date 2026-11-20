@@ -18,6 +18,7 @@ import 'package:timezone/data/latest_all.dart' as tz_data;
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../utils/service_localizations.dart';
+import 'schedule_mode.dart';
 
 class NotificationService {
   // Singleton
@@ -163,7 +164,7 @@ class NotificationService {
         body: body,
         scheduledDate: tzDate,
         notificationDetails: details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: await reminderScheduleMode(_plugin),
         payload: r.id,
       );
     }
@@ -184,7 +185,7 @@ class NotificationService {
           body: body,
           scheduledDate: advTzDate,
           notificationDetails: details,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          androidScheduleMode: await reminderScheduleMode(_plugin),
           payload: r.id,
         );
       }

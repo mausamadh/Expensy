@@ -4,6 +4,7 @@ import 'package:timezone/data/latest_all.dart' as tz_data;
 import '../models/models.dart';
 import '../utils/service_localizations.dart';
 import 'date_scheduling.dart';
+import 'schedule_mode.dart';
 
 class LoanReminderService {
   static final LoanReminderService _instance = LoanReminderService._();
@@ -95,7 +96,7 @@ class LoanReminderService {
         body: loc.notif_loanPaymentDueBody(l.name),
         scheduledDate: tzDate,
         notificationDetails: _buildDetails(),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: await reminderScheduleMode(_plugin),
         payload: l.id,
       );
     }

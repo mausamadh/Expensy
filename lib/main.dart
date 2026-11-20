@@ -1,7 +1,6 @@
 // lib/main.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'composition/root.dart';
@@ -49,7 +48,10 @@ final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 /// already the real app — no intermediate loading screen, no double icon flash.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  GoogleFonts.config.allowRuntimeFetching = false;
+  // Google Fonts are fetched on demand and cached on-device after first use
+  // (no font assets are bundled, keeping the APK small). The default "System"
+  // font never triggers a fetch; a chosen font degrades to the system font if
+  // the device is offline on first use.
   CompositionRoot.init();
   try {
     await NotificationBootstrap.init();

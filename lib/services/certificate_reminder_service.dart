@@ -4,6 +4,7 @@ import 'package:timezone/data/latest_all.dart' as tz_data;
 import '../models/models.dart';
 import '../utils/service_localizations.dart';
 import 'date_scheduling.dart';
+import 'schedule_mode.dart';
 
 class CertificateReminderService {
   static final CertificateReminderService _instance =
@@ -100,7 +101,7 @@ class CertificateReminderService {
         body: loc.notif_certPayoutBody(c.name),
         scheduledDate: tzDate,
         notificationDetails: _buildDetails(),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: await reminderScheduleMode(_plugin),
         payload: c.id,
       );
     }
@@ -120,7 +121,7 @@ class CertificateReminderService {
           body: loc.notif_certPayoutSoonBody(c.name),
           scheduledDate: earlyDate,
           notificationDetails: _buildDetails(),
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          androidScheduleMode: await reminderScheduleMode(_plugin),
           payload: c.id,
         );
       }
