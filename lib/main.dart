@@ -124,15 +124,6 @@ void main() async {
   CompositionRoot.initSms(provider);
   final smsVm = CompositionRoot.getIt<SmsInboxViewModel>();
   await smsVm.load();
-  final smsPermissions = await smsVm.checkSmsPermissions();
-  if (smsPermissions.canScan) {
-    await smsVm.scanSmsInbox(limit: 5000);
-  }
-  if (smsVm.smsLiveCaptureEnabled &&
-      smsPermissions.receive &&
-      smsPermissions.canScan) {
-    await smsVm.startSmsLiveCapture();
-  }
 
   runApp(
     MultiProvider(
@@ -164,6 +155,17 @@ void main() async {
           builder: (_) => const SmsInboxScreen(),
         ),
       );
+    }
+  });
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    final permissions = await smsVm.checkSmsPermissions();
+    if (permissions.canScan) {
+      unawaited(smsVm.scanSmsInbox(limit: 5000));
+    }
+    if (smsVm.smsLiveCaptureEnabled &&
+        permissions.receive &&
+        permissions.canScan) {
+      unawaited(smsVm.startSmsLiveCapture());
     }
   });
 }

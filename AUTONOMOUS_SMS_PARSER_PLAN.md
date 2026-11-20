@@ -28,6 +28,11 @@ Status: proposed
   - safe candidate auto-import test passes;
   - ambiguous candidate verification-notification test passes;
   - latest APK build passed; final reinstall is pending USB reconnection.
+- Launch-time optimization:
+  - 5,000-SMS startup reconciliation runs only after the first Flutter frame;
+  - live capture startup is deferred until the app frame is visible;
+  - startup no longer awaits the SMS scan before calling `runApp`.
+  - latest startup-optimized APK build passed; cold-start timing is pending stable USB reconnection.
 - Remaining implementation phases: broader country fixture expansion and full live SMS/notification behavior testing with real incoming messages.
 - Remaining implementation phases: true Android background receiver/WorkManager, notification deep-link routing, ledger bridge removal, parser breadth, event crash tests, parser fixture expansion, device testing, and migration hardening.
 
