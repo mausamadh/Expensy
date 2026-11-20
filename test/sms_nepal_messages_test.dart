@@ -176,6 +176,35 @@ final _cases = <_Case>[
     null,
     _ts,
   ),
+  // ---- Connected-device Nepal regression shapes ------------------------
+  _Case(
+    'GSM Data Pack_11GB_30days has been activated successfully on 9840361144,329.00Rupees has been deducted from balance. Offer is valid till 2026/12/13.',
+    TransactionType.expense,
+    32900,
+    null,
+    _ts,
+  ),
+  _Case(
+    'Service Number 9840361144 has been credited for 441.14Rupees, your new balance is 480.87Rupees.',
+    TransactionType.income,
+    44114,
+    null,
+    _ts,
+  ),
+  _Case(
+    'Dear MAUSAM, AC ###505652256, NPR 315.25 withdrawn on 11/10/2026 21:11:39 for Fund Trf to NABIL BANK LTD. Siddhartha Bank',
+    TransactionType.expense,
+    31525,
+    null,
+    _d(2026, 10, 11),
+  ),
+  _Case(
+    'Dear MAUSAM, AC ###505652256, NPR 1,000.00 deposited on 28/09/2026 11:41:18 for Fund Trf frm NABIL BANK LTD. Siddhartha Bank',
+    TransactionType.income,
+    100000,
+    null,
+    _d(2026, 9, 28),
+  ),
 ];
 
 void main() {
@@ -191,8 +220,8 @@ void main() {
   for (var i = 0; i < _cases.length; i++) {
     final c = _cases[i];
     test('nepal #$i parses to ${c.type.name} ${c.minor}', () async {
-      final r = await registry.parse('UNKNOWN', c.body, _ts,
-          defaultCurrency: 'NPR');
+      final r =
+          await registry.parse('UNKNOWN', c.body, _ts, defaultCurrency: 'NPR');
       expect(r, isA<ParseSuccess>(),
           reason: 'message #$i should parse, got: $r');
       final t = (r as ParseSuccess).transaction;

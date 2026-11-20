@@ -3,7 +3,7 @@
 // legs agree on what counts as a transaction-shaped message.
 class TransactionGate {
   static final transactionCues = RegExp(
-      r'\b(?:confirmed|received|paid|sent|withdraw(?:al|n)?|debited|credited|transaction|bought|purchase|deposit(?:ed)?|charged)\b',
+      r'\b(?:confirmed|received|paid|sent|withdraw(?:al|n)?|debited|deducted|credited|transaction|bought|purchase|deposit(?:ed)?|charged)\b',
       caseSensitive: false);
 
   // Uppercase-only CR/DR: bank statements mark direction with a standalone
@@ -13,12 +13,13 @@ class TransactionGate {
   static final crDrCues = RegExp(r'\b(?:CR|DR)\b');
 
   static final blockerCues = RegExp(
-      r'\b(?:otp|password|win|offer|promo|subscribe|click)\b'
+      r'\b(?:otp|password|win|promo|subscribe|click)\b'
       r'|\bone time\b|\bverification code\b|\bloan offer\b'
       r'|\b(?:activation|authorization|authorisation) code\b'
       r'|\bfailed\b|cannot complete|could not be completed|was not completed'
       r'|\binsufficient funds\b'
-      r'|\bbonus airtime\b|\bstoro\b|make daily payments',
+      r'|\bbonus airtime\b|\bstoro\b|make daily payments'
+      r'|\b(?:total and min(?:imum)? amounts due|credit card (?:total )?due|minimum due|payment is due|please pay due)\b',
       caseSensitive: false);
 
   // Reversals must not be booked as expenses; without netting there is no

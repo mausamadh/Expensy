@@ -28,6 +28,11 @@ Status: proposed
   - safe candidate auto-import test passes;
   - ambiguous candidate verification-notification test passes;
   - latest APK build passed; final reinstall is pending USB reconnection.
+- Device fixture learning:
+  - exported 7,479 device inbox rows and 3,954 app inbox candidates privately;
+  - app state currently contains 1,445 imported, 138 dismissed, and 2,371 pending candidates;
+  - added redacted Nepalese fixtures for NT Rupee deductions/credits, Siddhartha withdrawals/deposits, and credit-card due blocking;
+  - parser fixtures for these device-derived cases pass.
 - Launch-time optimization:
   - 5,000-SMS startup reconciliation runs only after the first Flutter frame;
   - live capture startup is deferred until the app frame is visible;

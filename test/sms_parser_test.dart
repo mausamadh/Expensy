@@ -11,7 +11,11 @@ final _ts = DateTime.utc(2026, 8, 15, 14, 30);
 
 late TemplateRegistry registry;
 
-String _mpesaSendJson({int revision = 1, String serviceName = 'M-Pesa Send Money', bool active = true}) => '''
+String _mpesaSendJson(
+        {int revision = 1,
+        String serviceName = 'M-Pesa Send Money',
+        bool active = true}) =>
+    '''
 {
   "id": "mpesa_send",
   "senderId": "MPESA",
@@ -34,8 +38,10 @@ String _mpesaSendJson({int revision = 1, String serviceName = 'M-Pesa Send Money
 void main() {
   setUpAll(() {
     final dir = Directory('assets/sms_templates/kenya');
-    final index = jsonDecode(File('${dir.path}/index.json').readAsStringSync()) as List;
-    final texts = index.map((f) => File('${dir.path}/$f').readAsStringSync()).toList();
+    final index =
+        jsonDecode(File('${dir.path}/index.json').readAsStringSync()) as List;
+    final texts =
+        index.map((f) => File('${dir.path}/$f').readAsStringSync()).toList();
     registry = TemplateRegistry.fromTemplateJson(texts);
   });
 
@@ -58,7 +64,8 @@ void main() {
       expect((r3 as ParseSuccess).templateId, 'mpesa_airtime');
     });
 
-    test('unknown sender with a transaction-shaped message falls back', () async {
+    test('unknown sender with a transaction-shaped message falls back',
+        () async {
       final body =
           'KES 1,200.00 sent to JOHN DOE EXAMPLE 0749000001 on 15/8/26. Confirmed.';
       final r = await registry.parse('EQUITYBANK', body, _ts);
@@ -105,7 +112,8 @@ void main() {
         }
         ''';
       final reg = TemplateRegistry.fromTemplateJson([templateJson]);
-      final r = await reg.parse('TESTBANK', 'Payment of X received today, thank you.', _ts);
+      final r = await reg.parse(
+          'TESTBANK', 'Payment of X received today, thank you.', _ts);
       expect(r, isA<ParseFailure>());
       final f = r as ParseFailure;
       expect(f.reason, ParseFailureReason.incomplete);
@@ -114,17 +122,31 @@ void main() {
 
     test('same id with a higher revision replaces the built-in', () {
       final builtIn = _mpesaSendJson(revision: 1);
-      final override = _mpesaSendJson(revision: 2, serviceName: 'M-Pesa Send Money v2');
-      expect(TemplateRegistry.fromTemplateJson([builtIn, override]).templates.single.serviceName,
+      final override =
+          _mpesaSendJson(revision: 2, serviceName: 'M-Pesa Send Money v2');
+      expect(
+          TemplateRegistry.fromTemplateJson([builtIn, override])
+              .templates
+              .single
+              .serviceName,
           'M-Pesa Send Money v2');
-      expect(TemplateRegistry.fromTemplateJson([override, builtIn]).templates.single.serviceName,
+      expect(
+          TemplateRegistry.fromTemplateJson([override, builtIn])
+              .templates
+              .single
+              .serviceName,
           'M-Pesa Send Money v2');
     });
 
     test('same id with a lower revision is ignored', () {
-      final builtIn = _mpesaSendJson(revision: 2, serviceName: 'M-Pesa Send Money v2');
+      final builtIn =
+          _mpesaSendJson(revision: 2, serviceName: 'M-Pesa Send Money v2');
       final stale = _mpesaSendJson(revision: 1);
-      expect(TemplateRegistry.fromTemplateJson([builtIn, stale]).templates.single.serviceName,
+      expect(
+          TemplateRegistry.fromTemplateJson([builtIn, stale])
+              .templates
+              .single
+              .serviceName,
           'M-Pesa Send Money v2');
     });
 
@@ -132,27 +154,36 @@ void main() {
       final inactive = _mpesaSendJson(active: false);
       final reg = TemplateRegistry.fromTemplateJson([inactive]);
       expect(reg.templates, isEmpty);
-      final r = await reg.parse('MPESA', 'Your OTP is 9012. Do not share it with anyone.', _ts);
+      final r = await reg.parse(
+          'MPESA', 'Your OTP is 9012. Do not share it with anyone.', _ts);
       expect((r as ParseFailure).reason, ParseFailureReason.noRoute);
     });
 
     test('an inactive highest revision deactivates the id', () {
       final builtIn = _mpesaSendJson(revision: 1, active: true);
-      final retired = _mpesaSendJson(revision: 2, serviceName: 'M-Pesa Send Money v2', active: false);
-      expect(TemplateRegistry.fromTemplateJson([builtIn, retired]).templates, isEmpty);
+      final retired = _mpesaSendJson(
+          revision: 2, serviceName: 'M-Pesa Send Money v2', active: false);
+      expect(TemplateRegistry.fromTemplateJson([builtIn, retired]).templates,
+          isEmpty);
     });
 
     test('fallback disabled turns un-routed messages into no-route', () async {
       final reg = TemplateRegistry(registry.templates, fallbackEnabled: false);
       final transactional =
           'KES 1,200.00 sent to JOHN DOE EXAMPLE 0749000001 on 15/8/26. Confirmed.';
-      expect((await reg.parse('EQUITYBANK', transactional, _ts) as ParseFailure).reason,
+      expect(
+          (await reg.parse('EQUITYBANK', transactional, _ts) as ParseFailure)
+              .reason,
           ParseFailureReason.noRoute);
-      expect((await reg.parse('MPESA', 'Your OTP is 9012. Do not share it.', _ts) as ParseFailure).reason,
+      expect(
+          (await reg.parse('MPESA', 'Your OTP is 9012. Do not share it.', _ts)
+                  as ParseFailure)
+              .reason,
           ParseFailureReason.noRoute);
     });
 
-    test('fromTemplateJson round-trips a built-in template into a working registry',
+    test(
+        'fromTemplateJson round-trips a built-in template into a working registry',
         () async {
       final reg = TemplateRegistry.fromTemplateJson([_mpesaSendJson()]);
       final r = await reg.parse(
@@ -165,29 +196,44 @@ void main() {
       expect(s.transaction.feeMinorUnits, 5700);
     });
 
-    test('preferMonthFirst resolves month-first template dates day-first cannot read',
+    test(
+        'preferMonthFirst resolves month-first template dates day-first cannot read',
         () async {
       final dayFirst = await registry.parse(
           'MPESA',
           'PT8N4W7Q2K confirmed.You bought Ksh200.00 of airtime on 31/10/25 at 2:01 PM.New M-PESA balance is Ksh77,777.77. Transaction cost, Ksh0.00.',
           _ts);
-      expect((dayFirst as ParseSuccess).transaction.timestamp.millisecondsSinceEpoch,
+      expect(
+          (dayFirst as ParseSuccess)
+              .transaction
+              .timestamp
+              .millisecondsSinceEpoch,
           1761868800000);
 
       final monthFirstBody =
           'PT8N4W7Q2K confirmed.You bought Ksh200.00 of airtime on 10/31/2025 at 2:01 PM.New M-PESA balance is Ksh77,777.77. Transaction cost, Ksh0.00.';
-      final withoutPreference = await registry.parse('MPESA', monthFirstBody, _ts);
-      expect((withoutPreference as ParseSuccess).transaction.timestamp.millisecondsSinceEpoch,
+      final withoutPreference =
+          await registry.parse('MPESA', monthFirstBody, _ts);
+      expect(
+          (withoutPreference as ParseSuccess)
+              .transaction
+              .timestamp
+              .millisecondsSinceEpoch,
           1786804200000);
 
-      final withPreference =
-          await registry.parse('MPESA', monthFirstBody, _ts, preferMonthFirst: true);
-      expect((withPreference as ParseSuccess).transaction.timestamp.millisecondsSinceEpoch,
+      final withPreference = await registry.parse('MPESA', monthFirstBody, _ts,
+          preferMonthFirst: true);
+      expect(
+          (withPreference as ParseSuccess)
+              .transaction
+              .timestamp
+              .millisecondsSinceEpoch,
           1761868800000);
     });
 
     test('fallback success carries a raw hash of the original body', () async {
-      final body = 'FIXTURE34 Confirmed.\nKsh1,500.00 sent to JOHN DOE EXAMPLE 0749000001\non 15/8/26 at 2:30 PM.\nNew M-PESA balance is Ksh8,500.00. Transaction cost, Ksh57.00.';
+      final body =
+          'FIXTURE34 Confirmed.\nKsh1,500.00 sent to JOHN DOE EXAMPLE 0749000001\non 15/8/26 at 2:30 PM.\nNew M-PESA balance is Ksh8,500.00. Transaction cost, Ksh57.00.';
       final r = await registry.parse('MPESA', body, _ts);
       final tx = (r as ParseSuccess).transaction;
       expect(tx.rawHash, await sha256Hex('MPESA:$body'));
@@ -198,16 +244,40 @@ void main() {
       expect(normalizeSenderId(' mpesa '), 'MPESA');
       expect(normalizeSenderId('Stan Chart'), 'STANCHART');
       expect(normalizeSenderId('Equity.Bank'), 'EQUITYBANK');
-      expect(normalizeSenderId('M_PESA 99').replaceAll(RegExp(r'[^A-Z0-9]'), ''),
+      expect(
+          normalizeSenderId('M_PESA 99').replaceAll(RegExp(r'[^A-Z0-9]'), ''),
           normalizeSenderId('M_PESA 99'));
     });
   });
 
   group('Fallback matcher', () {
+    test('credit card due notices are not booked as expenses', () async {
+      final r = await registry.parse(
+        'NABIL_ALERT',
+        'Your Card XXXX1246 payment is due on 09-NOV-26. Total and min amounts due are Amt NPR 9489.88 and Amt NPR 9489.88 respectively.',
+        _ts,
+        defaultCurrency: 'NPR',
+      );
+      expect(r, isA<ParseFailure>());
+    });
+
+    test('NT rupee deductions parse as expenses', () async {
+      final r = await registry.parse(
+        '1415',
+        'GSM Data Pack_11GB_30days has been activated successfully on 9840361144,329.00Rupees has been deducted from balance. Offer is valid till 2026/12/13.',
+        _ts,
+        defaultCurrency: 'NPR',
+      );
+      expect(r, isA<ParseSuccess>());
+      final s = r as ParseSuccess;
+      expect(s.transaction.type, TransactionType.expense);
+      expect(s.transaction.amountMinorUnits, 32900);
+    });
     test('labeled amount without a token is not declared', () async {
       final body =
           'Acct: 0123456789\nAmt: 2,500.00\nDesc: MARKET PURCHASE\nDate: 15/08/2026\nDebit: 2,500.00';
-      final r = await registry.parse('FOREIGNBANK', body, _ts, defaultCurrency: 'KES');
+      final r = await registry.parse('FOREIGNBANK', body, _ts,
+          defaultCurrency: 'KES');
       expect(r, isA<ParseSuccess>());
       final t = (r as ParseSuccess).transaction;
       expect(t.amountMinorUnits, 250000);
@@ -218,7 +288,8 @@ void main() {
     test('labeled amount with a token is declared', () async {
       final body =
           'Acct: 0123456789\nAmt: NGN 2,500.00\nDesc: MARKET PURCHASE\nDate: 15/08/2026\nDebit: NGN 2,500.00';
-      final r = await registry.parse('FOREIGNBANK', body, _ts, defaultCurrency: 'KES');
+      final r = await registry.parse('FOREIGNBANK', body, _ts,
+          defaultCurrency: 'KES');
       expect(r, isA<ParseSuccess>());
       final t = (r as ParseSuccess).transaction;
       expect(t.amountMinorUnits, 250000);
@@ -229,7 +300,8 @@ void main() {
     test('debit line label directs expense', () async {
       final body =
           'Transaction Alert\nDesc: POS PURCHASE LAGOS\nDebit: 57,000.00\nDate: 2026-01-20';
-      final r = await registry.parse('FOREIGNBANK', body, _ts, defaultCurrency: 'NGN');
+      final r = await registry.parse('FOREIGNBANK', body, _ts,
+          defaultCurrency: 'NGN');
       expect(r, isA<ParseSuccess>());
       final t = (r as ParseSuccess).transaction;
       expect(t.type, TransactionType.expense);
@@ -239,7 +311,8 @@ void main() {
     test('credit line label directs income', () async {
       final body =
           'Transaction Alert\nDesc: TRANSFER FROM A. OKORO\nCredit: 125,000.00\nDate: 2026-01-20';
-      final r = await registry.parse('FOREIGNBANK', body, _ts, defaultCurrency: 'NGN');
+      final r = await registry.parse('FOREIGNBANK', body, _ts,
+          defaultCurrency: 'NGN');
       expect(r, isA<ParseSuccess>());
       final t = (r as ParseSuccess).transaction;
       expect(t.type, TransactionType.income);
@@ -248,7 +321,8 @@ void main() {
 
     test('bare amount without currency token is not trusted in free text',
         () async {
-      final r = await registry.parse('BANKALERT', 'You paid 500 for lunch today.', _ts);
+      final r = await registry.parse(
+          'BANKALERT', 'You paid 500 for lunch today.', _ts);
       // No currency token in free text -> no amount -> no match.
       expect(r, isA<ParseFailure>());
     });
@@ -267,7 +341,8 @@ void main() {
     test('dmy4 and dmy2 shapes', () {
       expect(MessageDateParser.parseTemplateDate('15/08/2026'),
           DateTime.utc(2026, 8, 15));
-      expect(MessageDateParser.parseTemplateDate('15/08/26'), DateTime.utc(2026, 8, 15));
+      expect(MessageDateParser.parseTemplateDate('15/08/26'),
+          DateTime.utc(2026, 8, 15));
     });
 
     test('textual and ISO shapes', () {
@@ -278,15 +353,19 @@ void main() {
     });
 
     test('flexible date with trailing 12-hour time', () {
-      final d = MessageDateParser.parseFlexibleDate('on Mar 17, 2026 at 1:56 PM ET', true);
+      final d = MessageDateParser.parseFlexibleDate(
+          'on Mar 17, 2026 at 1:56 PM ET', true);
       expect(d, DateTime.utc(2026, 3, 17, 13, 56));
     });
 
     test('preferMonthFirst flips ambiguous numeric dates', () {
-      expect(MessageDateParser.parseFlexibleDate('on 05/03/2026', false)!.day, 5);
-      expect(MessageDateParser.parseFlexibleDate('on 05/03/2026', true)!.month, 5);
+      expect(
+          MessageDateParser.parseFlexibleDate('on 05/03/2026', false)!.day, 5);
+      expect(
+          MessageDateParser.parseFlexibleDate('on 05/03/2026', true)!.month, 5);
       // A first component above 12 can only be the day.
-      expect(MessageDateParser.parseFlexibleDate('on 25/03/2026', true)!.day, 25);
+      expect(
+          MessageDateParser.parseFlexibleDate('on 25/03/2026', true)!.day, 25);
     });
   });
 }
