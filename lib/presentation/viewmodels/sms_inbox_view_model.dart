@@ -146,6 +146,39 @@ class SmsInboxViewModel extends ChangeNotifier {
       ..sort((a, b) => b.evidenceCount.compareTo(a.evidenceCount));
   }
 
+  /// Suggested display name for a sender (used by the account-only mapping
+  /// sheet and the "Set up accounts" section).
+  String suggestedAccountNameFor(String sender) =>
+      _suggestedAccountName(sender);
+
+  /// Most common suggested account kind across a sender's inbox items.
+  /// Falls back to `bank` when the sender has no parsed messages yet.
+  String suggestedAccountTypeFor(String sender) {
+    final counts = <String, int>{};
+    for (final item in _inbox) {
+      if (item.senderId != sender) continue;
+      final type = _suggestedAccountType(sender, item.body);
+      counts[type] = (counts[type] ?? 0) + 1;
+    }
+    if (counts.isEmpty) return 'bank';
+    return counts.entries.reduce((a, b) => b.value > a.value ? b : a).key;
+  }
+
+  /// The ledger account id this sender's [accountType] messages are mapped to,
+  /// or null when unmapped (or the mapped account no longer exists).
+  String? mappedAccountIdFor(String sender, String accountType) {
+    for (final mapping in _senderAccountMappings) {
+      if (mapping.senderId != sender ||
+          mapping.accountType != accountType) {
+        continue;
+      }
+      return _ledgerContext.accountIds.contains(mapping.accountId)
+          ? mapping.accountId
+          : null;
+    }
+    return null;
+  }
+
   bool _compatibleAccountTypes(String suggested, String existing) {
     if (suggested == existing) return true;
     const depositTypes = {'bank', 'savings'};

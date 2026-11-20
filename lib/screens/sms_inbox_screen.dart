@@ -127,156 +127,6 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
     );
   }
 
-  Future<void> _setupSmsAccount(SmsAccountSuggestion suggestion) async {
-    final app = context.read<AppProvider>();
-    final compatibleTypes =
-        suggestion.type == 'bank' || suggestion.type == 'savings'
-            ? const {'bank', 'savings'}
-            : {suggestion.type};
-    final accounts = app.accounts
-        .where((account) => compatibleTypes.contains(account.type))
-        .toList(growable: false);
-    final choice = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      builder: (sheetContext) => SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Set up ${suggestion.senderIds.length == 1 ? suggestion.senderId : '${suggestion.senderIds.length} senders'}',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Choose an existing account or create one with its current balance. '
-                'Clear transactions can import after the sender is mapped.',
-              ),
-              const SizedBox(height: 8),
-              for (final account in accounts)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.account_balance_wallet_outlined),
-                  title: Text(account.name),
-                  subtitle: Text(account.type),
-                  onTap: () => Navigator.pop(sheetContext, account.id),
-                ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.add_circle_outline_rounded),
-                title: Text('Create ${suggestion.name}'),
-                subtitle: const Text('Enter its current balance first'),
-                onTap: () => Navigator.pop(sheetContext, '__create_account__'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (choice == null || !mounted) return;
-
-    Account? account;
-    if (choice == '__create_account__') {
-      final isCard =
-          const {'credit', 'debit', 'prepaid'}.contains(suggestion.type);
-      account = await AccountsScreen.openSheet(
-        context,
-        isCard: isCard,
-        initialName: suggestion.name,
-        initialType: suggestion.type,
-      );
-    } else {
-      for (final candidate in app.accounts) {
-        if (candidate.id == choice) {
-          account = candidate;
-          break;
-        }
-      }
-    }
-    if (account == null || !mounted) return;
-
-    try {
-      final vm = context.read<SmsInboxViewModel>();
-      final imported = await vm.mapSmsSendersToAccount(
-        senderIds: suggestion.senderIds,
-        accountType: suggestion.type,
-        accountId: account.id,
-      );
-      if (mounted) {
-        showAppSnackbar(
-          context,
-          !vm.smsConsentResolved || !vm.smsAutoImportEnabled
-              ? 'Mapped sender(s). Enable auto-import to import clear transactions.'
-              : imported > 0
-                  ? 'Sender mapped; $imported transaction(s) imported.'
-                  : 'Sender mapped. Uncertain messages remain in review.',
-        );
-      }
-    } catch (error, stackTrace) {
-      debugPrint('SMS sender account mapping failed: $error\n$stackTrace');
-      if (mounted) {
-        showAppSnackbar(
-          context,
-          'Could not map these SMS senders to ${account.name}. Check the account type and try again.',
-        );
-      }
-    }
-  }
-
-  Future<void> _showAllSmsAccountSuggestions() async {
-    final suggestions = context.read<SmsInboxViewModel>().smsAccountSuggestions;
-    final suggestion = await showModalBottomSheet<SmsAccountSuggestion>(
-      context: context,
-      isScrollControlled: true,
-      builder: (sheetContext) => SafeArea(
-        child: SizedBox(
-          height: MediaQuery.sizeOf(sheetContext).height * 0.7,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  'Possible sender accounts',
-                  style: Theme.of(sheetContext)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w800),
-                ),
-              ),
-              for (final item in suggestions)
-                ListTile(
-                  leading: Icon(
-                    item.type == 'credit'
-                        ? Icons.credit_card_rounded
-                        : item.type == 'wallet'
-                            ? Icons.account_balance_wallet_rounded
-                            : Icons.account_balance_rounded,
-                  ),
-                  title: Text('${item.name} (${item.type})'),
-                  subtitle: Text(
-                    item.senderIds.join(', '),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  onTap: () => Navigator.pop(sheetContext, item),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (suggestion != null && mounted) {
-      await _setupSmsAccount(suggestion);
-    }
-  }
-
   Future<void> _enableAutoImport() async {
     final enable = await showDialog<bool>(
       context: context,
@@ -503,60 +353,9 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
                 ),
               ),
             if (vm.smsAccountSuggestions.isNotEmpty)
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: kWarningColor.withValues(alpha: isDark ? 0.16 : 0.10),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: kWarningColor.withValues(alpha: 0.35),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Set up accounts from senders',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Create or choose an account for each sender before its clear transactions auto-import.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    for (final suggestion in vm.smsAccountSuggestions.take(5))
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: OutlinedButton.icon(
-                          onPressed: () => _setupSmsAccount(suggestion),
-                          icon: Icon(
-                            suggestion.type == 'credit'
-                                ? Icons.credit_card_rounded
-                                : suggestion.type == 'wallet'
-                                    ? Icons.account_balance_wallet_rounded
-                                    : Icons.account_balance_rounded,
-                            size: 18,
-                          ),
-                          label: Text(
-                            'Set up ${suggestion.name} (${suggestion.type})',
-                          ),
-                        ),
-                      ),
-                    if (vm.smsAccountSuggestions.length > 5)
-                      TextButton(
-                        onPressed: _showAllSmsAccountSuggestions,
-                        child: Text(
-                          'View all ${vm.smsAccountSuggestions.length} senders',
-                        ),
-                      ),
-                  ],
-                ),
+              _SetupBanner(
+                count: vm.smsAccountSuggestions.length,
+                onTap: () => _openRulesSheet(context),
               ),
             if (pending.isNotEmpty)
               _FilterBar(
@@ -670,6 +469,56 @@ class _PermissionBanner extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10)),
             ),
             child: const Text('Grant', style: TextStyle(fontSize: 12.5)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Compact "set up accounts" banner ─────────────────────────────────────────
+// One-line, tappable banner shown only while some senders still have no
+// account mapping. Tapping it opens the Rules & senders sheet, which holds
+// the full "Set up accounts" section — the inbox itself stays uncluttered.
+class _SetupBanner extends StatelessWidget {
+  final int count;
+  final VoidCallback onTap;
+  const _SetupBanner({required this.count, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: kWarningColor.withValues(alpha: isDark ? 0.16 : 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: kWarningColor.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.account_balance_rounded, size: 18, color: kWarningColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              count == 1
+                  ? '1 sender needs an account to auto-import'
+                  : '$count senders need an account to auto-import',
+              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+            ),
+          ),
+          TextButton(
+            onPressed: onTap,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              minimumSize: const Size(0, 32),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              foregroundColor: cs.primary,
+            ),
+            child: const Text('Set up'),
           ),
         ],
       ),
@@ -1669,6 +1518,7 @@ class _RulesSheet extends StatefulWidget {
 class _RulesSheetState extends State<_RulesSheet> {
   List<SmsSender> _senders = [];
   bool _loadingSenders = false;
+  bool _setupExpanded = true;
 
   @override
   void initState() {
@@ -1689,8 +1539,7 @@ class _RulesSheetState extends State<_RulesSheet> {
     }
   }
 
-  /// Opens a sheet to map a sender to an account (and optionally a category
-  /// and type), creating a routing rule so future messages auto-import.
+  /// Opens the account-only mapping sheet for a sender.
   void _mapSender(String sender) {
     showModalBottomSheet<void>(
       context: context,
@@ -1699,14 +1548,113 @@ class _RulesSheetState extends State<_RulesSheet> {
     );
   }
 
-  /// Opens the per-sender preferences sheet (parse allow/deny + per-kind
-  /// suppression).
+  /// Opens the per-sender preferences sheet (per-kind suppression + reset).
   void _openPrefSheet(String sender) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => _SenderPrefSheet(sender: sender),
     );
+  }
+
+  /// Maps a suggested sender group to an existing account, or creates the
+  /// account first (with its current balance) and then maps.
+  Future<void> _mapSuggestion(SmsAccountSuggestion suggestion) async {
+    final app = context.read<AppProvider>();
+    final compatibleTypes =
+        suggestion.type == 'bank' || suggestion.type == 'savings'
+            ? const {'bank', 'savings'}
+            : {suggestion.type};
+    final accounts = app.accounts
+        .where((account) => compatibleTypes.contains(account.type))
+        .toList(growable: false);
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Set up ${suggestion.senderIds.length == 1 ? suggestion.senderId : '${suggestion.senderIds.length} senders'}',
+                style: Theme.of(sheetContext)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Choose an existing account or create one with its current '
+                'balance. Income, expense, and transfer are detected from '
+                'the message text.',
+              ),
+              const SizedBox(height: 8),
+              for (final account in accounts)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.account_balance_wallet_outlined),
+                  title: Text(account.name),
+                  subtitle: Text(account.type),
+                  onTap: () => Navigator.pop(sheetContext, account.id),
+                ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.add_circle_outline_rounded),
+                title: Text('Create ${suggestion.name}'),
+                subtitle: const Text('Enter its current balance first'),
+                onTap: () => Navigator.pop(sheetContext, '__create_account__'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+
+    Account? account;
+    if (choice == '__create_account__') {
+      final isCard =
+          const {'credit', 'debit', 'prepaid'}.contains(suggestion.type);
+      account = await AccountsScreen.openSheet(
+        context,
+        isCard: isCard,
+        initialName: suggestion.name,
+        initialType: suggestion.type,
+      );
+    } else {
+      account = app.accounts.firstWhereOrNull((a) => a.id == choice);
+    }
+    if (account == null || !mounted) return;
+
+    try {
+      final vm = context.read<SmsInboxViewModel>();
+      final imported = await vm.mapSmsSendersToAccount(
+        senderIds: suggestion.senderIds,
+        accountType: suggestion.type,
+        accountId: account.id,
+      );
+      if (mounted) {
+        showAppSnackbar(
+          context,
+          !vm.smsConsentResolved || !vm.smsAutoImportEnabled
+              ? 'Mapped sender(s). Enable auto-import to import clear transactions.'
+              : imported > 0
+                  ? 'Sender mapped; $imported transaction(s) imported.'
+                  : 'Sender mapped. Uncertain messages remain in review.',
+        );
+      }
+    } catch (error, stackTrace) {
+      debugPrint('SMS sender account mapping failed: $error\n$stackTrace');
+      if (mounted) {
+        showAppSnackbar(
+          context,
+          'Could not map these SMS senders to ${account.name}. Check the account type and try again.',
+        );
+      }
+    }
   }
 
   @override
@@ -1716,92 +1664,81 @@ class _RulesSheetState extends State<_RulesSheet> {
     context.watch<CategoriesViewModel>();
     final vm = context.watch<SmsInboxViewModel>();
     final rules = vm.smsRules;
+    final suggestions = vm.smsAccountSuggestions;
 
     return SheetShell(
       title: 'Rules & senders',
       showHandle: true,
       children: [
-        // ── Global filters ────────────────────────────────────────────────
-        Text('GLOBAL FILTERS',
-            style: Theme.of(context)
-                .textTheme
-                .labelMedium
-                ?.copyWith(letterSpacing: 1)),
-        const SizedBox(height: 4),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Auto-hide OTPs',
-              style: TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: const Text(
-            'Verification codes are hidden automatically. Real transactions are never hidden.',
-            style: TextStyle(fontSize: 11.5),
-          ),
-          value: vm.smsAutoHideOtp,
-          onChanged: (v) => vm.setSmsAutoHideOtp(v),
+        // ── Set up accounts (first-run flow) ──────────────────────────────
+        Row(
+          children: [
+            Icon(Icons.account_balance_rounded, size: 18, color: kWarningColor),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('SET UP ACCOUNTS',
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelMedium
+                      ?.copyWith(letterSpacing: 1)),
+            ),
+            if (suggestions.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: StatusBadge(
+                  label: '${suggestions.length}',
+                  color: kWarningColor,
+                ),
+              ),
+            IconButton(
+              icon: Icon(
+                _setupExpanded
+                    ? Icons.expand_less_rounded
+                    : Icons.expand_more_rounded,
+                size: 20,
+              ),
+              tooltip: _setupExpanded ? 'Collapse' : 'Expand',
+              onPressed: () =>
+                  setState(() => _setupExpanded = !_setupExpanded),
+            ),
+          ],
         ),
-        const SizedBox(height: 12),
-
-        // ── Saved rules ───────────────────────────────────────────────────
-        Text('SAVED RULES',
-            style: Theme.of(context)
-                .textTheme
-                .labelMedium
-                ?.copyWith(letterSpacing: 1)),
-        const SizedBox(height: 8),
-        if (rules.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(12),
+        if (_setupExpanded) ...[
+          const SizedBox(height: 4),
+          Text(
+            'Pick an account for each sender. Income, expense, and transfer '
+            'are detected from the message text — you only choose the account.',
+            style: TextStyle(
+                fontSize: 11.5, color: cs.onSurface.withValues(alpha: 0.6)),
+          ),
+          const SizedBox(height: 8),
+          if (suggestions.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'All detected senders are mapped. New unmapped senders will appear here.',
+                style: TextStyle(fontSize: 12.5),
+              ),
+            )
+          else
+            ...suggestions.map(
+              (s) => _SuggestionRow(
+                suggestion: s,
+                onMap: () => _mapSuggestion(s),
+              ),
             ),
-            child: const Text(
-              'No rules yet. When you verify a transaction, tick "Remember this rule" to create one.',
-              style: TextStyle(fontSize: 12.5),
-            ),
-          )
-        else
-          ...rules.map((r) => _RuleRow(
-                rule: r,
-                accountName: app.accountById(r.accountId)?.name ?? 'Unknown',
-                categoryName: app.categoryById(r.categoryId)?.name ?? 'Unknown',
-                onDelete: () async {
-                  await vm.deleteSmsRule(r.id);
-                },
-              )),
+        ],
         const SizedBox(height: 20),
 
-        // ── Sender preferences ────────────────────────────────────────────
-        Text('SENDER PREFERENCES',
-            style: Theme.of(context)
-                .textTheme
-                .labelMedium
-                ?.copyWith(letterSpacing: 1)),
-        const SizedBox(height: 8),
-        if (vm.smsSenderPrefs.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Text(
-              'No preferences yet. Dismiss a message with "Don\'t show again", or tap the settings icon on a sender below to control what gets parsed.',
-              style: TextStyle(fontSize: 12.5),
-            ),
-          )
-        else
-          ...vm.smsSenderPrefs.map((p) => _SenderPrefRow(
-                pref: p,
-                onTap: () => _openPrefSheet(p.senderId),
-              )),
-        const SizedBox(height: 20),
-
-        // ── Detected senders ──────────────────────────────────────────────
+        // ── Sender parsing (per-sender parse toggle + mapping) ────────────
         Row(
           children: [
             Expanded(
-              child: Text('DETECTED SENDERS',
+              child: Text('SENDER PARSING',
                   style: Theme.of(context)
                       .textTheme
                       .labelMedium
@@ -1813,6 +1750,13 @@ class _RulesSheetState extends State<_RulesSheet> {
               onPressed: _loadingSenders ? null : _loadSenders,
             ),
           ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Toggle which senders get parsed. Mapped senders auto-import clear '
+          'transactions; unmapped ones stay in review.',
+          style: TextStyle(
+              fontSize: 11.5, color: cs.onSurface.withValues(alpha: 0.6)),
         ),
         const SizedBox(height: 8),
         if (_loadingSenders)
@@ -1834,18 +1778,136 @@ class _RulesSheetState extends State<_RulesSheet> {
           )
         else
           ..._senders.map((s) {
-            final rule = rules.firstWhereOrNull((r) => r.senderId == s.sender);
-            final accountName =
-                rule != null ? app.accountById(rule.accountId)?.name : null;
+            final suggestedType = vm.suggestedAccountTypeFor(s.sender);
+            final mappedId = vm.mappedAccountIdFor(s.sender, suggestedType);
+            final mappedName =
+                mappedId != null ? app.accountById(mappedId)?.name : null;
             return _SenderRow(
               sender: s.sender,
               count: s.count,
-              mappedAccountName: accountName,
+              mappedAccountName: mappedName,
+              parseAllowed: vm.isSmsSenderParseAllowed(s.sender),
+              onParseChanged: (v) => vm.setSmsSenderParseAllowed(s.sender, v),
               onMap: () => _mapSender(s.sender),
               onPrefs: () => _openPrefSheet(s.sender),
             );
           }),
+        const SizedBox(height: 20),
+
+        // ── Global filters ────────────────────────────────────────────────
+        Text('GLOBAL FILTERS',
+            style: Theme.of(context)
+                .textTheme
+                .labelMedium
+                ?.copyWith(letterSpacing: 1)),
+        const SizedBox(height: 4),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Auto-hide OTPs',
+              style: TextStyle(fontWeight: FontWeight.w600)),
+          subtitle: const Text(
+            'Verification codes are hidden automatically. Real transactions are never hidden.',
+            style: TextStyle(fontSize: 11.5),
+          ),
+          value: vm.smsAutoHideOtp,
+          onChanged: (v) => vm.setSmsAutoHideOtp(v),
+        ),
+        const SizedBox(height: 12),
+
+        // ── Saved rules (advanced) ────────────────────────────────────────
+        Text('SAVED RULES',
+            style: Theme.of(context)
+                .textTheme
+                .labelMedium
+                ?.copyWith(letterSpacing: 1)),
+        const SizedBox(height: 8),
+        if (rules.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Text(
+              'No rules yet. Rules are created automatically when you verify a transaction.',
+              style: TextStyle(fontSize: 12.5),
+            ),
+          )
+        else
+          ...rules.map((r) => _RuleRow(
+                rule: r,
+                accountName: app.accountById(r.accountId)?.name ?? 'Unknown',
+                categoryName: app.categoryById(r.categoryId)?.name ?? 'Unknown',
+                onDelete: () async {
+                  await vm.deleteSmsRule(r.id);
+                },
+              )),
       ],
+    );
+  }
+}
+
+class _SuggestionRow extends StatelessWidget {
+  final SmsAccountSuggestion suggestion;
+  final VoidCallback onMap;
+  const _SuggestionRow({required this.suggestion, required this.onMap});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final s = suggestion;
+    final icon = s.type == 'credit'
+        ? Icons.credit_card_rounded
+        : s.type == 'wallet'
+            ? Icons.account_balance_wallet_rounded
+            : Icons.account_balance_rounded;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: hairlineBorderColor(cs)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: cs.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  s.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${s.type} · ${s.senderIds.length == 1 ? s.senderId : '${s.senderIds.length} senders'}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      color: cs.onSurface.withValues(alpha: 0.5)),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: onMap,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              minimumSize: const Size(0, 36),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              foregroundColor: cs.primary,
+            ),
+            child: const Text('Set up'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1854,12 +1916,16 @@ class _SenderRow extends StatelessWidget {
   final String sender;
   final int count;
   final String? mappedAccountName;
+  final bool parseAllowed;
+  final ValueChanged<bool> onParseChanged;
   final VoidCallback onMap;
   final VoidCallback onPrefs;
   const _SenderRow({
     required this.sender,
     required this.count,
     required this.mappedAccountName,
+    required this.parseAllowed,
+    required this.onParseChanged,
     required this.onMap,
     required this.onPrefs,
   });
@@ -1868,8 +1934,14 @@ class _SenderRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final mapped = mappedAccountName != null;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: hairlineBorderColor(cs)),
+      ),
       child: Row(
         children: [
           Container(
@@ -1910,10 +1982,17 @@ class _SenderRow extends StatelessWidget {
               ],
             ),
           ),
+          // Inline parse on/off — the "select senders that need parsing"
+          // control, one tap away.
+          Switch(
+            value: parseAllowed,
+            onChanged: onParseChanged,
+            activeThumbColor: cs.primary,
+          ),
           TextButton(
             onPressed: onMap,
             style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               minimumSize: const Size(0, 36),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               foregroundColor: cs.primary,
@@ -1996,75 +2075,6 @@ class _RuleRow extends StatelessWidget {
   }
 }
 
-class _SenderPrefRow extends StatelessWidget {
-  final SmsSenderPref pref;
-  final VoidCallback onTap;
-  const _SenderPrefRow({required this.pref, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final suppressed = pref.suppressedKinds
-        .map((k) => k == 'otp' ? 'OTP' : k[0].toUpperCase() + k.substring(1))
-        .toList();
-    final subtitle = !pref.parseAllowed
-        ? 'Parsing off'
-        : suppressed.isEmpty
-            ? 'All messages shown'
-            : 'Hiding: ${suppressed.join(', ')}';
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainer.withValues(alpha: isDark ? 0.45 : 0.65),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : Colors.black.withValues(alpha: 0.05),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            pref.parseAllowed ? Icons.tune_rounded : Icons.block_rounded,
-            size: 18,
-            color: pref.parseAllowed ? cs.primary : kDangerColor,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  pref.senderId,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 13),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                      fontSize: 11.5,
-                      color: cs.onSurface.withValues(alpha: 0.6)),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right_rounded, size: 20),
-            tooltip: 'Manage',
-            onPressed: onTap,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ── Per-sender preferences sheet ─────────────────────────────────────────────
 class _SenderPrefSheet extends StatefulWidget {
   final String sender;
@@ -2086,29 +2096,12 @@ class _SenderPrefSheetState extends State<_SenderPrefSheet> {
     final cs = Theme.of(context).colorScheme;
     final vm = context.watch<SmsInboxViewModel>();
     final pref = vm.smsSenderPref(widget.sender);
-    final parseAllowed = vm.isSmsSenderParseAllowed(widget.sender);
 
     return SheetShell(
       title: 'Parsing preferences',
       subtitle: widget.sender,
       showHandle: true,
       children: [
-        // ── Parse allow/deny ──────────────────────────────────────────────
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          value: parseAllowed,
-          onChanged: (v) async {
-            await vm.setSmsSenderParseAllowed(widget.sender, v);
-          },
-          title: const Text('Parse messages from this sender',
-              style: TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: const Text(
-            'When off, all messages from this sender are ignored.',
-            style: TextStyle(fontSize: 11.5),
-          ),
-        ),
-        const Divider(height: 24),
-
         // ── Per-kind suppression ──────────────────────────────────────────
         Text("DON'T SHOW AGAIN",
             style: Theme.of(context)
@@ -2162,7 +2155,10 @@ class _SenderPrefSheetState extends State<_SenderPrefSheet> {
   }
 }
 
-// ── Sender → account mapping sheet ───────────────────────────────────────────
+// ── Sender → account mapping sheet (account-only) ────────────────────────────
+// The user picks ONLY the account. Income / expense / transfer and the
+// category are detected from the message text by the parser — no per-sender
+// type or category selection here.
 class _SenderMapSheet extends StatefulWidget {
   final String sender;
   const _SenderMapSheet({required this.sender});
@@ -2172,36 +2168,38 @@ class _SenderMapSheet extends StatefulWidget {
 }
 
 class _SenderMapSheetState extends State<_SenderMapSheet> {
-  late String _type;
+  late String _accountType;
   late String? _accountId;
-  late String? _categoryId;
   bool _busy = false;
 
   @override
   void initState() {
     super.initState();
+    final vm = context.read<SmsInboxViewModel>();
+    _accountType = vm.suggestedAccountTypeFor(widget.sender);
     final app = context.read<AppProvider>();
-    _type = 'expense';
-    final accounts = app.accounts.where((a) => !a.isCredit).toList();
+    final compatible = _compatibleTypes(_accountType);
+    final accounts =
+        app.accounts.where((a) => compatible.contains(a.type)).toList();
     _accountId = accounts.isNotEmpty ? accounts.first.id : null;
-    final cats = app.userCategories.where((c) => c.type == _type).toList();
-    _categoryId = cats.isNotEmpty ? cats.first.id : null;
   }
 
-  void _onTypeChanged(String t) {
+  static Set<String> _compatibleTypes(String type) =>
+      type == 'bank' || type == 'savings'
+          ? const {'bank', 'savings'}
+          : {type};
+
+  void _onTypeChanged(String type) {
     setState(() {
-      _type = t;
-      if (t != 'transfer') {
-        final cats = context
-            .read<AppProvider>()
-            .userCategories
-            .where((c) => c.type == t)
-            .toList();
-        if (_categoryId == null ||
-            (context.read<AppProvider>().categoryById(_categoryId!)?.type !=
-                t)) {
-          _categoryId = cats.isNotEmpty ? cats.first.id : null;
-        }
+      _accountType = type;
+      final accounts = context
+          .read<AppProvider>()
+          .accounts
+          .where((a) => _compatibleTypes(type).contains(a.type))
+          .toList();
+      final current = context.read<AppProvider>().accountById(_accountId ?? '');
+      if (current == null || !_compatibleTypes(type).contains(current.type)) {
+        _accountId = accounts.isNotEmpty ? accounts.first.id : null;
       }
     });
   }
@@ -2211,48 +2209,71 @@ class _SenderMapSheetState extends State<_SenderMapSheet> {
       showAppSnackbar(context, 'Select an account');
       return;
     }
-    if (_type != 'transfer' && _categoryId == null) {
-      showAppSnackbar(context, 'Select a category');
-      return;
-    }
     setState(() => _busy = true);
-    await context.read<SmsInboxViewModel>().saveSmsRule(
-          senderId: widget.sender,
-          accountId: _accountId!,
-          categoryId: _type == 'transfer' ? 'sys_transfer' : _categoryId!,
-          transactionType: _type,
-        );
-    if (!mounted) return;
-    Navigator.pop(context);
-    showAppSnackbar(context, 'Mapped $widget.sender');
+    try {
+      final vm = context.read<SmsInboxViewModel>();
+      final imported = await vm.mapSmsSendersToAccount(
+        senderIds: [widget.sender],
+        accountType: _accountType,
+        accountId: _accountId!,
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      showAppSnackbar(
+        context,
+        !vm.smsConsentResolved || !vm.smsAutoImportEnabled
+            ? 'Mapped $widget.sender. Enable auto-import to import clear transactions.'
+            : imported > 0
+                ? 'Mapped; $imported transaction(s) imported.'
+                : 'Mapped. Uncertain messages remain in review.',
+      );
+    } catch (error, stackTrace) {
+      debugPrint('SMS sender mapping failed: $error\n$stackTrace');
+      if (!mounted) return;
+      setState(() => _busy = false);
+      showAppSnackbar(
+        context,
+        'Could not map this sender. Check the account type and try again.',
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppProvider>();
-    context.watch<CategoriesViewModel>();
     final cs = Theme.of(context).colorScheme;
-    final cats = app.userCategories.where((c) => c.type == _type).toList();
-    final accounts = app.accounts.where((a) => !a.isCredit).toList();
+    final accounts = app.accounts
+        .where((a) => _compatibleTypes(_accountType).contains(a.type))
+        .toList();
 
     return SheetShell(
       title: 'Map sender',
       subtitle: widget.sender,
       showHandle: true,
       children: [
-        // ── Type ──────────────────────────────────────────────────────────
-        TypeToggleChips(
-          selectedValue: _type,
-          firstValue: 'expense',
-          firstLabel: 'Expense',
-          firstColor: kDangerColor,
-          secondValue: 'income',
-          secondLabel: 'Income',
-          secondColor: kSuccessColor,
-          thirdValue: 'transfer',
-          thirdLabel: 'Transfer',
-          thirdColor: kCertificateColor,
-          onChanged: _onTypeChanged,
+        // ── Account kind (pre-filled from the sender's messages) ─────────
+        Text('ACCOUNT KIND',
+            style: Theme.of(context)
+                .textTheme
+                .labelMedium
+                ?.copyWith(letterSpacing: 1)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final (value, label) in const [
+              ('bank', 'Bank'),
+              ('savings', 'Savings'),
+              ('credit', 'Credit card'),
+              ('wallet', 'Wallet'),
+            ])
+              ChoiceChip(
+                label: Text(label),
+                selected: _accountType == value,
+                onSelected: (_) => _onTypeChanged(value),
+              ),
+          ],
         ),
         const SizedBox(height: 16),
 
@@ -2267,7 +2288,17 @@ class _SenderMapSheetState extends State<_SenderMapSheet> {
                       ?.copyWith(letterSpacing: 1)),
             ),
             TextButton.icon(
-              onPressed: () => AccountsScreen.openSheet(context),
+              onPressed: () async {
+                final account = await AccountsScreen.openSheet(
+                  context,
+                  isCard: _accountType == 'credit',
+                  initialType: _accountType,
+                );
+                if (account != null &&
+                    _compatibleTypes(_accountType).contains(account.type)) {
+                  setState(() => _accountId = account.id);
+                }
+              },
               icon: const Icon(Icons.add_rounded, size: 16),
               label: const Text('New account'),
               style: TextButton.styleFrom(
@@ -2295,7 +2326,7 @@ class _SenderMapSheetState extends State<_SenderMapSheet> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'No accounts yet. Create one to map this sender to.',
+                    'No ${_accountType} accounts yet. Create one to map this sender to.',
                     style: TextStyle(
                         fontSize: 12.5,
                         color: cs.onSurface.withValues(alpha: 0.6)),
@@ -2312,21 +2343,31 @@ class _SenderMapSheetState extends State<_SenderMapSheet> {
           ),
         const SizedBox(height: 14),
 
-        // ── Category (not for transfers) ──────────────────────────────────
-        if (_type != 'transfer') ...[
-          Text('CATEGORY',
-              style: Theme.of(context)
-                  .textTheme
-                  .labelMedium
-                  ?.copyWith(letterSpacing: 1)),
-          const SizedBox(height: 8),
-          CategoryChipPicker(
-            categories: cats,
-            selectedId: _categoryId,
-            onSelected: (id) => setState(() => _categoryId = id),
+        // ── Note: type & category come from the message text ──────────────
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(12),
           ),
-          const SizedBox(height: 14),
-        ],
+          child: Row(
+            children: [
+              Icon(Icons.auto_awesome_rounded,
+                  size: 18, color: cs.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Income, expense, transfer, and category are detected '
+                  'automatically from the message text.',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onSurface.withValues(alpha: 0.6)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
 
         // ── Action ────────────────────────────────────────────────────────
         FilledButton.icon(

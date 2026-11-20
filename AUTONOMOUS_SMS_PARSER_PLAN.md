@@ -83,6 +83,12 @@ Status: proposed
 - Amount extraction reliability:
   - amount parsing now associates the amount with a currency token on either side and ignores trailing date/reference digits;
   - historical scans refresh changed pending candidates, while imported and dismissed candidates are not rewritten.
+- Sender setup UX rework (fewer clicks, account-only mapping):
+  - the always-visible "Set up accounts from senders" panel is replaced by a single-line tappable banner that opens the Rules & senders sheet;
+  - the Rules & senders sheet is consolidated: a "Set up accounts" section (suggested senders, one tap to pick/create an account), a "Sender parsing" section with an inline parse on/off switch per sender plus Map/Remap, then global filters and saved rules;
+  - the sender mapping sheet is account-only: the user picks the account kind (pre-filled from the sender's messages) and the account; income/expense/transfer type and category are detected from the message text, never selected per sender;
+  - the per-sender preferences sheet keeps only per-kind suppression and reset (the parse toggle now lives inline on the sender row);
+  - focused SMS tests, architecture guard, changed-file analysis, and debug APK build passed.
 - Remaining import/classification caveat:
   - auto-import remains opt-in and only high-confidence candidates with an unambiguous account/category route are imported; enable it in the SMS Inbox if the status banner says it is off;
   - imported historical ledger transactions are not automatically rewritten when a parser rule changes; review/correct any older misclassified imports explicitly.
