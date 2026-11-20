@@ -358,6 +358,22 @@ void main() {
       final s = r as ParseSuccess;
       expect(s.transaction.type, TransactionType.transfer);
     });
+
+    test('account transfer wording is classified as a transfer candidate',
+        () async {
+      final r = await registry.parse(
+        'BANK_ALERT',
+        'Account transfer of NPR 1,000.00 to Savings account successful. Ref: TRF0001.',
+        _ts,
+        defaultCurrency: 'NPR',
+      );
+
+      expect(r, isA<ParseSuccess>());
+      final transaction = (r as ParseSuccess).transaction;
+      expect(transaction.type, TransactionType.transfer);
+      expect(transaction.confidence, ParseConfidence.high);
+    });
+
     test('labeled amount without a token is not declared', () async {
       final body =
           'Acct: 0123456789\nAmt: 2,500.00\nDesc: MARKET PURCHASE\nDate: 15/08/2026\nDebit: 2,500.00';

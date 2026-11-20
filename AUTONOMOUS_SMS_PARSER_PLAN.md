@@ -29,6 +29,13 @@ Status: proposed
   - ambiguous candidate verification-notification test passes;
   - the cursor-paged full-history implementation passes focused regression tests and the latest debug APK builds;
   - the rebuilt debug APK is installed on the connected device; it has not been launched against the live SMS inbox to avoid causing an unreviewed historical auto-import during validation.
+- SMS auto-import and transaction-direction follow-up:
+  - each scan now retries existing pending candidates when auto-import is enabled, even if the device inbox contains no newly discovered SMS;
+  - fallback parsing recognizes transfer wording more broadly and distinguishes incoming credits from outgoing transfers;
+  - transfer auto-import requires a uniquely resolved source and a destination identifiable from the message; ambiguous transfers stay pending for verification rather than being guessed;
+  - the SMS Inbox now displays the scan's new/imported/review counts and clearly says when auto-import consent is off;
+  - the native SMS plugin now completes background inbox queries on Android's main thread, as required by Flutter's platform channel;
+  - focused SMS parser/import tests, architecture guard, changed-file analysis, and debug APK build passed; live device ledger import was not run during validation.
 - First-run clean-entry and account reconciliation:
   - ask for SMS auto-import consent before historical SMS is auto-imported;
   - show live "Loading SMS transactions: N messages" UI while reconciliation runs;
@@ -68,6 +75,9 @@ Status: proposed
 - Amount extraction reliability:
   - amount parsing now associates the amount with a currency token on either side and ignores trailing date/reference digits;
   - historical scans refresh changed pending candidates, while imported and dismissed candidates are not rewritten.
+- Remaining import/classification caveat:
+  - auto-import remains opt-in and only high-confidence candidates with an unambiguous account/category route are imported; enable it in the SMS Inbox if the status banner says it is off;
+  - imported historical ledger transactions are not automatically rewritten when a parser rule changes; review/correct any older misclassified imports explicitly.
 - Remaining background-ingestion gap:
   - live SMS is parsed automatically while the app's Flutter process is running;
   - the manifest receiver currently records a pending-reconcile marker and posts a notification only; a durable headless worker that parses/imports after Android kills the app process is still not implemented.

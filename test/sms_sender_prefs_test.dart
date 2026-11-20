@@ -10,6 +10,7 @@
 // tests now drive the feature through [SmsInboxViewModel] via the shared
 // harness, with a fake SMS source standing in for the plugin channel.
 import 'package:drift/native.dart';
+import 'package:finwick/adapters/sms/drift_sms_repositories.dart';
 import 'package:finwick/database/app_database.dart';
 import 'package:finwick/domain/sms_import/sms_entities.dart';
 import 'package:finwick/domain/sms_import/sms_parser.dart';
@@ -384,6 +385,135 @@ void main() {
       );
     });
 
+    test('scan retries existing clear candidates when no SMS is new', () async {
+      await provider.addAccount(Account(
+        id: 'acc-retry-sms',
+        name: 'Main Bank',
+        type: 'bank',
+        balance: 1000,
+        currency: 'NPR',
+        colorValue: 0xFF2196F3,
+      ));
+      await harness.vm.setFirstRunSmsImportConsent(
+        resolved: true,
+        autoImportEnabled: true,
+      );
+      await const DriftSmsInboxRepository().insert(
+        SmsInboxItem(
+          id: 'pending-before-consent',
+          senderId: 'BANK',
+          body: 'Rs. 500 debited from account for Grocery. Ref: RETRY001.',
+          rawHash: 'pending-before-consent-hash',
+          parsedType: 'expense',
+          parsedAmountMinorUnits: 50000,
+          parsedCurrency: 'NPR',
+          parsedMerchant: 'Grocery',
+          parsedDate: DateTime(2026, 11, 1),
+          confidence: 'high',
+        ),
+      );
+      await harness.vm.load();
+
+      final inserted = await harness.vm.scanSmsInbox(limit: 5000);
+
+      expect(inserted, 0);
+      expect(provider.transactions, hasLength(1));
+      expect(harness.vm.smsInbox.single.status, 'imported');
+      expect(harness.vm.smsStatusMessage, contains('1 auto-imported'));
+    });
+
+    test('auto-imports a transfer only when source and destination resolve',
+        () async {
+      await provider.addAccount(Account(
+        id: 'acc-transfer-source',
+        name: 'Siddhartha Bank',
+        type: 'bank',
+        balance: 1000,
+        currency: 'NPR',
+        colorValue: 0xFF2196F3,
+      ));
+      await provider.addAccount(Account(
+        id: 'acc-transfer-destination',
+        name: 'Nabil Bank',
+        type: 'bank',
+        balance: 200,
+        currency: 'NPR',
+        colorValue: 0xFF2196F3,
+      ));
+      await harness.vm.setFirstRunSmsImportConsent(
+        resolved: true,
+        autoImportEnabled: true,
+      );
+      harness.source.messages = [
+        const SmsMessage(
+          id: 'transfer-known-destination',
+          sender: 'SBL_ALERT',
+          body:
+              'NPR 315.25 withdrawn for Fund Trf to NABIL BANK LTD. Ref: TRF1001.',
+          timestamp: 1793520000000,
+        ),
+      ];
+
+      await harness.vm.scanSmsInbox(limit: 5000);
+
+      final transferLegs =
+          provider.transactions.where((tx) => tx.transferGroupId != null);
+      expect(transferLegs, hasLength(2));
+      expect(
+        transferLegs.every((tx) => tx.categoryId == 'sys_transfer'),
+        isTrue,
+      );
+      expect(harness.vm.smsInbox.single.status, 'imported');
+    });
+
+    test('ambiguous transfer destination remains pending for verification',
+        () async {
+      await provider.addAccount(Account(
+        id: 'acc-transfer-source',
+        name: 'Siddhartha Bank',
+        type: 'bank',
+        balance: 1000,
+        currency: 'NPR',
+        colorValue: 0xFF2196F3,
+      ));
+      await provider.addAccount(Account(
+        id: 'acc-transfer-other',
+        name: 'Nabil Bank',
+        type: 'bank',
+        balance: 200,
+        currency: 'NPR',
+        colorValue: 0xFF2196F3,
+      ));
+      final notifications = FakeSmsNotificationGateway();
+      harness = SmsVmHarness(
+        provider,
+        FakeSmsSource(),
+        FakeClock(),
+        notificationGateway: notifications,
+      );
+      await harness.load();
+      await harness.vm.setFirstRunSmsImportConsent(
+        resolved: true,
+        autoImportEnabled: true,
+      );
+      harness.source.messages = [
+        const SmsMessage(
+          id: 'transfer-unknown-destination',
+          sender: 'SBL_ALERT',
+          body:
+              'NPR 315.25 withdrawn for Fund Trf to an unknown beneficiary. Ref: TRF1002.',
+          timestamp: 1793520000000,
+        ),
+      ];
+
+      await harness.vm.scanSmsInbox(limit: 5000);
+
+      expect(harness.vm.smsInbox.single.parsedType, 'transfer');
+      expect(harness.vm.smsInbox.single.status, 'pending');
+      expect(provider.transactions, isEmpty);
+      expect(notifications.verification, hasLength(1));
+    });
+
     test('ambiguous old SMS asks for verification instead of guessing',
         () async {
       final notifications = FakeSmsNotificationGateway();
@@ -422,7 +552,7 @@ void main() {
 
       expect(harness.vm.smsInbox, hasLength(1));
       expect(harness.vm.smsLoadingTotal, 1);
-      expect(harness.vm.smsStatusMessage, contains('Processed 1 new messages'));
+      expect(harness.vm.smsStatusMessage, contains('1 new messages parsed'));
       expect(harness.vm.smsStatusIsError, isFalse);
     });
 
@@ -464,7 +594,7 @@ void main() {
       await harness.vm.requestSmsPermissions();
 
       expect(harness.vm.smsInbox, hasLength(1));
-      expect(harness.vm.smsStatusMessage, contains('Processed 1 new messages'));
+      expect(harness.vm.smsStatusMessage, contains('1 new messages parsed'));
     });
 
     test('permission can be requested without scanning during onboarding',

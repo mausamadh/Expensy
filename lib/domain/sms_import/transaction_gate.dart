@@ -3,7 +3,7 @@
 // legs agree on what counts as a transaction-shaped message.
 class TransactionGate {
   static final transactionCues = RegExp(
-      r'\b(?:confirmed|received|paid|sent|withdraw(?:al|n)?|debited|deducted|credited|transaction|bought|purchase|deposit(?:ed)?|charged)\b',
+      r'\b(?:confirmed|received|paid|sent|transfer(?:red)?|withdraw(?:al|n)?|debited|deducted|credited|transaction|bought|purchase|deposit(?:ed)?|charged)\b',
       caseSensitive: false);
 
   // Uppercase-only CR/DR: bank statements mark direction with a standalone

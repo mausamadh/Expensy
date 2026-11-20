@@ -120,7 +120,7 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
     showAppSnackbar(
       context,
       added > 0
-          ? 'Found $added new transaction(s)'
+          ? 'Parsed $added new SMS message(s)'
           : 'No new transactions found',
     );
   }
@@ -313,6 +313,38 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
                           color: Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.w700,
                         ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (!vm.smsScanning && vm.smsStatusMessage != null)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: (vm.smsStatusIsError ? kDangerColor : kSuccessColor)
+                      .withValues(alpha: isDark ? 0.16 : 0.10),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: (vm.smsStatusIsError ? kDangerColor : kSuccessColor)
+                        .withValues(alpha: 0.30),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      vm.smsStatusIsError
+                          ? Icons.error_outline_rounded
+                          : Icons.check_circle_outline_rounded,
+                      color: vm.smsStatusIsError ? kDangerColor : kSuccessColor,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        vm.smsStatusMessage!,
+                        style: const TextStyle(fontSize: 12),
                       ),
                     ),
                   ],

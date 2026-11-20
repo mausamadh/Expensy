@@ -37,8 +37,13 @@ class FallbackMatcher {
   static final _incomePhrases =
       RegExp(r'\bcredit\s+posted\b', caseSensitive: false);
   static final _transferPhrases = RegExp(
-      r'\b(?:fund\s*trf\s+to|credit.?card.?payment|card[_ ]payment|towards\s+(?:your\s+)?credit\s+card)\b',
+      r'\b(?:fund\s*trf|fund transfer|money transfer|account transfer|transfer(?:red)?|credit.?card.?payment|card[_ ]payment|towards\s+(?:your\s+)?credit\s+card)\b',
       caseSensitive: false);
+  static final _creditCardPayment = RegExp(
+      r'\b(?:credit.?card.?payment|card[_ ]payment|towards\s+(?:your\s+)?credit\s+card)\b',
+      caseSensitive: false);
+  static final _transferDestinationCue =
+      RegExp(r'\b(?:to|between|into)\b', caseSensitive: false);
   static final _investmentPhrases = RegExp(
       r'\b(?:cit\s+no|c\.?i\.?t\.?\s+|retirement\s+fund|national\s+civic|investment\s+account)\b',
       caseSensitive: false);
@@ -217,7 +222,26 @@ class FallbackMatcher {
     final hasWasCharged = _wasCharged.hasMatch(body);
     final leadingCrDr = _leadingCrDr.firstMatch(body);
     final TransactionType type;
-    if (_transferPhrases.hasMatch(body)) {
+    final hasExplicitDebitDirection =
+        hit.directionSuffix?.toUpperCase() == 'DR' ||
+            (leadingCrDr != null && leadingCrDr.group(1) == 'DR') ||
+            hasWasCharged ||
+            hasDebitLabel;
+    final hasExplicitCreditDirection =
+        hit.directionSuffix?.toUpperCase() == 'CR' ||
+            (leadingCrDr != null && leadingCrDr.group(1) == 'CR') ||
+            hasCreditLabel ||
+            isProviderPayment ||
+            cues.any(_incomeCues.contains) ||
+            _incomePhrases.hasMatch(body);
+    final hasTransferCue = _transferPhrases.hasMatch(body);
+    if (_creditCardPayment.hasMatch(body) ||
+        (hasTransferCue && hasExplicitDebitDirection)) {
+      type = TransactionType.transfer;
+    } else if (hasExplicitCreditDirection) {
+      type =
+          isProviderPayment ? TransactionType.expense : TransactionType.income;
+    } else if (hasTransferCue) {
       type = TransactionType.transfer;
     } else if (hit.directionSuffix != null &&
         hit.directionSuffix!.toUpperCase() == 'DR') {
@@ -250,7 +274,8 @@ class FallbackMatcher {
         hasCreditLabel ||
         isProviderPayment ||
         hasWasCharged ||
-        cues.any(_directionalCues.contains);
+        cues.any(_directionalCues.contains) ||
+        (hasTransferCue && _transferDestinationCue.hasMatch(body));
     // A non-positive amount is not bookable money, so it never counts.
     final bookable = hit.declared && hasDirection && hit.amountMinorUnits > 0;
     var rawMerchant = (labels['DESC']?.isNotEmpty ?? false)

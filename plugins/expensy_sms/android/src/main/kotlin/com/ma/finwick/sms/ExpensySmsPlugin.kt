@@ -8,6 +8,8 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.database.Cursor
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Telephony.Sms
 import android.provider.Telephony.Sms.Inbox
 import android.provider.Telephony.Sms.Intents
@@ -46,6 +48,7 @@ class ExpensySmsPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventCh
     private var eventSink: EventChannel.EventSink? = null
     private var pendingPermissionResult: MethodChannel.Result? = null
     private val executor = Executors.newSingleThreadExecutor()
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     companion object {
         private const val CHANNEL_NAME = "com.ma.finwick/sms"
@@ -148,9 +151,16 @@ class ExpensySmsPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventCh
                 val beforeId = call.argument<Number>("beforeId")?.toLong()
                 executor.execute {
                     try {
-                        result.success(scanSms(limit, beforeTimestamp, beforeId))
+                        val messages = scanSms(limit, beforeTimestamp, beforeId)
+                        mainHandler.post { result.success(messages) }
                     } catch (e: Exception) {
-                        result.error("SCAN_FAILED", e.message ?: "Failed to read SMS", null)
+                        mainHandler.post {
+                            result.error(
+                                "SCAN_FAILED",
+                                e.message ?: "Failed to read SMS",
+                                null
+                            )
+                        }
                     }
                 }
             }
@@ -161,9 +171,16 @@ class ExpensySmsPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventCh
                 }
                 executor.execute {
                     try {
-                        result.success(getSenders())
+                        val senders = getSenders()
+                        mainHandler.post { result.success(senders) }
                     } catch (e: Exception) {
-                        result.error("SCAN_FAILED", e.message ?: "Failed to read SMS", null)
+                        mainHandler.post {
+                            result.error(
+                                "SCAN_FAILED",
+                                e.message ?: "Failed to read SMS",
+                                null
+                            )
+                        }
                     }
                 }
             }

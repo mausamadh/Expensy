@@ -8,6 +8,7 @@ import 'package:finwick/domain/sms_import/sms_entities.dart';
 import 'package:finwick/domain/sms_import/sms_inbox_pipeline.dart';
 import 'package:finwick/domain/sms_import/sms_rule_matcher.dart';
 import 'package:finwick/domain/sms_import/sms_verification.dart';
+import 'package:finwick/domain/sms_import/sms_kind_classifier.dart';
 import 'package:finwick/domain/sms_import/sms_import_policy.dart';
 import 'package:finwick/domain/sms_import/template_registry.dart';
 import 'package:finwick/domain/sms_import/ports/ports.dart';
@@ -103,7 +104,9 @@ class SmsInboxViewModel extends ChangeNotifier {
   List<SmsLearningProposal> get smsLearningProposals => _learningProposals;
   List<SmsAccountSuggestion> get smsAccountSuggestions {
     final grouped = <String, _SmsSuggestionAccumulator>{};
-    for (final item in _inbox.where((item) => item.status == 'pending')) {
+    for (final item in _inbox.where(
+      (item) => item.status == 'pending' && _isActionableSmsCandidate(item),
+    )) {
       final body = item.body.toLowerCase();
       final sender = item.senderId.trim();
       if (sender.isEmpty) continue;
@@ -373,17 +376,27 @@ class SmsInboxViewModel extends ChangeNotifier {
           .where((item) =>
               !previousIds.contains(item.id) || refreshedIds.contains(item.id))
           .toList(growable: false);
-      if (affectedCandidates.isNotEmpty) {
-        await _autoImportSafeCandidates(candidates: affectedCandidates);
-      }
+      final importedCount = _smsConsentResolved && _smsAutoImportEnabled
+          ? await _autoImportSafeCandidates(
+              candidates: _inbox
+                  .where((item) => item.status == 'pending')
+                  .toList(growable: false),
+              notifyCandidateIds:
+                  affectedCandidates.map((item) => item.id).toSet(),
+            )
+          : await _autoImportSafeCandidates(
+              candidates: affectedCandidates,
+              notifyCandidateIds:
+                  affectedCandidates.map((item) => item.id).toSet(),
+            );
+      final reviewCount = _inbox
+          .where((item) =>
+              item.status == 'pending' && _isActionableSmsCandidate(item))
+          .length;
       _setSmsStatus(
-        result.insertedCount == 0
-            ? result.refreshedItemIds.isEmpty
-                ? 'SMS scan complete. No new messages were found; existing candidates remain in SMS Inbox.'
-                : 'SMS scan complete. Refreshed ${result.refreshedItemIds.length} existing candidates.'
-            : _smsConsentResolved && _smsAutoImportEnabled
-                ? 'SMS scan complete. Processed ${result.insertedCount} new messages.'
-                : 'SMS scan complete. Processed ${result.insertedCount} new messages; review them in SMS Inbox.',
+        _smsConsentResolved && _smsAutoImportEnabled
+            ? 'SMS scan complete: ${result.insertedCount} new, $importedCount auto-imported, $reviewCount need review.'
+            : 'SMS scan complete: ${result.insertedCount} new messages parsed; auto-import is off. Enable it to add clear transactions.',
       );
       return result.insertedCount;
     } catch (error, stackTrace) {
@@ -400,17 +413,24 @@ class SmsInboxViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> _autoImportSafeCandidates(
-      {List<SmsInboxItem>? candidates}) async {
+  Future<int> _autoImportSafeCandidates({
+    List<SmsInboxItem>? candidates,
+    Set<String>? notifyCandidateIds,
+  }) async {
+    var importedCount = 0;
     if (!_smsConsentResolved || !_smsAutoImportEnabled) {
       for (final item
           in (candidates ?? _inbox.where((item) => item.status == 'pending'))) {
-        await _notificationGateway?.notifyVerificationRequired(
-          inboxId: item.id,
-          reason: 'First-run SMS import consent is required',
-        );
+        if (_isActionableSmsCandidate(item) &&
+            (notifyCandidateIds == null ||
+                notifyCandidateIds.contains(item.id))) {
+          await _notificationGateway?.notifyVerificationRequired(
+            inboxId: item.id,
+            reason: 'First-run SMS import consent is required',
+          );
+        }
       }
-      return;
+      return importedCount;
     }
     const policy = SmsImportPolicy();
     final selected = candidates ??
@@ -421,9 +441,8 @@ class SmsInboxViewModel extends ChangeNotifier {
       final rule = _matcher.matchRule(item, _rules);
       final type =
           rule?.transactionType ?? _matcher.typeFromParsed(item.parsedType);
-      final accountId = rule?.accountId ??
-          _matcher.defaultAccountId(
-              _ledgerContext.accountIds, _ledgerContext.accountTypes);
+      final accountId =
+          rule?.accountId ?? _automaticSourceAccountId(item, type);
       final categoryId = rule?.categoryId ??
           _matcher.defaultCategoryId(
             type,
@@ -434,10 +453,7 @@ class SmsInboxViewModel extends ChangeNotifier {
             description: item.body,
           );
       final toAccountId = type == 'transfer'
-          ? _matcher.transferToAccount(
-              accountId,
-              _ledgerContext.accountIds,
-            )
+          ? _automaticTransferDestination(item, accountId)
           : null;
       final decision = policy.decide(
         mode: SmsImportMode.balanced,
@@ -450,10 +466,14 @@ class SmsInboxViewModel extends ChangeNotifier {
         toAccountId: toAccountId,
       );
       if (!decision.shouldAutoImport) {
-        await _notificationGateway?.notifyVerificationRequired(
-          inboxId: item.id,
-          reason: decision.reason,
-        );
+        if (_isActionableSmsCandidate(item) &&
+            (notifyCandidateIds == null ||
+                notifyCandidateIds.contains(item.id))) {
+          await _notificationGateway?.notifyVerificationRequired(
+            inboxId: item.id,
+            reason: decision.reason,
+          );
+        }
         continue;
       }
       final txId = await importSmsCandidate(
@@ -468,8 +488,78 @@ class SmsInboxViewModel extends ChangeNotifier {
           inboxId: item.id,
           reason: 'The transaction was valid but could not be saved',
         );
+      } else {
+        importedCount++;
       }
     }
+    return importedCount;
+  }
+
+  bool _isActionableSmsCandidate(SmsInboxItem item) {
+    if (item.parsedType != null || item.parsedAmountMinorUnits != null) {
+      return true;
+    }
+    return item.reviewReason != 'noRoute' ||
+        SmsKindClassifier.classify(item.body) == SmsKind.transactional;
+  }
+
+  String? _automaticSourceAccountId(SmsInboxItem item, String type) {
+    final ids = _ledgerContext.accountIds;
+    final types = _ledgerContext.accountTypes;
+    final names = _ledgerContext.accountNames;
+    final targetType = type == 'transfer'
+        ? 'bank'
+        : _suggestedAccountType(item.senderId, item.body);
+    final suggestionName = _suggestedAccountName(item.senderId);
+    final suggestionIdentity = _accountSuggestionIdentity(suggestionName);
+    if (suggestionIdentity.isNotEmpty) {
+      final matches = <String>[];
+      for (var i = 0; i < ids.length && i < types.length; i++) {
+        if (i >= names.length ||
+            !_compatibleAccountTypes(targetType, types[i])) {
+          continue;
+        }
+        final existingIdentity = _accountSuggestionIdentity(names[i]);
+        final shorter = suggestionIdentity.length < existingIdentity.length
+            ? suggestionIdentity
+            : existingIdentity;
+        if (shorter.length >= 4 &&
+            (suggestionIdentity.contains(existingIdentity) ||
+                existingIdentity.contains(suggestionIdentity))) {
+          matches.add(ids[i]);
+        }
+      }
+      if (matches.length == 1) return matches.single;
+      if (matches.length > 1) return null;
+    }
+
+    final eligible = <String>[];
+    for (var i = 0; i < ids.length && i < types.length; i++) {
+      if (_compatibleAccountTypes(targetType, types[i])) {
+        eligible.add(ids[i]);
+      }
+    }
+    return eligible.length == 1 ? eligible.single : null;
+  }
+
+  String? _automaticTransferDestination(
+    SmsInboxItem item,
+    String? sourceAccountId,
+  ) {
+    if (sourceAccountId == null || sourceAccountId.isEmpty) return null;
+    final ids = _ledgerContext.accountIds;
+    final names = _ledgerContext.accountNames;
+    final bodyIdentity = _accountSuggestionIdentity(item.body);
+    final matches = <String>[];
+    for (var i = 0; i < ids.length && i < names.length; i++) {
+      if (ids[i] == sourceAccountId) continue;
+      final identity = _accountSuggestionIdentity(names[i]);
+      if (identity.length >= 4 && bodyIdentity.contains(identity)) {
+        matches.add(ids[i]);
+      }
+    }
+    if (matches.length == 1) return matches.single;
+    return null;
   }
 
   // ── Import ─────────────────────────────────────────────────────────────
