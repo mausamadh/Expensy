@@ -152,19 +152,14 @@ void main() async {
     }
   });
   WidgetsBinding.instance.addPostFrameCallback((_) async {
-    unawaited(provider.load().catchError((Object error, StackTrace stack) {
-      debugPrint('Startup provider load warning: $error\n$stack');
-    }));
-    await smsVm.load();
-    final permissions = await smsVm.checkSmsPermissions();
-    if (permissions.canScan) {
-      unawaited(smsVm.scanSmsInbox(limit: 5000));
-    }
-    if (smsVm.smsLiveCaptureEnabled &&
-        permissions.receive &&
-        permissions.canScan) {
-      unawaited(smsVm.startSmsLiveCapture());
-    }
+    unawaited(() async {
+      try {
+        await provider.load();
+      } catch (error, stackTrace) {
+        debugPrint('Startup provider load warning: $error\n$stackTrace');
+      }
+      await smsVm.initializeOnStartup();
+    }());
   });
 }
 

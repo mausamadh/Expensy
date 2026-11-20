@@ -80,6 +80,8 @@ class SmsInboxViewModel extends ChangeNotifier {
   bool _smsAutoImportEnabled = false;
   int _smsLoadingTotal = 0;
   int _smsLoadingLoaded = 0;
+  String? _smsStatusMessage;
+  bool _smsStatusIsError = false;
   List<SmsLearningProposal> _learningProposals = [];
   SmsPermissions? _permissions;
   TemplateRegistry? _registry;
@@ -96,6 +98,8 @@ class SmsInboxViewModel extends ChangeNotifier {
   bool get smsAutoImportEnabled => _smsAutoImportEnabled;
   int get smsLoadingTotal => _smsLoadingTotal;
   int get smsLoadingLoaded => _smsLoadingLoaded;
+  String? get smsStatusMessage => _smsStatusMessage;
+  bool get smsStatusIsError => _smsStatusIsError;
   List<SmsLearningProposal> get smsLearningProposals => _learningProposals;
   List<SmsAccountSuggestion> get smsAccountSuggestions {
     final grouped = <String, _SmsSuggestionAccumulator>{};
@@ -190,6 +194,43 @@ class SmsInboxViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> initializeOnStartup() async {
+    try {
+      await load();
+      final permissions = await checkSmsPermissions();
+      if (!permissions.canScan) {
+        _setSmsStatus(
+          'SMS access is not enabled. Open SMS Inbox and grant access to scan.',
+          isError: true,
+        );
+        return;
+      }
+
+      await scanSmsInbox(limit: 5000);
+      if (_liveCaptureEnabled && permissions.receive) {
+        await startSmsLiveCapture();
+      }
+    } catch (error, stackTrace) {
+      debugPrint('SMS startup processing failed: $error\n$stackTrace');
+      _setSmsStatus(
+        'SMS processing could not start. Open SMS Inbox and scan again.',
+        isError: true,
+      );
+    }
+  }
+
+  void clearSmsStatus() {
+    _smsStatusMessage = null;
+    _smsStatusIsError = false;
+    notifyListeners();
+  }
+
+  void _setSmsStatus(String message, {bool isError = false}) {
+    _smsStatusMessage = message;
+    _smsStatusIsError = isError;
+    notifyListeners();
+  }
+
   // ── Permissions ────────────────────────────────────────────────────────
   Future<SmsPermissions> checkSmsPermissions() async {
     final perms = await _source.checkPermissions();
@@ -202,6 +243,14 @@ class SmsInboxViewModel extends ChangeNotifier {
     final perms = await _source.requestPermissions();
     _permissions = perms;
     notifyListeners();
+    if (perms.canScan) {
+      await scanSmsInbox(limit: 5000);
+    } else {
+      _setSmsStatus(
+        'SMS access was not granted. Enable SMS access to parse messages.',
+        isError: true,
+      );
+    }
     return perms;
   }
 
@@ -212,8 +261,10 @@ class SmsInboxViewModel extends ChangeNotifier {
   Future<int> scanSmsInbox({int limit = 5000}) async {
     if (_scanning) return 0;
     _scanning = true;
-    _smsLoadingTotal = limit;
+    _smsLoadingTotal = 0;
     _smsLoadingLoaded = 0;
+    _smsStatusMessage = null;
+    _smsStatusIsError = false;
     notifyListeners();
     try {
       final previousIds = _inbox.map((item) => item.id).toSet();
@@ -230,6 +281,10 @@ class SmsInboxViewModel extends ChangeNotifier {
         autoHideOtp: _autoHideOtp,
         defaultCurrency: _ledgerContext.defaultCurrency,
         learningProposals: _learningProposals,
+        onMessagesLoaded: (total) {
+          _smsLoadingTotal = total;
+          notifyListeners();
+        },
       );
       if (inserted > 0) {
         _inbox = await _inboxRepo.getAll();
@@ -238,7 +293,21 @@ class SmsInboxViewModel extends ChangeNotifier {
             .toList(growable: false);
         await _autoImportSafeCandidates(candidates: newlyAdded);
       }
+      _setSmsStatus(
+        inserted == 0
+            ? 'SMS scan complete. No new messages were found; existing candidates remain in SMS Inbox.'
+            : _smsConsentResolved && _smsAutoImportEnabled
+                ? 'SMS scan complete. Processed $inserted new messages.'
+                : 'SMS scan complete. Processed $inserted new messages; review them in SMS Inbox.',
+      );
       return inserted;
+    } catch (error, stackTrace) {
+      debugPrint('SMS scan failed: $error\n$stackTrace');
+      _setSmsStatus(
+        'SMS scan failed. Check access and try scanning again.',
+        isError: true,
+      );
+      rethrow;
     } finally {
       _scanning = false;
       _smsLoadingLoaded = _smsLoadingTotal;
@@ -573,6 +642,9 @@ class SmsInboxViewModel extends ChangeNotifier {
     await _settings.setSmsAutoImportEnabled(autoImportEnabled);
     _smsConsentResolved = resolved;
     _smsAutoImportEnabled = autoImportEnabled;
+    if (resolved && autoImportEnabled) {
+      await _autoImportSafeCandidates();
+    }
     notifyListeners();
   }
 

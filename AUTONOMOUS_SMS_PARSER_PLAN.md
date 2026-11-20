@@ -52,6 +52,12 @@ Status: proposed
   - SMS inbox/rule/preference database loading is deferred until after the first frame;
   - startup no longer awaits the SMS scan before calling `runApp`.
   - latest startup-optimized APK build passed; cold-start timing is pending stable USB reconnection.
+- Startup parsing reliability:
+  - provider/account data now loads before SMS reconciliation, preventing auto-import from racing with an empty ledger context;
+  - permission grants immediately trigger historical reconciliation;
+  - startup permission, scan completion, and scan failure are visible in the app instead of being silently skipped;
+  - existing installs are told when messages are parsed but auto-import consent is still off.
+  - loading UI now reports the actual SMS rows returned by the device query, not the configured scan limit.
 - Remaining implementation phases: broader country fixture expansion and full live SMS/notification behavior testing with real incoming messages.
 - Remaining implementation phases: true Android background receiver/WorkManager, notification deep-link routing, ledger bridge removal, parser breadth, event crash tests, parser fixture expansion, device testing, and migration hardening.
 

@@ -187,6 +187,51 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
                     ),
                   ),
                 ),
+              if (!smsVm.smsScanning && smsVm.smsStatusMessage != null)
+                Positioned(
+                  top: MediaQuery.paddingOf(context).top + 8,
+                  left: 16,
+                  right: 16,
+                  child: Material(
+                    elevation: 6,
+                    borderRadius: BorderRadius.circular(14),
+                    color: smsVm.smsStatusIsError
+                        ? kDangerColor.withValues(alpha: 0.14)
+                        : kSuccessColor.withValues(alpha: 0.14),
+                    child: Padding(
+                      padding: const EdgeInsets.only(
+                          left: 12, top: 8, bottom: 8, right: 4),
+                      child: Row(
+                        children: [
+                          Icon(
+                            smsVm.smsStatusIsError
+                                ? Icons.warning_amber_rounded
+                                : Icons.check_circle_outline_rounded,
+                            size: 18,
+                            color: smsVm.smsStatusIsError
+                                ? kDangerColor
+                                : kSuccessColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              smsVm.smsStatusMessage!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded, size: 18),
+                            tooltip: 'Dismiss SMS status',
+                            onPressed: smsVm.clearSmsStatus,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
           bottomNavigationBar: NavBarFrame(

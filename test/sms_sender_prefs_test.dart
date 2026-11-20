@@ -407,6 +407,65 @@ void main() {
 
       expect(notifications.verification, isNotEmpty);
     });
+
+    test('startup scan reports parsed messages', () async {
+      harness.source.messages = [
+        const SmsMessage(
+          id: 'startup-1',
+          sender: 'BANK',
+          body: 'Rs. 500 debited from account for Grocery. Ref: START123.',
+          timestamp: 1700000000000,
+        ),
+      ];
+
+      await harness.vm.initializeOnStartup();
+
+      expect(harness.vm.smsInbox, hasLength(1));
+      expect(harness.vm.smsLoadingTotal, 1);
+      expect(harness.vm.smsStatusMessage, contains('Processed 1 new messages'));
+      expect(harness.vm.smsStatusIsError, isFalse);
+    });
+
+    test('startup scan reports missing SMS permission', () async {
+      harness.source.permissions = const SmsPermissions(
+        read: false,
+        receive: false,
+        isDefaultSmsApp: false,
+      );
+
+      await harness.vm.initializeOnStartup();
+
+      expect(harness.vm.smsInbox, isEmpty);
+      expect(
+          harness.vm.smsStatusMessage, contains('SMS access is not enabled'));
+      expect(harness.vm.smsStatusIsError, isTrue);
+    });
+
+    test('requesting SMS permission scans immediately when granted', () async {
+      harness.source.permissions = const SmsPermissions(
+        read: false,
+        receive: false,
+        isDefaultSmsApp: false,
+      );
+      harness.source.requestedPermissions = const SmsPermissions(
+        read: true,
+        receive: true,
+        isDefaultSmsApp: false,
+      );
+      harness.source.messages = [
+        const SmsMessage(
+          id: 'permission-granted-1',
+          sender: 'BANK',
+          body: 'Rs. 500 debited from account for Grocery. Ref: PERM123.',
+          timestamp: 1700000000000,
+        ),
+      ];
+
+      await harness.vm.requestSmsPermissions();
+
+      expect(harness.vm.smsInbox, hasLength(1));
+      expect(harness.vm.smsStatusMessage, contains('Processed 1 new messages'));
+    });
   });
 
   group('v34 migration (blocked senders -> sender prefs)', () {

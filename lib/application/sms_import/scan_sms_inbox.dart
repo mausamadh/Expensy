@@ -91,8 +91,10 @@ class ScanSmsInbox {
     required bool autoHideOtp,
     required String defaultCurrency,
     List<SmsLearningProposal> learningProposals = const [],
+    void Function(int total)? onMessagesLoaded,
   }) async {
     final messages = await source.scanSms(limit: limit);
+    onMessagesLoaded?.call(messages.length);
     final existing = await inboxRepo.getAll();
     final seen = existing.map((e) => e.rawHash).toSet();
 

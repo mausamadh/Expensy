@@ -31,6 +31,12 @@ import 'package:finwick/providers/app_provider.dart';
 /// [SmsSource] fake: returns whatever [messages] is set to.
 class FakeSmsSource implements SmsSource {
   List<SmsMessage> messages = const [];
+  SmsPermissions permissions = const SmsPermissions(
+    read: true,
+    receive: true,
+    isDefaultSmsApp: true,
+  );
+  SmsPermissions? requestedPermissions;
 
   @override
   Future<List<SmsMessage>> scanSms({int limit = 500}) async =>
@@ -40,18 +46,11 @@ class FakeSmsSource implements SmsSource {
   Future<List<SmsSender>> getSenders() async => const [];
 
   @override
-  Future<SmsPermissions> checkPermissions() async => const SmsPermissions(
-        read: true,
-        receive: true,
-        isDefaultSmsApp: true,
-      );
+  Future<SmsPermissions> checkPermissions() async => permissions;
 
   @override
-  Future<SmsPermissions> requestPermissions() async => const SmsPermissions(
-        read: true,
-        receive: true,
-        isDefaultSmsApp: true,
-      );
+  Future<SmsPermissions> requestPermissions() async =>
+      requestedPermissions ?? permissions;
 
   @override
   Stream<SmsMessage> startLiveCapture() => const Stream.empty();

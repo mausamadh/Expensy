@@ -83,7 +83,16 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
 
   Future<void> _scan() async {
     final vm = context.read<SmsInboxViewModel>();
-    final added = await vm.scanSmsInbox(limit: 5000);
+    int added;
+    try {
+      added = await vm.scanSmsInbox(limit: 5000);
+    } catch (_) {
+      if (mounted) {
+        showAppSnackbar(
+            context, 'SMS scan failed. Check access and try again.');
+      }
+      return;
+    }
     if (!mounted) return;
     showAppSnackbar(
       context,
@@ -91,6 +100,35 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
           ? 'Found $added new transaction(s)'
           : 'No new transactions found',
     );
+  }
+
+  Future<void> _enableAutoImport() async {
+    final enable = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enable SMS auto-import?'),
+        content: const Text(
+          'Clear, high-confidence transactions can be added automatically. '
+          'Uncertain messages will stay in SMS Inbox for your review.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Enable'),
+          ),
+        ],
+      ),
+    );
+    if (enable == true && mounted) {
+      await context.read<SmsInboxViewModel>().setFirstRunSmsImportConsent(
+            resolved: true,
+            autoImportEnabled: true,
+          );
+    }
   }
 
   Future<void> _toggleLive() async {
@@ -162,11 +200,51 @@ class _SmsInboxScreenState extends State<SmsInboxScreen> {
             if (perms != null && !perms.canScan)
               _PermissionBanner(
                 onGrant: () async {
-                  await context
-                      .read<SmsInboxViewModel>()
-                      .requestSmsPermissions();
+                  try {
+                    await context
+                        .read<SmsInboxViewModel>()
+                        .requestSmsPermissions();
+                  } catch (_) {
+                    if (mounted) {
+                      showAppSnackbar(
+                        context,
+                        'SMS scan failed. Check access and try again.',
+                      );
+                    }
+                  }
                   if (mounted) setState(() {});
                 },
+              ),
+            if (!vm.smsConsentResolved || !vm.smsAutoImportEnabled)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: kWarningColor.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: kWarningColor.withValues(alpha: 0.30),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline_rounded, color: kWarningColor),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'SMS parsing is separate from auto-import. '
+                        'Transactions will not be added automatically until '
+                        'you enable it.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _enableAutoImport,
+                      child: const Text('Enable'),
+                    ),
+                  ],
+                ),
               ),
             if (_live)
               Container(
